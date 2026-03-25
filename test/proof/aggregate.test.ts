@@ -97,4 +97,36 @@ describe('aggregateContributions', () => {
     const rankTag = event.tags.find(t => t[0] === 'rank')
     expect(rankTag?.[1]).toBe('85')
   })
+
+  it('veil_sig tags contain no private key material', () => {
+    const event = aggregateContributions(circle, subject, makeContributions([80, 85, 90]))
+    const sigTags = event.tags.filter(t => t[0] === 'veil_sig')
+    for (const tag of sigTags) {
+      const serialised = tag[1]
+      const parsed = JSON.parse(serialised)
+      // Must not contain ring (stored separately) or any private key
+      expect(parsed.ring).toBeUndefined()
+      expect(parsed.keyImage).toBeUndefined()
+      // Must contain only the expected public fields
+      const allowedKeys = new Set(['c0', 'electionId', 'message', 'responses', 'domain'])
+      for (const key of Object.keys(parsed)) {
+        expect(allowedKeys.has(key)).toBe(true)
+      }
+      // Verify no private key hex strings appear (32-byte hex = 64 chars)
+      for (const pk of privKeys) {
+        expect(serialised).not.toContain(pk)
+      }
+    }
+  })
+
+  it('veil_sig serialisation has deterministic key ordering', () => {
+    const event = aggregateContributions(circle, subject, makeContributions([80, 85, 90]))
+    const sigTags = event.tags.filter(t => t[0] === 'veil_sig')
+    for (const tag of sigTags) {
+      const parsed = JSON.parse(tag[1])
+      const keys = Object.keys(parsed)
+      const sortedKeys = [...keys].sort()
+      expect(keys).toEqual(sortedKeys)
+    }
+  })
 })
