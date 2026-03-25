@@ -120,6 +120,13 @@ The resulting `assertion` is a plain `EventTemplate` you sign and publish like a
 | `proveCommonOwnership(root, identityA, identityB, mode?)` | Prove two personas share a master key (blind or full disclosure) |
 | `buildDisclosureEvent(proofs)` | Build a kind 30078 disclosure event from linkage proofs |
 
+### Signing utility (root export)
+
+| Export | Description |
+|--------|-------------|
+| `signEvent(template, privateKey)` | Sign an unsigned event template with BIP-340 Schnorr — returns a complete `SignedEvent` |
+| `computeEventId(event)` | Compute the NIP-01 event ID (SHA-256 of canonical serialisation) |
+
 ---
 
 ## Demo

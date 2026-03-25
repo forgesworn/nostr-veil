@@ -9,7 +9,7 @@ import {
   createUserPersona,
   proveCommonOwnership,
   buildDisclosureEvent,
-} from '../src/index.js'
+} from 'nostr-veil'
 
 // Two personas derived from the same root nsec
 const testNsec = 'nsec1qyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqszqgpqyqstywftw'

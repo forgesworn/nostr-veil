@@ -10,7 +10,7 @@ import {
   contributeAssertion,
   aggregateContributions,
   verifyProof,
-} from '../src/index.js'
+} from 'nostr-veil'
 
 // 5 members
 const keys = Array.from({ length: 5 }, (_, i) => {

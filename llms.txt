@@ -43,6 +43,9 @@ const result = verifyProof(assertion)
 - **Aggregation**: Contributions are combined (median by default) into a standard NIP-85 event with `veil-ring`, `veil-threshold`, and `veil-sig` tags.
 - **Verification**: `verifyProof()` confirms each LSAG signature is valid, key images are distinct, and the threshold is met -- all without learning who signed.
 - **Sub-identities**: nsec-tree-derived personas let contributors participate under compartmentalised keys, with optional disclosure proofs to link back to a master key.
+- **Threshold**: The threshold in `verifyProof()` equals the number of valid contributions collected -- it is not a configurable minimum. If 3 of 5 members contribute, the threshold is 3. A consuming client can enforce its own minimum by checking `result.distinctSigners >= requiredMinimum`.
+- **Key lifecycle**: `createUserPersona()` and `createProviderTree()` return a `destroy()` handle. Call it when done to zeroize secret key material in memory. Failing to call `destroy()` leaves private keys in the heap.
+- **Signing**: `signEvent(template, privateKey)` is exported from the root package. It computes the NIP-01 event ID (SHA-256 of canonical serialisation), signs with BIP-340 Schnorr, and returns a complete `SignedEvent`.
 
 ## API Surface
 

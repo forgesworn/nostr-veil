@@ -9,7 +9,7 @@ import {
   parseAssertion,
   validateAssertion,
   signEvent,
-} from '../src/index.js'
+} from 'nostr-veil'
 
 const providerKey = 'aa'.repeat(32)
 const subjectPubkey = 'bb'.repeat(32)

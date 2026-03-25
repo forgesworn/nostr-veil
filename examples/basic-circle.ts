@@ -11,7 +11,7 @@ import {
   aggregateContributions,
   verifyProof,
   signEvent,
-} from '../src/index.js'
+} from 'nostr-veil'
 
 // Generate 3 keypairs
 const keys = ['aa', 'bb', 'cc'].map(b => {
