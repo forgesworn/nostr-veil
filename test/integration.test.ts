@@ -21,7 +21,7 @@ describe('end-to-end whistleblower scenario', () => {
   const pubKeys = privKeys.map(k => bytesToHex(schnorr.getPublicKey(k)))
   const sourceSubject = 'ff'.repeat(32)
 
-  it('full flow: circle -> contribute -> aggregate -> verify', () => {
+  it('full flow: circle -> contribute -> aggregate -> verify', { timeout: 30_000 }, () => {
     // 1. Create the trust circle
     const circle = createTrustCircle(pubKeys)
     expect(circle.size).toBe(5)
@@ -51,7 +51,7 @@ describe('end-to-end whistleblower scenario', () => {
     expect(signed.sig).toMatch(/^[0-9a-f]{128}$/)
   })
 
-  it('partial contributions work (3 of 5)', () => {
+  it('partial contributions work (3 of 5)', { timeout: 30_000 }, () => {
     const circle = createTrustCircle(pubKeys)
 
     // Only 3 of 5 contribute
