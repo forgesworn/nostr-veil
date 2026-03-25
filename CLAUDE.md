@@ -14,7 +14,6 @@ Three layers, each a subpath export:
 
 Supporting files:
 - `src/signing.ts` -- Schnorr event signing (NIP-01 serialisation)
-- `src/_noble-compat.ts` -- Compatibility shim for @noble/curves v2
 
 ## Build, test, lint
 
@@ -64,7 +63,6 @@ The proof layer imports from nip85 but not identity. The identity layer imports 
 
 ## Common pitfalls
 
-- The `_noble-compat.ts` shim exists because @noble/curves v2 changed its API. The vitest config aliases `@noble/curves/secp256k1` through this shim -- do not remove the alias without updating all call sites.
 - `contributeAssertion` requires the member's index in the circle (0-based, matching the sorted pubkey order). Getting this wrong produces an invalid signature.
 - `aggregateContributions` validates all LSAG signatures before aggregating. If any signature is invalid, it throws rather than silently dropping the contribution.
 - The demo is a separate Vite app in `demo/` with its own `package.json` and `node_modules`.

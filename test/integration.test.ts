@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { schnorr } from '@noble/curves/secp256k1'
-import { bytesToHex } from '@noble/hashes/utils.js'
+import { schnorr } from '@noble/curves/secp256k1.js'
+import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js'
 import {
   createTrustCircle,
   contributeAssertion,
@@ -18,7 +18,7 @@ describe('end-to-end whistleblower scenario', () => {
     '0404040404040404040404040404040404040404040404040404040404040404',
     '0505050505050505050505050505050505050505050505050505050505050505',
   ]
-  const pubKeys = privKeys.map(k => bytesToHex(schnorr.getPublicKey(k)))
+  const pubKeys = privKeys.map(k => bytesToHex(schnorr.getPublicKey(hexToBytes(k))))
   const sourceSubject = 'ff'.repeat(32)
 
   it('full flow: circle -> contribute -> aggregate -> verify', { timeout: 30_000 }, () => {

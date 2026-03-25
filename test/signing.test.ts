@@ -46,12 +46,13 @@ describe('signEvent', () => {
   })
 
   it('produces a valid BIP-340 signature', async () => {
-    const { schnorr } = await import('@noble/curves/secp256k1')
+    const { schnorr } = await import('@noble/curves/secp256k1.js')
+    const { hexToBytes } = await import('@noble/hashes/utils.js')
     const privateKey = 'deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef'
     const template = { kind: 1, tags: [], content: 'test' }
     const signed = signEvent(template, privateKey)
 
-    const valid = schnorr.verify(signed.sig, signed.id, signed.pubkey)
+    const valid = schnorr.verify(hexToBytes(signed.sig), hexToBytes(signed.id), hexToBytes(signed.pubkey))
     expect(valid).toBe(true)
   })
 })

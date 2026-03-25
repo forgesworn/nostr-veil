@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { schnorr } from '@noble/curves/secp256k1'
-import { bytesToHex } from '@noble/hashes/utils.js'
+import { schnorr } from '@noble/curves/secp256k1.js'
+import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js'
 import { createTrustCircle } from '../../src/proof/circle.js'
 import { contributeAssertion } from '../../src/proof/contribute.js'
 
@@ -10,7 +10,7 @@ describe('contributeAssertion', () => {
     '0202020202020202020202020202020202020202020202020202020202020202',
     '0303030303030303030303030303030303030303030303030303030303030303',
   ]
-  const pubKeys = privKeys.map(k => bytesToHex(schnorr.getPublicKey(k)))
+  const pubKeys = privKeys.map(k => bytesToHex(schnorr.getPublicKey(hexToBytes(k))))
   const circle = createTrustCircle(pubKeys)
   const subject = 'dd'.repeat(32)
   const metrics = { rank: 85 }

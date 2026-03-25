@@ -1,6 +1,6 @@
 import { sha256 } from '@noble/hashes/sha2.js'
-import { schnorr } from './_noble-compat.js'
-import { bytesToHex } from '@noble/hashes/utils.js'
+import { schnorr } from '@noble/curves/secp256k1.js'
+import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js'
 
 export interface UnsignedEvent {
   kind: number
@@ -64,7 +64,7 @@ export function computeEventId(
  * // event.id, event.pubkey, event.sig are now populated
  */
 export function signEvent(template: UnsignedEvent, privateKey: string): SignedEvent {
-  const pubkey = bytesToHex(schnorr.getPublicKey(privateKey))
+  const pubkey = bytesToHex(schnorr.getPublicKey(hexToBytes(privateKey)))
   const created_at = template.created_at ?? Math.floor(Date.now() / 1000)
 
   const event = {
@@ -76,7 +76,7 @@ export function signEvent(template: UnsignedEvent, privateKey: string): SignedEv
   }
 
   const id = computeEventId(event)
-  const sig = bytesToHex(schnorr.sign(id, privateKey))
+  const sig = bytesToHex(schnorr.sign(hexToBytes(id), hexToBytes(privateKey)))
 
   return { ...event, id, sig }
 }

@@ -73,7 +73,7 @@
     "node": ">=20"
   },
   "dependencies": {
-    "@forgesworn/ring-sig": "^1.0.2",
+    "@forgesworn/ring-sig": "^2.0.0",
     "@noble/curves": "^2.0.1",
     "@noble/hashes": "^2.0.1",
     "nostr-attestations": "^2.1.0",
