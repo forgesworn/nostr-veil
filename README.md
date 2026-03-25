@@ -138,9 +138,9 @@ Each member of a trust circle calls `contributeAssertion` independently. Under t
 
 The published NIP-85 event carries three extra tags:
 
-- `veil_ring` — the full set of member pubkeys (the ring)
-- `veil_threshold` — how many contributions were aggregated out of how many members
-- `veil_sig` (one per contribution) — the serialised LSAG signature and key image
+- `veil-ring` — the full set of member pubkeys (the ring)
+- `veil-threshold` — how many contributions were aggregated out of how many members
+- `veil-sig` (one per contribution) — the serialised LSAG signature and key image
 
 A verifier calls `verifyProof`, which:
 

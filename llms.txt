@@ -40,7 +40,7 @@ const result = verifyProof(assertion)
 
 - **Trust circle**: A fixed group of pubkeys that can contribute assertions anonymously. Created with `createTrustCircle()`. Minimum 2 members.
 - **Contribution**: A single member's anonymous vote, signed with an LSAG ring signature. The key image prevents double-signing without revealing the signer.
-- **Aggregation**: Contributions are combined (median by default) into a standard NIP-85 event with `veil_ring`, `veil_threshold`, and `veil_sig` tags.
+- **Aggregation**: Contributions are combined (median by default) into a standard NIP-85 event with `veil-ring`, `veil-threshold`, and `veil-sig` tags.
 - **Verification**: `verifyProof()` confirms each LSAG signature is valid, key images are distinct, and the threshold is met -- all without learning who signed.
 - **Sub-identities**: nsec-tree-derived personas let contributors participate under compartmentalised keys, with optional disclosure proofs to link back to a master key.
 

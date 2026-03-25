@@ -11,7 +11,7 @@ interface RawEvent {
 
 /**
  * Extracts the subject (d-tag value) and metric tags from a NIP-85 assertion event.
- * Skips known meta tags (`d`, `p`, `e`, `a`, `k`) and any tag whose name starts with `veil_`.
+ * Skips known meta tags (`d`, `p`, `e`, `a`, `k`) and any tag whose name starts with `veil-`.
  */
 export function parseAssertion(event: RawEvent): ParsedAssertion {
   const dTag = event.tags.find(t => t[0] === 'd')
@@ -20,7 +20,7 @@ export function parseAssertion(event: RawEvent): ParsedAssertion {
   const metrics: Record<string, string | number> = {}
   for (const tag of event.tags) {
     const name = tag[0]
-    if (META_TAGS.has(name) || name.startsWith('veil_')) continue
+    if (META_TAGS.has(name) || name.startsWith('veil-')) continue
     if (tag[1] !== undefined) {
       metrics[name] = tag[1]
     }

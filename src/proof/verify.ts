@@ -4,7 +4,7 @@ import type { ProofVerification } from './types.js'
 /**
  * Verify all LSAG ring signatures in a Veil-enhanced NIP-85 event.
  *
- * Checks each `veil_sig` tag against the `veil_ring`, confirms key images are
+ * Checks each `veil-sig` tag against the `veil-ring`, confirms key images are
  * distinct (no double-signing), and validates the threshold is met.
  */
 export function verifyProof(event: {
@@ -14,19 +14,19 @@ export function verifyProof(event: {
 }): ProofVerification {
   const errors: string[] = []
 
-  const ringTag = event.tags.find(t => t[0] === 'veil_ring')
+  const ringTag = event.tags.find(t => t[0] === 'veil-ring')
   if (!ringTag) {
-    return { valid: false, circleSize: 0, threshold: 0, distinctSigners: 0, errors: ['Missing veil_ring tag'] }
+    return { valid: false, circleSize: 0, threshold: 0, distinctSigners: 0, errors: ['Missing veil-ring tag'] }
   }
   const ring = ringTag.slice(1)
 
-  const thresholdTag = event.tags.find(t => t[0] === 'veil_threshold')
+  const thresholdTag = event.tags.find(t => t[0] === 'veil-threshold')
   const threshold = thresholdTag ? parseInt(thresholdTag[1], 10) : 0
   const circleSize = thresholdTag ? parseInt(thresholdTag[2], 10) : ring.length
 
-  const sigTags = event.tags.filter(t => t[0] === 'veil_sig')
+  const sigTags = event.tags.filter(t => t[0] === 'veil-sig')
   if (sigTags.length === 0) {
-    errors.push('No veil_sig tags found')
+    errors.push('No veil-sig tags found')
     return { valid: false, circleSize, threshold, distinctSigners: 0, errors }
   }
 
