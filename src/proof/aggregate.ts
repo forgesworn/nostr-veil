@@ -12,9 +12,10 @@ function median(values: number[]): number {
 }
 
 function serialiseSig(sig: Contribution['signature']): string {
-  // Explicit sorted-key serialisation for deterministic output.
-  // The `ring` and `keyImage` fields are excluded — ring is in the
-  // veil-ring tag and keyImage is the third element of the veil-sig tag.
+  // Deterministic sorted-key serialisation. The `ring` and `keyImage` fields
+  // are excluded — ring is in the veil-ring tag, keyImage is the third element
+  // of the veil-sig tag. Uses a replacer function (not an array allowlist)
+  // to guarantee alphabetical key order across all JS engines.
   const obj: Record<string, unknown> = {
     c0: sig.c0,
     electionId: sig.electionId,
@@ -24,7 +25,14 @@ function serialiseSig(sig: Contribution['signature']): string {
   if (sig.domain !== undefined) {
     obj.domain = sig.domain
   }
-  return JSON.stringify(obj, Object.keys(obj).sort())
+  return JSON.stringify(obj, (_key, value) => {
+    if (typeof value !== 'object' || value === null || Array.isArray(value)) return value
+    const sorted: Record<string, unknown> = {}
+    for (const k of Object.keys(value as Record<string, unknown>).sort()) {
+      sorted[k] = (value as Record<string, unknown>)[k]
+    }
+    return sorted
+  })
 }
 
 /**
@@ -71,7 +79,11 @@ export function aggregateContributions(
   const aggregatedMetrics: Record<string, number> = {}
   for (const key of allMetricKeys) {
     const values = contributions.map(c => c.metrics[key]).filter((v): v is number => v !== undefined)
-    aggregatedMetrics[key] = aggregateFn(values)
+    const aggregated = aggregateFn(values)
+    if (!Number.isFinite(aggregated)) {
+      throw new Error(`aggregateFn returned non-finite value for metric "${key}": ${aggregated}`)
+    }
+    aggregatedMetrics[key] = aggregated
   }
 
   const metricTags = Object.entries(aggregatedMetrics).map(([k, v]) => [k, String(v)])

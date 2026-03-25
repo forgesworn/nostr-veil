@@ -59,12 +59,12 @@ describe('verifyProof', () => {
     expect(result.errors[0]).toMatch(/veil-ring/)
   })
 
-  it('returns invalid when threshold exceeds actual signatures', () => {
+  it('returns invalid when threshold exceeds ring size', () => {
     const event = makeEvent()
     const threshIdx = event.tags.findIndex(t => t[0] === 'veil-threshold')
     event.tags[threshIdx] = ['veil-threshold', '5', '8']
     const result = verifyProof(event)
     expect(result.valid).toBe(false)
-    expect(result.distinctSigners).toBe(3)
+    expect(result.errors[0]).toMatch(/Invalid threshold/)
   })
 })

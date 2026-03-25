@@ -25,7 +25,7 @@ export function contributeAssertion(
   memberIndex: number
 ): Contribution {
   const message = canonicalMessage(circle.circleId, subject, metrics)
-  const electionId = `veil:${circle.circleId}:${subject}`
+  const electionId = `veil:v1:${circle.circleId}:${subject}`
 
   const signature = lsagSign(message, circle.members, memberIndex, privateKey, electionId)
 

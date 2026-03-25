@@ -10,6 +10,8 @@ import type { ProofVerification } from './types.js'
  * @param event - A Nostr event (or template) containing `veil-ring`, `veil-threshold`, and `veil-sig` tags
  * @returns A {@link ProofVerification} with `valid`, `circleSize`, `threshold`, `distinctSigners`, and any `errors`
  */
+const MAX_RING_SIZE = 1000
+
 export function verifyProof(event: {
   kind: number
   tags: string[][]
@@ -23,13 +25,30 @@ export function verifyProof(event: {
   }
   const ring = ringTag.slice(1)
 
+  // Guard against relay-supplied DoS: unbounded ring inflates memory + verification time
+  if (ring.length > MAX_RING_SIZE) {
+    return { valid: false, circleSize: ring.length, threshold: 0, distinctSigners: 0, errors: [`veil-ring exceeds maximum size (${MAX_RING_SIZE})`] }
+  }
+
   const thresholdTag = event.tags.find(t => t[0] === 'veil-threshold')
-  const threshold = thresholdTag ? parseInt(thresholdTag[1], 10) : 0
+  const threshold = thresholdTag ? parseInt(thresholdTag[1], 10) : ring.length
   const circleSize = thresholdTag ? parseInt(thresholdTag[2], 10) : ring.length
+
+  // Validate threshold is a sane integer
+  if (!Number.isInteger(threshold) || threshold < 1 || threshold > ring.length) {
+    errors.push(`Invalid threshold: ${thresholdTag?.[1] ?? 'missing'}`)
+    return { valid: false, circleSize, threshold: 0, distinctSigners: 0, errors }
+  }
 
   const sigTags = event.tags.filter(t => t[0] === 'veil-sig')
   if (sigTags.length === 0) {
     errors.push('No veil-sig tags found')
+    return { valid: false, circleSize, threshold, distinctSigners: 0, errors }
+  }
+
+  // Cap sig tags at ring size — legitimate events cannot have more sigs than members
+  if (sigTags.length > ring.length) {
+    errors.push(`Too many veil-sig tags (${sigTags.length}) for ring of size ${ring.length}`)
     return { valid: false, circleSize, threshold, distinctSigners: 0, errors }
   }
 
@@ -55,7 +74,7 @@ export function verifyProof(event: {
       keyImages.push(keyImage)
       validSigs++
     } catch (e) {
-      errors.push(`Failed to parse signature at index ${i}: ${(e as Error).message}`)
+      errors.push(`Failed to process signature at index ${i}`)
     }
   }
 

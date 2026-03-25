@@ -69,8 +69,16 @@ export function parseProviderDeclaration(
 ): ParsedProvider[] | Promise<ParsedProvider[]> {
   if (decryptFn && event.content !== '') {
     return decryptFn(event.content).then(plaintext => {
-      const tags: string[][] = JSON.parse(plaintext)
-      return extractProviderEntries(tags)
+      let tags: unknown
+      try {
+        tags = JSON.parse(plaintext)
+      } catch {
+        throw new Error('Decrypted provider content is not valid JSON')
+      }
+      if (!Array.isArray(tags)) {
+        throw new Error('Decrypted provider content must be a JSON array')
+      }
+      return extractProviderEntries(tags as string[][])
     })
   }
   return extractProviderEntries(event.tags)
@@ -79,10 +87,12 @@ export function parseProviderDeclaration(
 function extractProviderEntries(tags: string[][]): ParsedProvider[] {
   const entries: ParsedProvider[] = []
   for (const tag of tags) {
+    if (!Array.isArray(tag) || typeof tag[0] !== 'string') continue
     const colonIdx = tag[0].indexOf(':')
     if (colonIdx === -1) continue
     const kindStr = tag[0].slice(0, colonIdx)
     const metric = tag[0].slice(colonIdx + 1)
+    if (metric === '') continue
     const kind = Number(kindStr)
     if (!Number.isInteger(kind) || isNaN(kind)) continue
     entries.push({

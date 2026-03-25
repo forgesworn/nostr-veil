@@ -47,6 +47,8 @@ export function createProviderTree(rootNsec: string, algorithms: string[]): Prov
     metadataTemplates: metadataMap,
     destroy() {
       for (const identity of algorithmMap.values()) zeroise(identity)
+      algorithmMap.clear()
+      metadataMap.clear()
       root.destroy()
     },
   }
