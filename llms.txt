@@ -52,7 +52,7 @@ const result = verifyProof(assertion)
 Three subpath exports, plus a root that re-exports everything:
 
 **`nostr-veil/nip85`** -- NIP-85 foundation (kinds 30382-30385 + 10040):
-`buildUserAssertion`, `buildEventAssertion`, `buildAddressableAssertion`, `buildIdentifierAssertion`, `buildProviderDeclaration`, `parseAssertion`, `parseProviderDeclaration`, `validateAssertion`, `assertionFilter`, `providerFilter`, `NIP85_KINDS`
+`buildUserAssertion(pubkey, metrics)`, `buildEventAssertion(eventId, metrics)`, `buildAddressableAssertion(address, metrics)`, `buildIdentifierAssertion(identifier, kTag, metrics)`, `buildProviderDeclaration(providers, encryptedContent?)` where providers is `{ kind, metric, servicePubkey, relayHint }[]`, `parseAssertion(event)`, `parseProviderDeclaration(event, decryptFn?)`, `validateAssertion(event)`, `assertionFilter({ kind, subject?, provider? })`, `providerFilter(pubkey)`, `NIP85_KINDS`
 
 **`nostr-veil/proof`** -- Ring-signature proof layer:
 `createTrustCircle`, `contributeAssertion`, `aggregateContributions`, `verifyProof`, `canonicalMessage`, `computeCircleId`

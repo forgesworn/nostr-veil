@@ -94,10 +94,10 @@ The resulting `assertion` is a plain `EventTemplate` you sign and publish like a
 | `buildEventAssertion(eventId, metrics)` | Build a kind 30383 event assertion |
 | `buildAddressableAssertion(address, metrics)` | Build a kind 30384 addressable assertion |
 | `buildIdentifierAssertion(identifier, kTag, metrics)` | Build a kind 30385 identifier assertion |
-| `buildProviderDeclaration(providers, encryptedContent?)` | Build a kind 10040 provider declaration |
+| `buildProviderDeclaration(providers, encryptedContent?)` | Build a kind 10040 provider declaration. `providers` is `{ kind, metric, servicePubkey, relayHint }[]` |
 | `parseAssertion(event)` | Parse a raw event into a `ParsedAssertion` |
 | `validateAssertion(event)` | Validate a NIP-85 assertion — returns `{ valid, errors }` |
-| `assertionFilter(params)` | Build a relay query filter for assertions |
+| `assertionFilter({ kind, subject?, provider? })` | Build a relay query filter for assertions |
 | `providerFilter(pubkey)` | Build a relay query filter for a provider declaration |
 | `NIP85_KINDS` | Kind constants: `USER`, `EVENT`, `ADDRESSABLE`, `IDENTIFIER`, `PROVIDER` |
 
