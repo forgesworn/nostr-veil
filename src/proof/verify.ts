@@ -2,9 +2,9 @@ import { lsagVerify, hasDuplicateKeyImage } from '@forgesworn/ring-sig'
 import type { ProofVerification } from './types.js'
 
 /**
- * Verify all LSAG ring signatures in a veil-enhanced NIP-85 event.
+ * Verify all LSAG ring signatures in a Veil-enhanced NIP-85 event.
  *
- * Checks each `veil-sig` tag against the `veil-ring`, confirms key images are
+ * Checks each `veil_sig` tag against the `veil_ring`, confirms key images are
  * distinct (no double-signing), and validates the threshold is met.
  */
 export function verifyProof(event: {
@@ -14,19 +14,19 @@ export function verifyProof(event: {
 }): ProofVerification {
   const errors: string[] = []
 
-  const ringTag = event.tags.find(t => t[0] === 'veil-ring')
+  const ringTag = event.tags.find(t => t[0] === 'veil_ring')
   if (!ringTag) {
-    return { valid: false, circleSize: 0, threshold: 0, distinctSigners: 0, errors: ['Missing veil-ring tag'] }
+    return { valid: false, circleSize: 0, threshold: 0, distinctSigners: 0, errors: ['Missing veil_ring tag'] }
   }
   const ring = ringTag.slice(1)
 
-  const thresholdTag = event.tags.find(t => t[0] === 'veil-threshold')
+  const thresholdTag = event.tags.find(t => t[0] === 'veil_threshold')
   const threshold = thresholdTag ? parseInt(thresholdTag[1], 10) : 0
   const circleSize = thresholdTag ? parseInt(thresholdTag[2], 10) : ring.length
 
-  const sigTags = event.tags.filter(t => t[0] === 'veil-sig')
+  const sigTags = event.tags.filter(t => t[0] === 'veil_sig')
   if (sigTags.length === 0) {
-    errors.push('No veil-sig tags found')
+    errors.push('No veil_sig tags found')
     return { valid: false, circleSize, threshold, distinctSigners: 0, errors }
   }
 
@@ -37,7 +37,7 @@ export function verifyProof(event: {
     try {
       const sigData = JSON.parse(sigTags[i][1])
       const keyImage = sigTags[i][2]
-      const fullSig = { ...sigData, ring }
+      const fullSig = { ...sigData, keyImage, ring }
 
       if (!lsagVerify(fullSig)) {
         errors.push(`Invalid LSAG signature at index ${i}`)

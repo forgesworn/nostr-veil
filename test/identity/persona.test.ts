@@ -29,4 +29,11 @@ describe('createUserPersona', () => {
     const handle = createUserPersona(TEST_NSEC, 'alice')
     expect(() => handle.destroy()).not.toThrow()
   })
+
+  it('destroy() zeroises the persona private key', () => {
+    const handle = createUserPersona(TEST_NSEC, 'alice')
+    const privKey = handle.persona.identity.privateKey
+    handle.destroy()
+    expect(privKey.every(b => b === 0)).toBe(true)
+  })
 })

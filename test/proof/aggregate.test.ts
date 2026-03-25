@@ -39,22 +39,22 @@ describe('aggregateContributions', () => {
     expect(rankTag?.[1]).toBe('85')
   })
 
-  it('includes veil-ring tag with all member pubkeys', () => {
+  it('includes veil_ring tag with all member pubkeys', () => {
     const event = aggregateContributions(circle, subject, makeContributions([80, 85, 90]))
-    const ringTag = event.tags.find(t => t[0] === 'veil-ring')
+    const ringTag = event.tags.find(t => t[0] === 'veil_ring')
     expect(ringTag).toBeDefined()
     expect(ringTag!.slice(1)).toEqual(circle.members)
   })
 
-  it('includes veil-threshold tag', () => {
+  it('includes veil_threshold tag', () => {
     const event = aggregateContributions(circle, subject, makeContributions([80, 85, 90]))
-    const thresholdTag = event.tags.find(t => t[0] === 'veil-threshold')
-    expect(thresholdTag).toEqual(['veil-threshold', '3', '3'])
+    const thresholdTag = event.tags.find(t => t[0] === 'veil_threshold')
+    expect(thresholdTag).toEqual(['veil_threshold', '3', '3'])
   })
 
-  it('includes one veil-sig tag per contribution', () => {
+  it('includes one veil_sig tag per contribution', () => {
     const event = aggregateContributions(circle, subject, makeContributions([80, 85, 90]))
-    const sigTags = event.tags.filter(t => t[0] === 'veil-sig')
+    const sigTags = event.tags.filter(t => t[0] === 'veil_sig')
     expect(sigTags).toHaveLength(3)
   })
 

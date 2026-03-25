@@ -34,17 +34,17 @@ describe('verifyProof', () => {
     expect(result.errors).toHaveLength(0)
   })
 
-  it('returns invalid if veil-ring tag is missing', () => {
+  it('returns invalid if veil_ring tag is missing', () => {
     const event = makeEvent()
-    event.tags = event.tags.filter(t => t[0] !== 'veil-ring')
+    event.tags = event.tags.filter(t => t[0] !== 'veil_ring')
     const result = verifyProof(event)
     expect(result.valid).toBe(false)
-    expect(result.errors[0]).toMatch(/veil-ring/)
+    expect(result.errors[0]).toMatch(/veil_ring/)
   })
 
   it('returns invalid if a signature is corrupted', () => {
     const event = makeEvent()
-    const sigIdx = event.tags.findIndex(t => t[0] === 'veil-sig')
+    const sigIdx = event.tags.findIndex(t => t[0] === 'veil_sig')
     const sig = JSON.parse(event.tags[sigIdx][1])
     sig.c0 = 'ff'.repeat(32)
     event.tags[sigIdx][1] = JSON.stringify(sig)
@@ -56,13 +56,13 @@ describe('verifyProof', () => {
     const event = { kind: 30382, tags: [['d', 'x'], ['rank', '50']], content: '' }
     const result = verifyProof(event)
     expect(result.valid).toBe(false)
-    expect(result.errors[0]).toMatch(/veil-ring/)
+    expect(result.errors[0]).toMatch(/veil_ring/)
   })
 
   it('returns invalid when threshold exceeds actual signatures', () => {
     const event = makeEvent()
-    const threshIdx = event.tags.findIndex(t => t[0] === 'veil-threshold')
-    event.tags[threshIdx] = ['veil-threshold', '5', '8']
+    const threshIdx = event.tags.findIndex(t => t[0] === 'veil_threshold')
+    event.tags[threshIdx] = ['veil_threshold', '5', '8']
     const result = verifyProof(event)
     expect(result.valid).toBe(false)
     expect(result.distinctSigners).toBe(3)

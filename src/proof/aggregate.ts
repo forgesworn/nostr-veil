@@ -12,14 +12,19 @@ function median(values: number[]): number {
 }
 
 function serialiseSig(sig: Contribution['signature']): string {
-  return JSON.stringify({
-    keyImage: sig.keyImage,
+  // Explicit sorted-key serialisation for deterministic output.
+  // The `ring` and `keyImage` fields are excluded — ring is in the
+  // veil_ring tag and keyImage is the third element of the veil_sig tag.
+  const obj: Record<string, unknown> = {
     c0: sig.c0,
-    responses: sig.responses,
-    message: sig.message,
     electionId: sig.electionId,
-    domain: sig.domain,
-  })
+    message: sig.message,
+    responses: sig.responses,
+  }
+  if (sig.domain !== undefined) {
+    obj.domain = sig.domain
+  }
+  return JSON.stringify(obj, Object.keys(obj).sort())
 }
 
 /**
@@ -27,7 +32,7 @@ function serialiseSig(sig: Contribution['signature']): string {
  *
  * Validates all LSAG signatures and checks key image uniqueness before
  * aggregating metrics (default: median). The result is a standard kind 30382
- * event with additional `veil-ring`, `veil-threshold`, and `veil-sig` tags.
+ * event with additional `veil_ring`, `veil_threshold`, and `veil_sig` tags.
  */
 export function aggregateContributions(
   circle: TrustCircle,
@@ -63,7 +68,7 @@ export function aggregateContributions(
   }
 
   const metricTags = Object.entries(aggregatedMetrics).map(([k, v]) => [k, String(v)])
-  const sigTags = contributions.map(c => ['veil-sig', serialiseSig(c.signature), c.keyImage])
+  const sigTags = contributions.map(c => ['veil_sig', serialiseSig(c.signature), c.keyImage])
 
   return {
     kind: NIP85_KINDS.USER,
@@ -71,8 +76,8 @@ export function aggregateContributions(
       ['d', subject],
       ['p', subject],
       ...metricTags,
-      ['veil-ring', ...circle.members],
-      ['veil-threshold', String(contributions.length), String(circle.size)],
+      ['veil_ring', ...circle.members],
+      ['veil_threshold', String(contributions.length), String(circle.size)],
       ...sigTags,
     ],
     content: '',

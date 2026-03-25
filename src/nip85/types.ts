@@ -1,4 +1,11 @@
-/** NIP-85 assertion kind numbers */
+/**
+ * NIP-85 assertion kind numbers.
+ *
+ * Note: The NIP README lists kind 10040 as "OpenTimestamps" (NIP-03), but the
+ * NIP-85 spec text explicitly claims 10040 for provider declarations. This is
+ * an upstream collision — we follow NIP-85's spec text. Kind 30385 is defined
+ * in the NIP-85 spec but absent from the NIP README kind table.
+ */
 export const NIP85_KINDS = {
   USER: 30382,
   EVENT: 30383,

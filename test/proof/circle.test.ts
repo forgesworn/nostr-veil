@@ -50,4 +50,16 @@ describe('canonicalMessage', () => {
     expect(Object.keys(parsed)).toEqual(['circleId', 'metrics', 'subject'])
     expect(Object.keys(parsed.metrics)).toEqual(['followers', 'rank'])
   })
+
+  it('rejects NaN metric values', () => {
+    expect(() => canonicalMessage('cid', 'sub', { rank: NaN })).toThrow(/finite/)
+  })
+
+  it('rejects Infinity metric values', () => {
+    expect(() => canonicalMessage('cid', 'sub', { rank: Infinity })).toThrow(/finite/)
+  })
+
+  it('rejects -Infinity metric values', () => {
+    expect(() => canonicalMessage('cid', 'sub', { rank: -Infinity })).toThrow(/finite/)
+  })
 })

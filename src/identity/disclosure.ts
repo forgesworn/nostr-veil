@@ -25,11 +25,11 @@ export function buildDisclosureEvent(proofs: DisclosureProofs): EventTemplate {
     kind: 30078,
     tags: [
       ['d', `veil:disclosure:${dTagHash}`],
-      ['veil-linkage-a', proofA.childPubkey, proofA.attestation, proofA.signature,
+      ['veil_linkage_a', proofA.childPubkey, proofA.attestation, proofA.signature,
         ...(proofA.purpose !== undefined ? [proofA.purpose, String(proofA.index)] : [])],
-      ['veil-linkage-b', proofB.childPubkey, proofB.attestation, proofB.signature,
+      ['veil_linkage_b', proofB.childPubkey, proofB.attestation, proofB.signature,
         ...(proofB.purpose !== undefined ? [proofB.purpose, String(proofB.index)] : [])],
-      ['veil-master', proofA.masterPubkey],
+      ['veil_master', proofA.masterPubkey],
     ],
     content: '',
   }

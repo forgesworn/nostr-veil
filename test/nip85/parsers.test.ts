@@ -52,21 +52,21 @@ describe('parseAssertion', () => {
     expect(metricKeys).toContain('comment_cnt')
   })
 
-  it('skips tags starting with veil-', () => {
+  it('skips tags starting with veil_', () => {
     const event = {
       kind: NIP85_KINDS.USER,
       tags: [
         ['d', pubkey],
-        ['veil-sig', 'somesig'],
-        ['veil-ring', 'ringdata'],
+        ['veil_sig', 'somesig'],
+        ['veil_ring', 'ringdata'],
         ['rank', '60'],
       ],
       content: '',
     }
     const result = parseAssertion(event)
     const metricKeys = Object.keys(result.metrics)
-    expect(metricKeys).not.toContain('veil-sig')
-    expect(metricKeys).not.toContain('veil-ring')
+    expect(metricKeys).not.toContain('veil_sig')
+    expect(metricKeys).not.toContain('veil_ring')
     expect(metricKeys).toContain('rank')
   })
 
