@@ -5,10 +5,12 @@
  */
 import { fromNsec } from 'nsec-tree/core'
 import { verifyProof as verifyLinkageProof } from 'nsec-tree/proof'
+import { bytesToHex } from '@noble/hashes/utils.js'
 import {
   createUserPersona,
   proveCommonOwnership,
   buildDisclosureEvent,
+  signEvent,
 } from 'nostr-veil'
 
 // Two personas derived from the same root nsec
@@ -43,9 +45,11 @@ console.log(`\n  Proof A valid: ${validA}`)
 console.log(`  Proof B valid: ${validB}`)
 console.log(`  Same master:   ${proofA.masterPubkey === proofB.masterPubkey}`)
 
-// Build disclosure event
+// Build and sign disclosure event
+// Note: persona privateKey is Uint8Array — convert to hex for signEvent
 const event = buildDisclosureEvent([proofA, proofB])
-console.log(`\nDisclosure event: kind ${event.kind}, d-tag: ${event.tags[0][1].slice(0, 30)}...`)
+const signed = signEvent(event, bytesToHex(journalist.persona.identity.privateKey))
+console.log(`\nDisclosure event: kind ${signed.kind}, id: ${signed.id.slice(0, 16)}...`)
 
 // Cleanup
 root.destroy()
