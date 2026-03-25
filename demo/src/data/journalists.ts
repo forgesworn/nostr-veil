@@ -1,5 +1,5 @@
-import { schnorr } from '@noble/curves/secp256k1'
-import { bytesToHex, hexToBytes } from '@noble/hashes/utils'
+import { schnorr } from '@noble/curves/secp256k1.js'
+import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js'
 
 const SEEDS = [
   '1001010101010101010101010101010101010101010101010101010101010101',
