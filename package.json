@@ -23,6 +23,7 @@
   "keywords": ["nostr", "web-of-trust", "wot", "nip-85", "nip85", "ring-signatures", "lsag", "privacy", "trust", "attestations", "anonymous", "cryptography", "secp256k1", "decentralised", "verifiable"],
   "author": "ForgeSworn",
   "license": "MIT",
+  "homepage": "https://github.com/forgesworn/nostr-veil",
   "repository": { "type": "git", "url": "https://github.com/forgesworn/nostr-veil" },
   "engines": { "node": ">=20" },
   "dependencies": {

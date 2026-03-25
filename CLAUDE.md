@@ -20,7 +20,7 @@ Supporting files:
 
 ```bash
 npm run build    # tsc -p tsconfig.build.json
-npm test         # vitest run (94 tests across 13 files)
+npm test         # vitest run (100 tests across 13 files)
 npm run lint     # tsc --noEmit (type-checking only)
 npm run demo     # Vite dev server for the interactive demo
 ```
