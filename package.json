@@ -1,0 +1,39 @@
+{
+  "name": "nostr-veil",
+  "version": "0.1.0",
+  "description": "Privacy-preserving, verifiable Web of Trust for Nostr. LSAG ring-signature-backed NIP-85 assertions with sub-identity compartmentalisation.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" },
+    "./nip85": { "types": "./dist/nip85/index.d.ts", "import": "./dist/nip85/index.js" },
+    "./proof": { "types": "./dist/proof/index.d.ts", "import": "./dist/proof/index.js" },
+    "./identity": { "types": "./dist/identity/index.d.ts", "import": "./dist/identity/index.js" }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "tsc --noEmit",
+    "demo": "cd demo && npm run dev",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": ["nostr", "web-of-trust", "nip-85", "ring-signatures", "privacy", "trust", "attestations"],
+  "author": "ForgeSworn",
+  "license": "MIT",
+  "repository": { "type": "git", "url": "https://github.com/forgesworn/nostr-veil" },
+  "engines": { "node": ">=20" },
+  "dependencies": {
+    "@forgesworn/ring-sig": "^1.0.2",
+    "@noble/curves": "^2.0.1",
+    "@noble/hashes": "^2.0.1",
+    "nostr-attestations": "^2.1.0",
+    "nsec-tree": "^1.4.1"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0"
+  }
+}
