@@ -1,0 +1,231 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 640" width="1280" height="640">
+  <defs>
+    <linearGradient id="amber" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f59e0b"/>
+      <stop offset="100%" stop-color="#fbbf24"/>
+    </linearGradient>
+    <linearGradient id="amberDark" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#d97706"/>
+      <stop offset="100%" stop-color="#f59e0b"/>
+    </linearGradient>
+    <linearGradient id="amberLight" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#fbbf24"/>
+      <stop offset="100%" stop-color="#fcd34d"/>
+    </linearGradient>
+    <linearGradient id="steel" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#475569"/>
+      <stop offset="100%" stop-color="#334155"/>
+    </linearGradient>
+    <linearGradient id="steelLight" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#64748b"/>
+      <stop offset="100%" stop-color="#475569"/>
+    </linearGradient>
+    <!-- Veil gradient — sweeps across the ring to hide some nodes -->
+    <linearGradient id="veil" x1="0%" y1="0%" x2="100%" y2="30%">
+      <stop offset="0%" stop-color="#0f172a" stop-opacity="0"/>
+      <stop offset="40%" stop-color="#0f172a" stop-opacity="0"/>
+      <stop offset="60%" stop-color="#0f172a" stop-opacity="0.75"/>
+      <stop offset="100%" stop-color="#0f172a" stop-opacity="0.9"/>
+    </linearGradient>
+    <!-- Glow filter for amber nodes -->
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="4" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="softGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="8" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1280" height="640" fill="#0f172a"/>
+
+  <!-- Subtle hex grid -->
+  <g opacity="0.04" stroke="#94a3b8" stroke-width="0.5" fill="none">
+    <!-- Row 1 -->
+    <polygon points="40,20 60,10 80,20 80,40 60,50 40,40"/>
+    <polygon points="80,20 100,10 120,20 120,40 100,50 80,40"/>
+    <polygon points="120,20 140,10 160,20 160,40 140,50 120,40"/>
+    <polygon points="160,20 180,10 200,20 200,40 180,50 160,40"/>
+    <polygon points="200,20 220,10 240,20 240,40 220,50 200,40"/>
+    <polygon points="240,20 260,10 280,20 280,40 260,50 240,40"/>
+    <polygon points="280,20 300,10 320,20 320,40 300,50 280,40"/>
+    <polygon points="320,20 340,10 360,20 360,40 340,50 320,40"/>
+    <polygon points="360,20 380,10 400,20 400,40 380,50 360,40"/>
+    <polygon points="400,20 420,10 440,20 440,40 420,50 400,40"/>
+    <polygon points="440,20 460,10 480,20 480,40 460,50 440,40"/>
+    <polygon points="480,20 500,10 520,20 520,40 500,50 480,40"/>
+    <polygon points="520,20 540,10 560,20 560,40 540,50 520,40"/>
+    <polygon points="560,20 580,10 600,20 600,40 580,50 560,40"/>
+    <polygon points="600,20 620,10 640,20 640,40 620,50 600,40"/>
+    <polygon points="640,20 660,10 680,20 680,40 660,50 640,40"/>
+    <polygon points="680,20 700,10 720,20 720,40 700,50 680,40"/>
+    <polygon points="720,20 740,10 760,20 760,40 740,50 720,40"/>
+    <polygon points="760,20 780,10 800,20 800,40 780,50 760,40"/>
+    <polygon points="800,20 820,10 840,20 840,40 820,50 800,40"/>
+    <polygon points="840,20 860,10 880,20 880,40 860,50 840,40"/>
+    <polygon points="880,20 900,10 920,20 920,40 900,50 880,40"/>
+    <polygon points="920,20 940,10 960,20 960,40 940,50 920,40"/>
+    <polygon points="960,20 980,10 1000,20 1000,40 980,50 960,40"/>
+    <polygon points="1000,20 1020,10 1040,20 1040,40 1020,50 1000,40"/>
+    <polygon points="1040,20 1060,10 1080,20 1080,40 1060,50 1040,40"/>
+    <polygon points="1080,20 1100,10 1120,20 1120,40 1100,50 1080,40"/>
+    <polygon points="1120,20 1140,10 1160,20 1160,40 1140,50 1120,40"/>
+    <polygon points="1160,20 1180,10 1200,20 1200,40 1180,50 1160,40"/>
+    <polygon points="1200,20 1220,10 1240,20 1240,40 1220,50 1200,40"/>
+    <!-- Row 2 (offset) -->
+    <polygon points="60,50 80,40 100,50 100,70 80,80 60,70"/>
+    <polygon points="140,50 160,40 180,50 180,70 160,80 140,70"/>
+    <polygon points="220,50 240,40 260,50 260,70 240,80 220,70"/>
+    <polygon points="300,50 320,40 340,50 340,70 320,80 300,70"/>
+    <polygon points="380,50 400,40 420,50 420,70 400,80 380,70"/>
+    <polygon points="460,50 480,40 500,50 500,70 480,80 460,70"/>
+    <polygon points="540,50 560,40 580,50 580,70 560,80 540,70"/>
+    <polygon points="620,50 640,40 660,50 660,70 640,80 620,70"/>
+    <polygon points="700,50 720,40 740,50 740,70 720,80 700,70"/>
+    <polygon points="780,50 800,40 820,50 820,70 800,80 780,70"/>
+    <polygon points="860,50 880,40 900,50 900,70 880,80 860,70"/>
+    <polygon points="940,50 960,40 980,50 980,70 960,80 940,70"/>
+    <polygon points="1020,50 1040,40 1060,50 1060,70 1040,80 1020,70"/>
+    <polygon points="1100,50 1120,40 1140,50 1140,70 1120,80 1100,70"/>
+    <polygon points="1180,50 1200,40 1220,50 1220,70 1200,80 1180,70"/>
+    <!-- Sparse rows -->
+    <polygon points="40,140 60,130 80,140 80,160 60,170 40,160"/>
+    <polygon points="160,140 180,130 200,140 200,160 180,170 160,160"/>
+    <polygon points="280,140 300,130 320,140 320,160 300,170 280,160"/>
+    <polygon points="400,140 420,130 440,140 440,160 420,170 400,160"/>
+    <polygon points="520,140 540,130 560,140 560,160 540,170 520,160"/>
+    <polygon points="640,140 660,130 680,140 680,160 660,170 640,160"/>
+    <polygon points="760,140 780,130 800,140 800,160 780,170 760,160"/>
+    <polygon points="880,140 900,130 920,140 920,160 900,170 880,160"/>
+    <polygon points="1000,140 1020,130 1040,140 1040,160 1020,170 1000,160"/>
+    <polygon points="1120,140 1140,130 1160,140 1160,160 1140,170 1120,160"/>
+    <!-- Bottom sparse -->
+    <polygon points="60,470 80,460 100,470 100,490 80,500 60,490"/>
+    <polygon points="300,470 320,460 340,470 340,490 320,500 300,490"/>
+    <polygon points="540,470 560,460 580,470 580,490 560,500 540,490"/>
+    <polygon points="780,470 800,460 820,470 820,490 800,500 780,490"/>
+    <polygon points="1020,470 1040,460 1060,470 1060,490 1040,500 1020,490"/>
+    <polygon points="160,500 180,490 200,500 200,520 180,530 160,520"/>
+    <polygon points="400,500 420,490 440,500 440,520 420,530 400,520"/>
+    <polygon points="640,500 660,490 680,500 680,520 660,530 640,520"/>
+    <polygon points="880,500 900,490 920,500 920,520 900,530 880,520"/>
+    <polygon points="1120,500 1140,490 1160,500 1160,520 1140,530 1120,520"/>
+  </g>
+
+  <!-- Trust circle illustration — 8 nodes in a ring, centred at 290,320 -->
+  <g transform="translate(290, 320)">
+    <!-- Connecting lines between all adjacent nodes -->
+    <g stroke="#334155" stroke-width="1.5" opacity="0.4">
+      <line x1="0" y1="-120" x2="85" y2="-85"/>
+      <line x1="85" y1="-85" x2="120" y2="0"/>
+      <line x1="120" y1="0" x2="85" y2="85"/>
+      <line x1="85" y1="85" x2="0" y2="120"/>
+      <line x1="0" y1="120" x2="-85" y2="85"/>
+      <line x1="-85" y1="85" x2="-120" y2="0"/>
+      <line x1="-120" y1="0" x2="-85" y2="-85"/>
+      <line x1="-85" y1="-85" x2="0" y2="-120"/>
+    </g>
+
+    <!-- Cross-connections (showing the web) -->
+    <g stroke="#334155" stroke-width="0.5" opacity="0.15">
+      <line x1="0" y1="-120" x2="120" y2="0"/>
+      <line x1="0" y1="-120" x2="0" y2="120"/>
+      <line x1="85" y1="-85" x2="-85" y2="85"/>
+      <line x1="120" y1="0" x2="-120" y2="0"/>
+      <line x1="85" y1="85" x2="-85" y2="-85"/>
+      <line x1="0" y1="-120" x2="-120" y2="0"/>
+      <line x1="85" y1="-85" x2="0" y2="120"/>
+      <line x1="120" y1="0" x2="-85" y2="85"/>
+    </g>
+
+    <!-- Visible nodes (left side of the ring — not veiled) -->
+    <!-- Node 1: top (12 o'clock) -->
+    <circle cx="0" cy="-120" r="14" fill="url(#amber)" filter="url(#glow)"/>
+    <circle cx="0" cy="-120" r="6" fill="#fcd34d" opacity="0.8"/>
+
+    <!-- Node 2: top-right -->
+    <circle cx="85" cy="-85" r="14" fill="url(#amber)" filter="url(#glow)"/>
+    <circle cx="85" cy="-85" r="6" fill="#fcd34d" opacity="0.8"/>
+
+    <!-- Node 3: right (3 o'clock) -->
+    <circle cx="120" cy="0" r="14" fill="url(#amber)" filter="url(#glow)"/>
+    <circle cx="120" cy="0" r="6" fill="#fcd34d" opacity="0.8"/>
+
+    <!-- Node 8: top-left -->
+    <circle cx="-85" cy="-85" r="14" fill="url(#amber)" filter="url(#glow)"/>
+    <circle cx="-85" cy="-85" r="6" fill="#fcd34d" opacity="0.8"/>
+
+    <!-- Node 7: left (9 o'clock) -->
+    <circle cx="-120" cy="0" r="14" fill="url(#amberDark)"/>
+    <circle cx="-120" cy="0" r="5" fill="#f59e0b" opacity="0.6"/>
+
+    <!-- Veiled nodes (right-bottom side — dimmed) -->
+    <!-- Node 4: bottom-right -->
+    <circle cx="85" cy="85" r="14" fill="url(#steel)" opacity="0.5"/>
+    <circle cx="85" cy="85" r="6" fill="#475569" opacity="0.4"/>
+
+    <!-- Node 5: bottom (6 o'clock) -->
+    <circle cx="0" cy="120" r="14" fill="url(#steel)" opacity="0.4"/>
+    <circle cx="0" cy="120" r="6" fill="#475569" opacity="0.3"/>
+
+    <!-- Node 6: bottom-left -->
+    <circle cx="-85" cy="85" r="14" fill="url(#steel)" opacity="0.35"/>
+    <circle cx="-85" cy="85" r="6" fill="#475569" opacity="0.25"/>
+
+    <!-- The veil — a translucent sweep across the bottom-right -->
+    <path d="M 30,-140 Q 160,-60 160,60 Q 140,160 -20,160 Q -140,120 -140,40 Z" fill="url(#veil)" opacity="0.6"/>
+
+    <!-- "?" marks on veiled nodes — identity unknown -->
+    <text x="85" y="90" text-anchor="middle" font-family="'SF Mono', monospace" font-size="16" fill="#64748b" opacity="0.6">?</text>
+    <text x="0" y="125" text-anchor="middle" font-family="'SF Mono', monospace" font-size="16" fill="#64748b" opacity="0.5">?</text>
+    <text x="-85" y="90" text-anchor="middle" font-family="'SF Mono', monospace" font-size="16" fill="#64748b" opacity="0.4">?</text>
+  </g>
+
+  <!-- "K of N" label under the ring -->
+  <text x="290" y="480" text-anchor="middle" font-family="'SF Mono', monospace" font-size="13" fill="#64748b" opacity="0.5">5 of 8 agree. you can verify. you can't identify.</text>
+
+  <!-- Divider -->
+  <line x1="580" y1="80" x2="580" y2="560" stroke="#334155" stroke-width="1" opacity="0.5"/>
+  <line x1="586" y1="80" x2="586" y2="560" stroke="#334155" stroke-width="1" opacity="0.3"/>
+
+  <!-- Divider icon — eye with slash (privacy) -->
+  <g transform="translate(583, 310)">
+    <ellipse cx="0" cy="0" rx="12" ry="8" stroke="#64748b" stroke-width="1.5" fill="none"/>
+    <circle cx="0" cy="0" r="4" fill="#64748b"/>
+    <line x1="-10" y1="10" x2="10" y2="-10" stroke="#64748b" stroke-width="2"/>
+  </g>
+
+  <!-- Title -->
+  <text x="660" y="300" font-family="'SF Mono', 'Fira Code', 'JetBrains Mono', monospace" font-size="64" font-weight="bold" fill="#f8fafc">nostr-veil</text>
+
+  <!-- Tagline -->
+  <text x="660" y="340" font-family="'Inter', -apple-system, sans-serif" font-size="18" fill="#94a3b8">trust you can verify. contributors you can't identify.</text>
+
+  <!-- Subtitle -->
+  <text x="660" y="380" font-family="'Inter', -apple-system, sans-serif" font-size="14" fill="#64748b">privacy-preserving web of trust for nostr</text>
+
+  <!-- Keyword ticker -->
+  <text y="622" font-family="'SF Mono', monospace" font-size="12" fill="#94a3b8" opacity="0.06">
+    <tspan x="20">NOSTR</tspan>
+    <tspan dx="30">WEB-OF-TRUST</tspan>
+    <tspan dx="30">NIP-85</tspan>
+    <tspan dx="30">RING-SIGNATURES</tspan>
+    <tspan dx="30">LSAG</tspan>
+    <tspan dx="30">PRIVACY</tspan>
+    <tspan dx="30">ANONYMOUS</tspan>
+    <tspan dx="30">SECP256K1</tspan>
+    <tspan dx="30">TRUST-CIRCLE</tspan>
+    <tspan dx="30">VERIFICATION</tspan>
+    <tspan dx="30">CRYPTOGRAPHY</tspan>
+    <tspan dx="30">TYPESCRIPT</tspan>
+    <tspan dx="30">DECENTRALISED</tspan>
+  </text>
+</svg>
