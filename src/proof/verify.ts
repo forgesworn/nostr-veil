@@ -6,6 +6,9 @@ import type { ProofVerification } from './types.js'
  *
  * Checks each `veil-sig` tag against the `veil-ring`, confirms key images are
  * distinct (no double-signing), and validates the threshold is met.
+ *
+ * @param event - A Nostr event (or template) containing `veil-ring`, `veil-threshold`, and `veil-sig` tags
+ * @returns A {@link ProofVerification} with `valid`, `circleSize`, `threshold`, `distinctSigners`, and any `errors`
  */
 export function verifyProof(event: {
   kind: number

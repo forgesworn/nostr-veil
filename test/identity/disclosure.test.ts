@@ -73,15 +73,15 @@ describe('buildDisclosureEvent', () => {
     root.destroy()
   })
 
-  it('includes veil-linkage_a, veil-linkage_b, and veil-master tags', () => {
+  it('includes veil-linkage-a, veil-linkage-b, and veil-master tags', () => {
     const root = fromNsec(TEST_NSEC)
     const identityA = derive(root, 'algo:lsag')
     const identityB = derive(root, 'algo:pagerank')
     const proofs = proveCommonOwnership(root, identityA, identityB)
     const event = buildDisclosureEvent(proofs)
     const tagNames = event.tags.map(t => t[0])
-    expect(tagNames).toContain('veil-linkage_a')
-    expect(tagNames).toContain('veil-linkage_b')
+    expect(tagNames).toContain('veil-linkage-a')
+    expect(tagNames).toContain('veil-linkage-b')
     expect(tagNames).toContain('veil-master')
     root.destroy()
   })

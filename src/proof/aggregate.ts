@@ -33,6 +33,13 @@ function serialiseSig(sig: Contribution['signature']): string {
  * Validates all LSAG signatures and checks key image uniqueness before
  * aggregating metrics (default: median). The result is a standard kind 30382
  * event with additional `veil-ring`, `veil-threshold`, and `veil-sig` tags.
+ *
+ * @param circle - Trust circle the contributions belong to
+ * @param subject - The d-tag value (must match what contributors signed)
+ * @param contributions - Array of {@link Contribution} objects from circle members
+ * @param aggregateFn - Function to combine metric values (default: median). Receives an array of numbers, returns a single number.
+ * @returns An unsigned {@link EventTemplate} (kind 30382) with proof tags — sign and publish as a standard Nostr event
+ * @throws If any LSAG signature is invalid or duplicate key images are detected
  */
 export function aggregateContributions(
   circle: TrustCircle,

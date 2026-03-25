@@ -161,6 +161,10 @@ At no point does verification require knowing which member produced which signat
 
 ---
 
+## Contributing
+
+See [CONTRIBUTING.md](./CONTRIBUTING.md) for setup, testing, and PR guidelines.
+
 ## Licence
 
 MIT

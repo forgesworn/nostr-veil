@@ -5,7 +5,15 @@ import type { TreeRoot, Identity, LinkageProof } from 'nsec-tree'
 import type { DisclosureProofs } from './types.js'
 import type { EventTemplate } from '../nip85/types.js'
 
-/** Prove two identities share a common master key. Mode: 'blind' (default) or 'full' disclosure. */
+/**
+ * Prove two identities share a common master key.
+ *
+ * @param root - The TreeRoot from which both identities were derived
+ * @param identityA - First identity (e.g. anonymous persona)
+ * @param identityB - Second identity (e.g. public journalist key)
+ * @param mode - `'blind'` (default) hides the derivation path; `'full'` reveals purpose and index
+ * @returns A pair of {@link LinkageProof} objects — one per identity. A verifier checks both share the same `masterPubkey`.
+ */
 export function proveCommonOwnership(
   root: TreeRoot,
   identityA: Identity,
@@ -25,9 +33,9 @@ export function buildDisclosureEvent(proofs: DisclosureProofs): EventTemplate {
     kind: 30078,
     tags: [
       ['d', `veil:disclosure:${dTagHash}`],
-      ['veil-linkage_a', proofA.childPubkey, proofA.attestation, proofA.signature,
+      ['veil-linkage-a', proofA.childPubkey, proofA.attestation, proofA.signature,
         ...(proofA.purpose !== undefined ? [proofA.purpose, String(proofA.index)] : [])],
-      ['veil-linkage_b', proofB.childPubkey, proofB.attestation, proofB.signature,
+      ['veil-linkage-b', proofB.childPubkey, proofB.attestation, proofB.signature,
         ...(proofB.purpose !== undefined ? [proofB.purpose, String(proofB.index)] : [])],
       ['veil-master', proofA.masterPubkey],
     ],
