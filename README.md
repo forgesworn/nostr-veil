@@ -8,6 +8,8 @@
 
 Privacy-preserving, cryptographically-backed Web of Trust for Nostr. LSAG ring-signature assertions built on NIP-85, with sub-identity compartmentalisation.
 
+**Who is this for?** Nostr client developers building trust systems where contributor privacy matters — abuse reporting, whistleblowing, journalism, anonymous peer review. If your users can't afford to be identified when vouching for someone, this is the library.
+
 ---
 
 ## The Trust Trilemma
@@ -161,9 +163,13 @@ At no point does verification require knowing which member produced which signat
 
 ---
 
-## Contributing
+## Further reading
 
-See [CONTRIBUTING.md](./CONTRIBUTING.md) for setup, testing, and PR guidelines.
+- [IMPACT.md](./IMPACT.md) — Problem statement and ecosystem impact (hackathon submission)
+- [CONTRIBUTING.md](./CONTRIBUTING.md) — Setup, testing, and PR guidelines
+- [SECURITY.md](./SECURITY.md) — Vulnerability reporting and cryptographic scope
+- [llms.txt](./llms.txt) — Machine-readable project summary for LLMs
+- [CLAUDE.md](./CLAUDE.md) — AI agent instructions for contributing
 
 ## Licence
 

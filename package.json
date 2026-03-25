@@ -6,12 +6,26 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
-    ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" },
-    "./nip85": { "types": "./dist/nip85/index.d.ts", "import": "./dist/nip85/index.js" },
-    "./proof": { "types": "./dist/proof/index.d.ts", "import": "./dist/proof/index.js" },
-    "./identity": { "types": "./dist/identity/index.d.ts", "import": "./dist/identity/index.js" }
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./nip85": {
+      "types": "./dist/nip85/index.d.ts",
+      "import": "./dist/nip85/index.js"
+    },
+    "./proof": {
+      "types": "./dist/proof/index.d.ts",
+      "import": "./dist/proof/index.js"
+    },
+    "./identity": {
+      "types": "./dist/identity/index.d.ts",
+      "import": "./dist/identity/index.js"
+    }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "test": "vitest run",
@@ -20,12 +34,33 @@
     "demo": "cd demo && npm run dev",
     "prepublishOnly": "npm run build"
   },
-  "keywords": ["nostr", "web-of-trust", "wot", "nip-85", "nip85", "ring-signatures", "lsag", "privacy", "trust", "attestations", "anonymous", "cryptography", "secp256k1", "decentralised", "verifiable"],
+  "keywords": [
+    "nostr",
+    "web-of-trust",
+    "wot",
+    "nip-85",
+    "nip85",
+    "ring-signatures",
+    "lsag",
+    "privacy",
+    "trust",
+    "attestations",
+    "anonymous",
+    "cryptography",
+    "secp256k1",
+    "decentralised",
+    "verifiable"
+  ],
   "author": "ForgeSworn",
   "license": "MIT",
   "homepage": "https://github.com/forgesworn/nostr-veil",
-  "repository": { "type": "git", "url": "https://github.com/forgesworn/nostr-veil" },
-  "engines": { "node": ">=20" },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/forgesworn/nostr-veil"
+  },
+  "engines": {
+    "node": ">=20"
+  },
   "dependencies": {
     "@forgesworn/ring-sig": "^1.0.2",
     "@noble/curves": "^2.0.1",
@@ -34,6 +69,7 @@
     "nsec-tree": "^1.4.1"
   },
   "devDependencies": {
+    "tsx": "^4.21.0",
     "typescript": "^5.7.0",
     "vitest": "^3.0.0"
   }

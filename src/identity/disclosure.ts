@@ -24,7 +24,25 @@ export function proveCommonOwnership(
   return [proveFn(root, identityA), proveFn(root, identityB)]
 }
 
-/** Build a kind 30078 event containing linkage proofs for two related identities. */
+/**
+ * Build a kind 30078 event containing linkage proofs for two related identities.
+ *
+ * The event embeds a `veil-linkage-a` tag and a `veil-linkage-b` tag, each
+ * carrying the child pubkey, attestation, and Schnorr signature from the
+ * corresponding {@link LinkageProof}. A `veil-master` tag contains the shared
+ * master pubkey that proves both identities belong to the same root key. The
+ * `d` tag is derived from a SHA-256 hash of the master pubkey, making the
+ * event addressable without leaking it in plaintext.
+ *
+ * @param proofs - A pair of {@link LinkageProof} objects from {@link proveCommonOwnership}
+ * @returns An unsigned {@link EventTemplate} of kind 30078 ready to sign and publish
+ *
+ * @example
+ * const proofs = proveCommonOwnership(root, personaIdentity, journalistIdentity)
+ * const tmpl = buildDisclosureEvent(proofs)
+ * const event = signEvent(tmpl, masterPrivkey)
+ * await relay.publish(event)
+ */
 export function buildDisclosureEvent(proofs: DisclosureProofs): EventTemplate {
   const [proofA, proofB] = proofs
   const dTagHash = bytesToHex(sha256(new TextEncoder().encode(proofA.masterPubkey)))

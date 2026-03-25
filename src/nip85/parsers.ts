@@ -12,6 +12,14 @@ interface RawEvent {
 /**
  * Extracts the subject (d-tag value) and metric tags from a NIP-85 assertion event.
  * Skips known meta tags (`d`, `p`, `e`, `a`, `k`) and any tag whose name starts with `veil-`.
+ *
+ * @param event - A raw Nostr event with `kind`, `tags`, and `content` fields
+ * @returns A {@link ParsedAssertion} with the event kind, subject identifier, and metric key-value pairs
+ *
+ * @example
+ * const parsed = parseAssertion(event)
+ * // { kind: 30382, subject: 'abc123…', metrics: { rank: '85', followers: '1200' } }
+ * console.log(parsed.metrics.rank)
  */
 export function parseAssertion(event: RawEvent): ParsedAssertion {
   const dTag = event.tags.find(t => t[0] === 'd')
@@ -36,6 +44,19 @@ export function parseAssertion(event: RawEvent): ParsedAssertion {
  * When the event has non-empty content and a `decryptFn` is supplied, the
  * function calls `decryptFn(content)` and parses the decrypted value as a
  * JSON-encoded tag array instead of reading `event.tags`.
+ *
+ * @param event - A raw kind 10040 Nostr event
+ * @param decryptFn - Optional async function to decrypt `event.content`; when provided and content is non-empty the tags are read from the decrypted payload
+ * @returns An array of {@link ParsedProvider} entries, or a Promise thereof when `decryptFn` is supplied
+ *
+ * @throws If `decryptFn` is provided and the decrypted content is not valid JSON
+ *
+ * @example
+ * // Plaintext declaration
+ * const providers = parseProviderDeclaration(event)
+ *
+ * // Encrypted declaration
+ * const providers = await parseProviderDeclaration(event, ciphertext => nip44Decrypt(ciphertext, key))
  */
 export function parseProviderDeclaration(event: RawEvent): ParsedProvider[]
 export function parseProviderDeclaration(

@@ -21,6 +21,15 @@ interface RawEvent {
  * - `kind` is one of the four NIP-85 assertion kinds (30382–30385)
  * - A `d` tag is present
  * - `rank`, if present, is a number in the range 0–100
+ *
+ * @param event - A raw Nostr event with `kind`, `tags`, and `content` fields
+ * @returns A {@link ValidationResult} with `valid` boolean and an array of error strings
+ *
+ * @example
+ * const result = validateAssertion(event)
+ * if (!result.valid) {
+ *   console.error('Validation failed:', result.errors)
+ * }
  */
 export function validateAssertion(event: RawEvent): ValidationResult {
   const errors: string[] = []

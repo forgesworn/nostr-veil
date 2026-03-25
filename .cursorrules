@@ -1,0 +1,13 @@
+- This is a TypeScript ESM library for privacy-preserving Web of Trust on Nostr
+- British English throughout (licence, serialise, initialise)
+- All local imports use .js extensions
+- Types live in types.ts within each module directory (nip85, proof, identity)
+- Tests mirror source: test/nip85/, test/proof/, test/identity/
+- TDD: write the failing test first, then implement
+- Commits: type: description (feat:, fix:, docs:, test:)
+- Noble v2 requires Uint8Array not hex strings — use hexToBytes() before noble calls
+- The _noble-compat.ts shim wraps schnorr for hex string support — don't remove without updating call sites
+- contributeAssertion needs the member's 0-based index in circle.members (sorted pubkey order)
+- aggregateContributions validates all LSAG sigs before aggregating — invalid sigs throw, not silently drop
+- The demo app in demo/ is a separate Vite project with its own package.json
+- Build: npm run build | Test: npm test | Lint: npm run lint | Demo: npm run demo

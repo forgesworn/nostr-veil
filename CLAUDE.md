@@ -51,9 +51,21 @@ Dev only: `typescript`, `vitest`
 - `ProofVerification` -- result of `verifyProof()`: valid, circleSize, threshold, distinctSigners, errors
 - `EventTemplate` -- unsigned Nostr event (kind, tags, content)
 
+## Dependency relationships
+
+```
+nostr-veil/nip85  (standalone — no deps on other layers)
+nostr-veil/proof  (depends on nip85 for EventTemplate + NIP85_KINDS)
+nostr-veil/identity  (depends on nip85 for EventTemplate)
+src/signing.ts  (standalone — used by integration tests and consumers)
+```
+
+The proof layer imports from nip85 but not identity. The identity layer imports from nip85 but not proof. Neither depends on signing. This means nip85 changes may affect both other layers, but proof and identity are independent of each other.
+
 ## Common pitfalls
 
 - The `_noble-compat.ts` shim exists because @noble/curves v2 changed its API. The vitest config aliases `@noble/curves/secp256k1` through this shim -- do not remove the alias without updating all call sites.
 - `contributeAssertion` requires the member's index in the circle (0-based, matching the sorted pubkey order). Getting this wrong produces an invalid signature.
 - `aggregateContributions` validates all LSAG signatures before aggregating. If any signature is invalid, it throws rather than silently dropping the contribution.
 - The demo is a separate Vite app in `demo/` with its own `package.json` and `node_modules`.
+- Noble v2 requires `Uint8Array` not hex strings. If you call `schnorr.getPublicKey()` or `schnorr.sign()` directly, convert with `hexToBytes()` first. The `signEvent` utility handles this internally.

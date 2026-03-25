@@ -2,7 +2,16 @@ import { sha256 } from '@noble/hashes/sha2.js'
 import { bytesToHex } from '@noble/hashes/utils.js'
 import type { TrustCircle } from './types.js'
 
-/** Compute a deterministic circle ID by SHA-256 hashing the colon-joined sorted pubkeys. */
+/**
+ * Compute a deterministic circle ID by SHA-256 hashing the colon-joined sorted pubkeys.
+ *
+ * @param sortedPubkeys - Array of hex pubkeys already in sorted (lexicographic) order
+ * @returns A 64-char hex SHA-256 digest that uniquely identifies this exact group membership
+ *
+ * @example
+ * const id = computeCircleId([alicePubkey, bobPubkey].sort())
+ * // '3f4a2b…' (64-char hex string)
+ */
 export function computeCircleId(sortedPubkeys: string[]): string {
   const input = sortedPubkeys.join(':')
   return bytesToHex(sha256(new TextEncoder().encode(input)))
@@ -15,6 +24,17 @@ export function computeCircleId(sortedPubkeys: string[]): string {
  * guarantee deterministic output regardless of property insertion order.
  * Metric values must be finite numbers — NaN/Infinity would serialise as
  * `null`, breaking cross-platform determinism.
+ *
+ * @param circleId - The circle's deterministic ID from {@link computeCircleId}
+ * @param subject - The d-tag value (hex pubkey for kind 30382, event ID for kind 30383, etc.)
+ * @param metrics - Key-value pairs of metric names to finite numeric values
+ * @returns A deterministic JSON string suitable for LSAG signing
+ *
+ * @throws If any metric value is NaN or non-finite (Infinity / -Infinity)
+ *
+ * @example
+ * const msg = canonicalMessage(circle.circleId, subjectPubkey, { rank: 85, followers: 1200 })
+ * // '{"circleId":"…","metrics":{"followers":1200,"rank":85},"subject":"…"}'
  */
 export function canonicalMessage(
   circleId: string,
@@ -46,7 +66,22 @@ export function canonicalMessage(
   })
 }
 
-/** Create a trust circle from an array of hex pubkeys. Requires at least 2 unique members. */
+/**
+ * Create a trust circle from an array of hex pubkeys. Requires at least 2 unique members.
+ *
+ * The input array is sorted internally — the caller need not pre-sort. Each pubkey must
+ * appear exactly once; duplicates cause an immediate throw.
+ *
+ * @param memberPubkeys - Array of hex-encoded x-only public keys (64 chars each)
+ * @returns A {@link TrustCircle} with a stable `members` order and a deterministic `circleId`
+ *
+ * @throws If fewer than 2 pubkeys are supplied
+ * @throws If any pubkey appears more than once in the array
+ *
+ * @example
+ * const circle = createTrustCircle([alicePubkey, bobPubkey, carolPubkey])
+ * // { members: ['alice…', 'bob…', 'carol…'], circleId: '3f4a…', size: 3 }
+ */
 export function createTrustCircle(memberPubkeys: string[]): TrustCircle {
   if (memberPubkeys.length < 2) {
     throw new Error('Trust circle requires at least 2 members')
