@@ -3,6 +3,7 @@ import type { Identity } from 'nsec-tree'
 import type { EventTemplate } from '../nip85/types.js'
 import type { ProviderTree } from './types.js'
 
+/** Derive per-algorithm provider identities from a master nsec. Call `.destroy()` when done. */
 export function createProviderTree(rootNsec: string, algorithms: string[]): ProviderTree {
   const root = fromNsec(rootNsec)
   const algorithmMap = new Map<string, Identity>()

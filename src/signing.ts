@@ -20,6 +20,7 @@ export interface SignedEvent {
   sig: string
 }
 
+/** Compute the NIP-01 event ID (SHA-256 of the canonical serialisation). */
 export function computeEventId(
   event: { pubkey: string; created_at: number; kind: number; tags: string[][]; content: string }
 ): string {
@@ -34,6 +35,7 @@ export function computeEventId(
   return bytesToHex(sha256(new TextEncoder().encode(serialised)))
 }
 
+/** Sign an unsigned event template with a Schnorr private key, producing a fully-signed Nostr event. */
 export function signEvent(template: UnsignedEvent, privateKey: string): SignedEvent {
   const pubkey = bytesToHex(schnorr.getPublicKey(privateKey))
   const created_at = template.created_at ?? Math.floor(Date.now() / 1000)

@@ -22,6 +22,13 @@ function serialiseSig(sig: Contribution['signature']): string {
   })
 }
 
+/**
+ * Aggregate multiple anonymous contributions into a single NIP-85 event.
+ *
+ * Validates all LSAG signatures and checks key image uniqueness before
+ * aggregating metrics (default: median). The result is a standard kind 30382
+ * event with additional `veil-ring`, `veil-threshold`, and `veil-sig` tags.
+ */
 export function aggregateContributions(
   circle: TrustCircle,
   subject: string,

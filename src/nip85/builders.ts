@@ -9,6 +9,7 @@ function metricsToTags(metrics: AnyMetrics): string[][] {
     .map(([k, v]) => [k, String(v)])
 }
 
+/** Build a kind 30382 user assertion event template for the given pubkey. */
 export function buildUserAssertion(pubkey: string, metrics: UserMetrics): EventTemplate {
   return {
     kind: NIP85_KINDS.USER,
@@ -21,6 +22,7 @@ export function buildUserAssertion(pubkey: string, metrics: UserMetrics): EventT
   }
 }
 
+/** Build a kind 30383 event assertion for the given event ID. */
 export function buildEventAssertion(eventId: string, metrics: EventMetrics): EventTemplate {
   return {
     kind: NIP85_KINDS.EVENT,
@@ -29,6 +31,7 @@ export function buildEventAssertion(eventId: string, metrics: EventMetrics): Eve
   }
 }
 
+/** Build a kind 30384 addressable assertion for the given NIP-33 address. */
 export function buildAddressableAssertion(address: string, metrics: EventMetrics): EventTemplate {
   return {
     kind: NIP85_KINDS.ADDRESSABLE,
@@ -37,6 +40,7 @@ export function buildAddressableAssertion(address: string, metrics: EventMetrics
   }
 }
 
+/** Build a kind 30385 identifier assertion with an explicit k-tag. */
 export function buildIdentifierAssertion(identifier: string, kTag: string, metrics: IdentifierMetrics): EventTemplate {
   return {
     kind: NIP85_KINDS.IDENTIFIER,
@@ -45,6 +49,7 @@ export function buildIdentifierAssertion(identifier: string, kTag: string, metri
   }
 }
 
+/** Build a kind 10040 provider declaration listing which services provide which metrics. */
 export function buildProviderDeclaration(providers: ProviderEntry[], encryptedContent?: string): EventTemplate {
   const tags = providers.map(p => [`${p.kind}:${p.metric}`, p.servicePubkey, p.relayHint])
   return {

@@ -1,6 +1,12 @@
 import { lsagVerify, hasDuplicateKeyImage } from '@forgesworn/ring-sig'
 import type { ProofVerification } from './types.js'
 
+/**
+ * Verify all LSAG ring signatures in a veil-enhanced NIP-85 event.
+ *
+ * Checks each `veil-sig` tag against the `veil-ring`, confirms key images are
+ * distinct (no double-signing), and validates the threshold is met.
+ */
 export function verifyProof(event: {
   kind: number
   tags: string[][]
