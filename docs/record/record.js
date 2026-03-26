@@ -1,7 +1,7 @@
 import { chromium } from '@playwright/test'
 import { spawn } from 'child_process'
 import { mkdir } from 'fs/promises'
-import { narrate, getClips, resetClips } from './narrate.js'
+import { narrate, getClips, resetClips, setPage } from './narrate.js'
 import { compose } from './compose.js'
 import { injectCursor, showCursor, hideCursor, clickElement, moveTo, pause } from './cursor.js'
 
@@ -322,6 +322,7 @@ async function main() {
     })
 
     const page = await context.newPage()
+    setPage(page)
     const startTimestamp = await runDemo(page)
 
     await page.close()
