@@ -27,14 +27,13 @@ async function startDevServer() {
       }
     })
     server.stderr.on('data', (data) => {
-      // Vite logs to stderr
       const str = data.toString()
       if (str.includes('Local:') || str.includes('localhost')) {
         console.log('[record] Dev server ready')
         resolve(server)
       }
     })
-    setTimeout(() => resolve(server), 5000) // fallback timeout
+    setTimeout(() => resolve(server), 5000)
   })
 }
 
@@ -43,188 +42,259 @@ async function waitForIdle(page, ms = 500) {
   await page.waitForTimeout(ms)
 }
 
+/** Click a button by its visible text */
+async function clickButton(page, text, opts = {}) {
+  await clickElement(page, `button:has-text("${text}")`, opts)
+}
+
+/** Click inside the SVG circle ring to select a journalist (0-indexed) */
+async function clickJournalist(page, index) {
+  // The SVG is 400x400 with 8 nodes in a ring of radius 155, centred at (200,200)
+  const angle = (index / 8) * Math.PI * 2 - Math.PI / 2
+  const svgX = 200 + 155 * Math.cos(angle)
+  const svgY = 200 + 155 * Math.sin(angle)
+
+  // Get the SVG element's position on screen
+  const svgBox = await page.locator('svg').first().boundingBox()
+  if (!svgBox) return
+
+  const screenX = svgBox.x + svgX
+  const screenY = svgBox.y + svgY
+
+  await moveTo(page, screenX, screenY, 600)
+  await page.mouse.click(screenX, screenY)
+  await page.waitForTimeout(200)
+}
+
 async function runDemo(page) {
   const startTimestamp = Date.now()
 
   await page.goto('http://localhost:3847', { waitUntil: 'networkidle' })
-  await waitForIdle(page, 1000)
+  await waitForIdle(page, 1500)
   await injectCursor(page)
 
   // ===================================================
-  // HOOK -- 15s
+  // HOOK — 15s
   // ===================================================
-  await narrate("What if trust scores could be verified — without revealing who contributed them?")
+  await narrate('What if trust scores could be verified, without revealing who contributed them?')
   await pause(page, 1500)
 
-  await narrate("This is Veil. Privacy-preserving Web of Trust for Nostr.")
+  await narrate('This is Veil. Anonymous group trust for Nostr.')
   await pause(page, 1000)
 
   // ===================================================
-  // PROBLEM -- 20s
+  // PROBLEM — 15s
   // ===================================================
-  await narrate("Right now, NIP-eighty-five trust assertions are trust-me scores. A provider publishes a rank, and everyone can see exactly who made that judgement.")
+  await narrate('Right now, NIP-eighty-five trust assertions are public. A provider publishes a rank, and everyone can see who made that judgement.')
   await pause(page, 500)
 
-  await narrate("That's fine for follower counts. But it fails the moment the context is sensitive. Abuse reporting. Whistleblowing. Political dissent. The people who need Web of Trust most are the ones who can't afford to be identified.")
+  await narrate('That works for follower counts. But it fails when the context is sensitive. Whistleblowing. Abuse reporting. Political dissent.')
   await pause(page, 1500)
 
   // ===================================================
-  // SCREEN 1: THE CIRCLE -- 45s
+  // SCREEN 1: THE CIRCLE — 40s
   // ===================================================
-  await narrate("So let me show you how Veil solves this. We start with a trust circle — eight journalists who want to vouch for a source's credibility.")
+  await narrate('So let me show you how Veil solves this. We start with a trust circle. Eight journalists who want to vouch for a source.')
   await pause(page, 1000)
 
   await showCursor(page)
 
-  // Click on a journalist to select them
   await Promise.all([
-    narrate("Each journalist is a real Nostr pubkey. I'll pick Elena Novak — she's going to be our point of view for this demo."),
+    narrate("I'll pick Elena Novak. She's going to be our point of view."),
     (async () => {
       await pause(page, 500)
-      // Click on the first journalist in the circle
-      try { await clickElement(page, '[data-journalist="0"]', { moveDuration: 600 }) } catch {
-        // Fallback — click first clickable element in the circle area
-        try { await clickElement(page, 'circle, [role="button"], button:not(:last-child)', { moveDuration: 600 }) } catch {}
-      }
+      await clickJournalist(page, 0)
     })(),
   ])
 
-  await pause(page, 500)
+  await pause(page, 800)
+
+  await narrate('Notice the circle ID below. That is a SHA-256 hash of all eight sorted pubkeys. It uniquely identifies this group.')
+  await pause(page, 1500)
 
   await Promise.all([
-    narrate("Notice the circle ID at the bottom — that's a SHA-256 hash of all eight sorted pubkeys. It uniquely identifies this group."),
-    pause(page, 2000),
-  ])
-
-  // Click Next to advance to Screen 2
-  await Promise.all([
-    narrate("Let's join the circle and see what happens next."),
+    narrate("Let's join the circle."),
     (async () => {
       await pause(page, 500)
-      await clickElement(page, 'button:last-of-type', { moveDuration: 400 })
+      await clickButton(page, 'JOIN THE CIRCLE', { moveDuration: 400 })
     })(),
   ])
 
   await waitForIdle(page, 1000)
 
   // ===================================================
-  // SCREEN 2: THE SOURCE -- 45s
+  // SCREEN 2: THE SOURCE — 35s
   // ===================================================
-  await narrate("A source appears — someone claiming to have leaked documents from a major corporation. Each journalist needs to independently score their credibility.")
+  await narrate('A source appears. Someone claiming leaked documents from a major corporation. Each journalist scores their credibility independently.')
   await pause(page, 1500)
 
   await Promise.all([
-    narrate("I'll set Elena's score to eighty-two. The other seven journalists have already submitted their own scores independently."),
+    narrate("I'll set Elena's score to around eighty. The other seven are scoring in parallel."),
     (async () => {
       await pause(page, 500)
-      // Try to interact with the slider
-      try { await clickElement(page, 'input[type="range"]', { moveDuration: 500 }) } catch {}
+      // Click the range slider near the 80% mark
+      const slider = page.locator('input[type="range"]')
+      const sliderBox = await slider.boundingBox()
+      if (sliderBox) {
+        const targetX = sliderBox.x + sliderBox.width * 0.8
+        const targetY = sliderBox.y + sliderBox.height / 2
+        await moveTo(page, targetX, targetY, 500)
+        await page.mouse.click(targetX, targetY)
+      }
     })(),
   ])
 
-  await pause(page, 500)
+  await pause(page, 2000) // wait for NPC scores to drip in
 
-  await narrate("Watch the attestation feed on the right — each score is a kind thirty-one-thousand verifiable attestation. Real Nostr events, real cryptography.")
-  await pause(page, 2000)
+  await narrate('Watch the attestation feed on the right. Each score becomes a real Nostr event.')
+  await pause(page, 1500)
 
   await Promise.all([
-    narrate("Now here's where it gets interesting. Let's submit these scores and see the veil come down."),
+    narrate('Now here is where it gets interesting. Let us submit these scores.'),
     (async () => {
       await pause(page, 500)
-      await clickElement(page, 'button:last-of-type', { moveDuration: 400 })
+      await clickButton(page, 'SUBMIT SCORES', { moveDuration: 400 })
     })(),
   ])
 
   await waitForIdle(page, 1500)
 
   // ===================================================
-  // SCREEN 3: THE VEIL -- 60s
+  // SCREEN 3: THE VEIL — 50s
   // ===================================================
-  await narrate("This is the heart of Veil. All eight contributions have been aggregated into a single NIP-eighty-five assertion. The median rank is eighty-two.")
+  await narrate('This is the heart of Veil. All eight contributions have been aggregated into a single NIP-eighty-five event.')
   await pause(page, 1500)
 
-  await narrate("But look at what happened. Each journalist signed their contribution with an LSAG ring signature — a Linkable Spontaneous Anonymous Group signature. The signature proves they're a member of the circle, without revealing which member they are.")
+  await narrate('Each journalist signed their contribution with an LSAG ring signature. Linkable Spontaneous Anonymous Group. The signature proves they are a member of the circle, without revealing which member.')
   await pause(page, 2000)
 
-  await Promise.all([
-    narrate("Look at the raw event on the right. It's a standard kind thirty-thousand-three-hundred-eighty-two NIP-eighty-five event. Any existing client can read the rank. But see the extra tags?"),
-    pause(page, 2000),
-  ])
-
-  await narrate("Veil-ring contains all eight pubkeys — the ring. Veil-threshold says five of eight agreed. And each veil-sig tag carries a serialised LSAG signature with a key image.")
+  await narrate('Look at the raw event on the right. Standard kind thirty-thousand-three-hundred-eighty-two. Any existing client can read the rank. But see the extra tags?')
   await pause(page, 2000)
 
-  await narrate("The key images are the clever bit. They're deterministic per signer and context — so if someone tries to vote twice, the duplicate key image gives them away. But they don't reveal which pubkey produced them.")
-  await pause(page, 1500)
+  await narrate('Veil-ring contains all eight pubkeys. Each veil-sig tag carries an LSAG signature with a key image. The key images prevent double-voting without revealing who voted.')
+  await pause(page, 2000)
 
   await Promise.all([
     narrate("Let's verify this proof."),
     (async () => {
       await pause(page, 500)
-      await clickElement(page, 'button:last-of-type', { moveDuration: 400 })
+      await clickButton(page, 'VERIFY', { moveDuration: 400 })
     })(),
   ])
 
   await waitForIdle(page, 1000)
 
   // ===================================================
-  // SCREEN 4: VERIFICATION -- 40s
+  // SCREEN 4: VERIFICATION — 35s
   // ===================================================
-  await narrate("Verification happens in four steps. First, extract the ring from the veil-ring tag. Then check each LSAG signature against the ring.")
-  await pause(page, 1500)
+  await narrate('Verification happens in five steps. Extract the ring. Parse each LSAG signature. Verify against the ring. Check key images for duplicates. Validate the threshold.')
+  await pause(page, 2000)
 
-  await narrate("Third, verify all key images are unique — no double voting. And finally, confirm the number of valid distinct signatures meets the threshold.")
-  await pause(page, 1500)
+  // Wait for the animated verification to complete
+  await page.waitForTimeout(3500)
 
-  await narrate("And there it is — valid. Five distinct signers out of eight circle members. All confirmed. No private keys needed. The ring is public. The identities of the actual signers are not.")
+  await narrate('Valid. Eight distinct signers out of eight circle members. All confirmed. No private keys needed. The ring is public. The identities of the actual signers are not.')
   await pause(page, 2000)
 
   await Promise.all([
-    narrate("But what if a journalist later wants to reveal themselves? That's what the identity layer is for."),
+    narrate('But what if a journalist later wants to reveal themselves?'),
     (async () => {
       await pause(page, 1000)
-      await clickElement(page, 'button:last-of-type', { moveDuration: 400 })
+      await clickButton(page, 'CONTINUE', { moveDuration: 400 })
     })(),
   ])
 
   await waitForIdle(page, 1000)
 
   // ===================================================
-  // SCREEN 5: THE REVEAL -- 45s
+  // SCREEN 5: THE REVEAL — 40s
   // ===================================================
-  await narrate("Elena has two identities — her public journalist persona and the anonymous persona she used in the trust circle. Both are derived from the same master key using nsec-tree.")
+  await narrate('Elena has two identities. Her public persona and the anonymous one she used in the circle. Both derived from the same master key using nsec-tree.')
   await pause(page, 1500)
 
-  await narrate("They look like completely different Nostr identities. No one can tell they're related — until Elena decides to prove it.")
+  await narrate('They look like completely different Nostr identities. No one can tell they are related, until Elena decides to prove it.')
   await pause(page, 1500)
 
   await Promise.all([
-    narrate("Watch. She generates a blind linkage proof. This proves both identities share the same root — without revealing the derivation path or the master key."),
+    narrate('Watch. She generates a blind linkage proof. This proves both identities share the same root, without revealing how.'),
     (async () => {
       await pause(page, 500)
-      try { await clickElement(page, 'button:not(:last-of-type)', { moveDuration: 500 }) } catch {
-        try { await clickElement(page, 'button', { moveDuration: 500 }) } catch {}
+      await clickButton(page, 'REVEAL IDENTITY', { moveDuration: 500 })
+    })(),
+  ])
+
+  await pause(page, 2000)
+
+  await narrate('The proof is verifiable by anyone. Voluntary. Only Elena is exposed. The other seven stay anonymous.')
+  await pause(page, 1500)
+
+  await Promise.all([
+    narrate('Now let us see the full picture.'),
+    (async () => {
+      await pause(page, 500)
+      await clickButton(page, 'VIEW NETWORK', { moveDuration: 400 })
+    })(),
+  ])
+
+  await waitForIdle(page, 2000)
+
+  // ===================================================
+  // SCREEN 6: THE NETWORK — 50s
+  // ===================================================
+  await narrate('This is the trust graph. The same eight journalists, the source, and every endorsement visualised as a network. Amber nodes have anonymous ring-endorsed scores.')
+  await pause(page, 2000)
+
+  // Click a node to show the panel
+  await Promise.all([
+    narrate('Click any node to inspect its NIP-eighty-five metrics. Standard endorsement count, ring endorsements, the actual trust data.'),
+    (async () => {
+      await pause(page, 800)
+      // Click roughly in the centre of the graph where nodes cluster
+      const svgEl = page.locator('svg').first()
+      const svgBox = await svgEl.boundingBox()
+      if (svgBox) {
+        await moveTo(page, svgBox.x + svgBox.width * 0.45, svgBox.y + svgBox.height * 0.45, 600)
+        await page.mouse.click(svgBox.x + svgBox.width * 0.45, svgBox.y + svgBox.height * 0.45)
       }
     })(),
   ])
 
-  await pause(page, 2000)
+  await pause(page, 2500)
 
-  await narrate("The proof is verifiable by anyone. Voluntary. And if she chose full disclosure mode instead of blind, it would also reveal which derivation path she used.")
-  await pause(page, 1500)
+  // Ring endorse animation
+  await Promise.all([
+    narrate('Watch what happens when the circle endorses someone. The golden arc sweeps through the ring members. One NIP-eighty-five event, anonymous, verifiable.'),
+    (async () => {
+      await pause(page, 500)
+      await clickButton(page, 'RING ENDORSE', { moveDuration: 400 })
+    })(),
+  ])
+
+  await pause(page, 4000) // let the arc animation play
+
+  // Duress animation
+  await Promise.all([
+    narrate('And if a member is compromised? Canary-kit detects the missing heartbeat and isolates the node. Coerced trust scores cannot corrupt the graph. Ring signatures alone are not enough. You need liveness too.'),
+    (async () => {
+      await pause(page, 1000)
+      await clickButton(page, 'DURESS', { moveDuration: 400 })
+    })(),
+  ])
+
+  await pause(page, 4000) // let the duress animation play
 
   await hideCursor(page)
 
   // ===================================================
-  // CLOSE -- 30s
+  // CLOSE — 20s
   // ===================================================
-  await narrate("That's Veil. Trust scores you can verify, from contributors you can't identify. Standard NIP-eighty-five events that any client can consume. Cryptographic proofs that Veil-aware clients can verify.")
+  await narrate('That is Veil. Trust scores you can verify, from contributors you cannot identify. Standard NIP-eighty-five events that any client can consume. Cryptographic proofs that Veil-aware clients can verify.')
   await pause(page, 1500)
 
-  await narrate("The crypto primitives powering this — ring-sig, nostr-attestations, nsec-tree — are published npm packages you can use today. One hundred tests. MIT licence. Ready for production.")
+  await narrate('The crypto primitives powering this, ring-sig, nostr-attestations, nsec-tree, are published npm packages you can use today. One hundred and seventy-eight tests. MIT licence.')
   await pause(page, 1500)
 
-  await narrate("nostr-veil. Privacy-preserving Web of Trust for Nostr.")
+  await narrate('nostr-veil. Anonymous group trust for Nostr.')
   await pause(page, 3000)
 
   return startTimestamp
@@ -255,7 +325,6 @@ async function main() {
     const startTimestamp = await runDemo(page)
 
     await page.close()
-    const video = await context.pages()[0]?.video()?.path() || (await context.close(), null)
     await context.close()
     await browser.close()
 
@@ -267,7 +336,7 @@ async function main() {
     // Compose final video
     compose(videoPath, `${OUTPUT_DIR}/nostr-veil-demo.mp4`, startTimestamp)
 
-    console.log('\n✓ Demo recording complete: output/nostr-veil-demo.mp4')
+    console.log('\n\u2713 Demo recording complete: output/nostr-veil-demo.mp4')
   } finally {
     server.kill()
   }

@@ -23,7 +23,7 @@ export function compose(videoPath, outputPath, startTimestamp) {
     `${mixInputs}amix=inputs=${clips.length}:duration=longest:normalize=0[aout]`
   ].join(';')
 
-  const cmd = `ffmpeg -y -i "${videoPath}" ${inputs} -filter_complex "${filter}" -map 0:v -map "[aout]" -c:v copy -c:a aac -b:a 128k "${outputPath}"`
+  const cmd = `ffmpeg -y -i "${videoPath}" ${inputs} -filter_complex "${filter}" -map 0:v -map "[aout]" -c:v libx264 -preset fast -crf 18 -pix_fmt yuv420p -c:a aac -b:a 128k "${outputPath}"`
 
   console.log(`[compose] Mixing ${clips.length} audio clips into video...`)
   execSync(cmd, { stdio: 'inherit' })
