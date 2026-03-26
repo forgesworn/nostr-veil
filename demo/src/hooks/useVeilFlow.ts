@@ -1,8 +1,8 @@
 import { useState, useCallback } from 'react'
 
-export type Screen = 'circle' | 'source' | 'veil' | 'verification' | 'reveal'
+export type Screen = 'circle' | 'source' | 'veil' | 'verification' | 'reveal' | 'network'
 
-const SCREEN_ORDER: Screen[] = ['circle', 'source', 'veil', 'verification', 'reveal']
+const SCREEN_ORDER: Screen[] = ['circle', 'source', 'veil', 'verification', 'reveal', 'network']
 
 export interface VeilFlowState {
   screen: Screen

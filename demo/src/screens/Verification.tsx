@@ -1,5 +1,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { verifyProof } from 'nostr-veil/proof'
+import { Tip } from '../components/Tooltip.js'
+import { useRelay } from '../components/RelayProvider.js'
 import type { ProofVerification } from 'nostr-veil/proof'
 import type { useVeilFlow } from '../hooks/useVeilFlow.js'
 
@@ -11,13 +13,15 @@ interface Step {
 }
 
 export function Verification({ flow }: Props) {
-  const [steps, setSteps] = useState<Step[]>([
-    { label: 'Extracting ring from veil-ring tag...', status: 'pending' },
-    { label: 'Parsing veil-sig LSAG signatures...', status: 'pending' },
-    { label: 'Verifying each signature against the ring...', status: 'pending' },
-    { label: 'Checking key images for duplicates...', status: 'pending' },
-    { label: 'Validating threshold requirement...', status: 'pending' },
-  ])
+  const { addLogEntry } = useRelay()
+  const stepLabels = [
+    'Extracting member pubkeys from veil-ring tag',
+    'Parsing LSAG signatures from veil-sig tags',
+    'Verifying each LSAG signature against the ring of pubkeys',
+    'Checking key images, detecting any double-signers',
+    'Validating threshold: enough unique signers?',
+  ]
+  const [steps, setSteps] = useState<Step[]>(stepLabels.map(label => ({ label, status: 'pending' })))
   const [result, setResult] = useState<ProofVerification | null>(null)
   const didRun = useRef(false)
 
@@ -26,8 +30,15 @@ export function Verification({ flow }: Props) {
     didRun.current = true
 
     const run = async () => {
+      // Log start
+      addLogEntry({
+        kind: 30382, subject: '', anonymous: false,
+        timestamp: Math.floor(Date.now() / 1000),
+        description: 'Verification started. Reading veil-ring and veil-sig tags from the ring-endorsed NIP-85 event.',
+      })
+
       // Animate through verification steps
-      for (let i = 0; i < steps.length; i++) {
+      for (let i = 0; i < stepLabels.length; i++) {
         setSteps(prev => prev.map((s, j) => j === i ? { ...s, status: 'running' } : s))
         await pause(500)
         setSteps(prev => prev.map((s, j) => j === i ? { ...s, status: 'done' } : s))
@@ -39,6 +50,13 @@ export function Verification({ flow }: Props) {
       const verification = verifyProof(event)
       setResult(verification)
       flow.setProofResult(verification)
+
+      // Log result
+      addLogEntry({
+        kind: 30382, subject: '', anonymous: false,
+        timestamp: Math.floor(Date.now() / 1000),
+        description: `Verification complete: ${verification.valid ? 'VALID' : 'INVALID'}. ${verification.distinctSigners} distinct signers in a circle of ${verification.circleSize}. ${verification.errors.length === 0 ? 'No errors.' : verification.errors.join(', ')}`,
+      })
     }
 
     run()
@@ -47,15 +65,21 @@ export function Verification({ flow }: Props) {
 
   return (
     <div>
-      <p style={{ opacity: 0.5, fontSize: '0.8rem', marginBottom: '1.5rem', lineHeight: 1.6 }}>
-        Anyone can verify the proof — no private keys needed, no circle membership required.
-        The maths speaks for itself.
+      <p style={{ color: '#c0c0c0', fontSize: '1.15rem', marginBottom: '0.5rem', lineHeight: 1.7 }}>
+        <strong style={{ color: '#e0e0e0' }}>Trust without identity.</strong> Anyone can verify this event came
+        from the circle. No private keys needed, no circle membership required. The maths proves
+        the scores are legitimate without revealing who scored what.
+      </p>
+      <p style={{ color: '#9ca3af', fontSize: '1rem', marginBottom: '2rem', lineHeight: 1.6 }}>
+        This is what <code style={{ color: '#7b68ee', background: '#0d0d14', padding: '2px 6px' }}>nostr-veil verify</code> does:
+        extract the <Tip term="veil-ring" /> (the circle), parse each <Tip term="veil-sig" /> (anonymous signatures), verify every
+        <Tip term="LSAG" /> signature against the ring, and check <Tip term="key image">key images</Tip> for double-signers.
       </p>
 
       <div style={{ display: 'flex', gap: '3rem', flexWrap: 'wrap' }}>
         {/* Verification steps */}
-        <div style={{ flex: 1, minWidth: 340 }}>
-          <div style={{ fontSize: '0.65rem', color: '#555', letterSpacing: '0.1em', marginBottom: '1rem' }}>
+        <div style={{ flex: 1, minWidth: 400 }}>
+          <div style={{ fontSize: '0.9rem', color: '#b0b0b0', letterSpacing: '0.1em', marginBottom: '1rem' }}>
             VERIFICATION PIPELINE
           </div>
 
@@ -76,10 +100,10 @@ export function Verification({ flow }: Props) {
               >
                 <StepIndicator status={step.status} />
                 <span style={{
-                  fontSize: '0.75rem',
+                  fontSize: '1rem',
                   color: step.status === 'done' ? '#e0e0e0'
                     : step.status === 'running' ? '#7b68ee'
-                    : '#444',
+                    : '#9ca3af',
                 }}>
                   {step.label}
                 </span>
@@ -89,7 +113,10 @@ export function Verification({ flow }: Props) {
 
           {result && (
             <button
-              onClick={flow.next}
+              onClick={() => {
+                addLogEntry({ kind: 0, subject: '', anonymous: false, timestamp: Math.floor(Date.now() / 1000), separator: 'THE REVEAL' })
+                flow.next()
+              }}
               style={{
                 padding: '0.7rem 2rem',
                 background: '#7b68ee',
@@ -108,7 +135,7 @@ export function Verification({ flow }: Props) {
         </div>
 
         {/* Result badge */}
-        <div style={{ minWidth: 280 }}>
+        <div style={{ minWidth: 320 }}>
           {result && (
             <>
               {/* Badge */}
@@ -133,7 +160,7 @@ export function Verification({ flow }: Props) {
                   {result.valid ? '\u2713' : '\u2717'}
                 </div>
                 <div style={{
-                  fontSize: '1rem',
+                  fontSize: '1.2rem',
                   fontWeight: 600,
                   color: result.valid ? '#4ade80' : '#f87171',
                   letterSpacing: '0.15em',
@@ -141,7 +168,7 @@ export function Verification({ flow }: Props) {
                 }}>
                   {result.valid ? 'VALID' : 'INVALID'}
                 </div>
-                <div style={{ fontSize: '0.7rem', color: '#555' }}>
+                <div style={{ fontSize: '0.95rem', color: '#c0c0c0' }}>
                   Ring signature proof verified
                 </div>
               </div>
@@ -163,7 +190,7 @@ export function Verification({ flow }: Props) {
               border: '1px dashed #1a1a2e',
               textAlign: 'center',
             }}>
-              <div style={{ fontSize: '0.75rem', color: '#333' }}>
+              <div style={{ fontSize: '0.85rem', color: '#6b7280' }}>
                 Verifying...
               </div>
             </div>
@@ -206,7 +233,7 @@ function StepIndicator({ status }: { status: Step['status'] }) {
     <div style={{
       width: 16, height: 16,
       borderRadius: '50%',
-      border: '1px solid #333',
+      border: '1px solid #374151',
     }} />
   )
 }
@@ -220,8 +247,8 @@ function StatRow({ label, value, error }: { label: string; value: string; error?
       background: '#0d0d14',
       border: '1px solid #1a1a2e',
     }}>
-      <span style={{ fontSize: '0.7rem', color: '#555' }}>{label}</span>
-      <span style={{ fontSize: '0.75rem', color: error ? '#f87171' : '#e0e0e0', fontWeight: 500 }}>{value}</span>
+      <span style={{ fontSize: '0.95rem', color: '#b0b0b0' }}>{label}</span>
+      <span style={{ fontSize: '1rem', color: error ? '#f87171' : '#e0e0e0', fontWeight: 500 }}>{value}</span>
     </div>
   )
 }

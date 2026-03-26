@@ -1,0 +1,286 @@
+{
+  "_comment": "Frozen NIP-85 interoperability test vectors. Any conformant NIP-85 implementation must produce identical events from the given inputs.",
+  "vectors": [
+    {
+      "id": "user-minimal",
+      "description": "Kind 30382 user assertion with minimal metrics (followers only)",
+      "input": {
+        "builder": "buildUserAssertion",
+        "pubkey": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "metrics": {
+          "followers": 1200
+        }
+      },
+      "expected": {
+        "kind": 30382,
+        "tags": [
+          ["d", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"],
+          ["p", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"],
+          ["followers", "1200"]
+        ],
+        "content": ""
+      }
+    },
+    {
+      "id": "user-full",
+      "description": "Kind 30382 user assertion with all 17 metric fields populated",
+      "input": {
+        "builder": "buildUserAssertion",
+        "pubkey": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "metrics": {
+          "followers": 8500,
+          "rank": 92,
+          "first_created_at": 1672531200,
+          "post_cnt": 3400,
+          "reply_cnt": 1800,
+          "reactions_cnt": 12000,
+          "zap_amt_recd": 5000000,
+          "zap_amt_sent": 2000000,
+          "zap_cnt_recd": 450,
+          "zap_cnt_sent": 200,
+          "zap_avg_amt_day_recd": 15000,
+          "zap_avg_amt_day_sent": 6000,
+          "reports_cnt_recd": 2,
+          "reports_cnt_sent": 0,
+          "t": "nostr",
+          "active_hours_start": 8,
+          "active_hours_end": 22
+        }
+      },
+      "expected": {
+        "kind": 30382,
+        "tags": [
+          ["d", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"],
+          ["p", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"],
+          ["followers", "8500"],
+          ["rank", "92"],
+          ["first_created_at", "1672531200"],
+          ["post_cnt", "3400"],
+          ["reply_cnt", "1800"],
+          ["reactions_cnt", "12000"],
+          ["zap_amt_recd", "5000000"],
+          ["zap_amt_sent", "2000000"],
+          ["zap_cnt_recd", "450"],
+          ["zap_cnt_sent", "200"],
+          ["zap_avg_amt_day_recd", "15000"],
+          ["zap_avg_amt_day_sent", "6000"],
+          ["reports_cnt_recd", "2"],
+          ["reports_cnt_sent", "0"],
+          ["t", "nostr"],
+          ["active_hours_start", "8"],
+          ["active_hours_end", "22"]
+        ],
+        "content": ""
+      }
+    },
+    {
+      "id": "event-basic",
+      "description": "Kind 30383 event assertion with basic metrics (rank + reaction_cnt)",
+      "input": {
+        "builder": "buildEventAssertion",
+        "eventId": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "metrics": {
+          "rank": 75,
+          "reaction_cnt": 42
+        }
+      },
+      "expected": {
+        "kind": 30383,
+        "tags": [
+          ["d", "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"],
+          ["e", "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"],
+          ["rank", "75"],
+          ["reaction_cnt", "42"]
+        ],
+        "content": ""
+      }
+    },
+    {
+      "id": "event-full",
+      "description": "Kind 30383 event assertion with all 7 metric fields",
+      "input": {
+        "builder": "buildEventAssertion",
+        "eventId": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "metrics": {
+          "rank": 88,
+          "comment_cnt": 15,
+          "quote_cnt": 8,
+          "repost_cnt": 120,
+          "reaction_cnt": 350,
+          "zap_cnt": 45,
+          "zap_amount": 1500000
+        }
+      },
+      "expected": {
+        "kind": 30383,
+        "tags": [
+          ["d", "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"],
+          ["e", "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"],
+          ["rank", "88"],
+          ["comment_cnt", "15"],
+          ["quote_cnt", "8"],
+          ["repost_cnt", "120"],
+          ["reaction_cnt", "350"],
+          ["zap_cnt", "45"],
+          ["zap_amount", "1500000"]
+        ],
+        "content": ""
+      }
+    },
+    {
+      "id": "addressable-minimal",
+      "description": "Kind 30384 addressable event assertion with rank only",
+      "input": {
+        "builder": "buildAddressableAssertion",
+        "address": "30023:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc:my-article",
+        "metrics": {
+          "rank": 70
+        }
+      },
+      "expected": {
+        "kind": 30384,
+        "tags": [
+          ["d", "30023:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc:my-article"],
+          ["a", "30023:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc:my-article"],
+          ["rank", "70"]
+        ],
+        "content": ""
+      }
+    },
+    {
+      "id": "addressable-full",
+      "description": "Kind 30384 addressable event assertion with all 7 metric fields",
+      "input": {
+        "builder": "buildAddressableAssertion",
+        "address": "30023:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc:my-article",
+        "metrics": {
+          "rank": 95,
+          "comment_cnt": 30,
+          "quote_cnt": 12,
+          "repost_cnt": 200,
+          "reaction_cnt": 500,
+          "zap_cnt": 80,
+          "zap_amount": 3000000
+        }
+      },
+      "expected": {
+        "kind": 30384,
+        "tags": [
+          ["d", "30023:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc:my-article"],
+          ["a", "30023:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc:my-article"],
+          ["rank", "95"],
+          ["comment_cnt", "30"],
+          ["quote_cnt", "12"],
+          ["repost_cnt", "200"],
+          ["reaction_cnt", "500"],
+          ["zap_cnt", "80"],
+          ["zap_amount", "3000000"]
+        ],
+        "content": ""
+      }
+    },
+    {
+      "id": "identifier-minimal",
+      "description": "Kind 30385 NIP-73 identifier assertion with k-tag and rank only",
+      "input": {
+        "builder": "buildIdentifierAssertion",
+        "identifier": "podcast:bitcoin-audible",
+        "kTag": "30402",
+        "metrics": {
+          "rank": 60
+        }
+      },
+      "expected": {
+        "kind": 30385,
+        "tags": [
+          ["d", "podcast:bitcoin-audible"],
+          ["k", "30402"],
+          ["rank", "60"]
+        ],
+        "content": ""
+      }
+    },
+    {
+      "id": "identifier-full",
+      "description": "Kind 30385 NIP-73 identifier assertion with all 3 metric fields",
+      "input": {
+        "builder": "buildIdentifierAssertion",
+        "identifier": "podcast:bitcoin-audible",
+        "kTag": "30402",
+        "metrics": {
+          "rank": 85,
+          "comment_cnt": 22,
+          "reaction_cnt": 150
+        }
+      },
+      "expected": {
+        "kind": 30385,
+        "tags": [
+          ["d", "podcast:bitcoin-audible"],
+          ["k", "30402"],
+          ["rank", "85"],
+          ["comment_cnt", "22"],
+          ["reaction_cnt", "150"]
+        ],
+        "content": ""
+      }
+    },
+    {
+      "id": "provider-plaintext",
+      "description": "Kind 10040 provider declaration with 3 assertion entries (plaintext)",
+      "input": {
+        "builder": "buildProviderDeclaration",
+        "providers": [
+          {
+            "kind": 30382,
+            "metric": "rank",
+            "servicePubkey": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "relayHint": "wss://relay.example.com"
+          },
+          {
+            "kind": 30382,
+            "metric": "followers",
+            "servicePubkey": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+            "relayHint": "wss://relay2.example.com"
+          },
+          {
+            "kind": 30383,
+            "metric": "reaction_cnt",
+            "servicePubkey": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+            "relayHint": "wss://relay3.example.com"
+          }
+        ]
+      },
+      "expected": {
+        "kind": 10040,
+        "tags": [
+          ["30382:rank", "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd", "wss://relay.example.com"],
+          ["30382:followers", "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee", "wss://relay2.example.com"],
+          ["30383:reaction_cnt", "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", "wss://relay3.example.com"]
+        ],
+        "content": ""
+      }
+    },
+    {
+      "id": "provider-encrypted",
+      "description": "Kind 10040 provider declaration with encrypted content (tags omitted)",
+      "input": {
+        "builder": "buildProviderDeclaration",
+        "providers": [
+          {
+            "kind": 30384,
+            "metric": "rank",
+            "servicePubkey": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "relayHint": "wss://relay.example.com"
+          }
+        ],
+        "encryptedContent": "encrypted-nip44-payload-placeholder"
+      },
+      "expected": {
+        "kind": 10040,
+        "tags": [],
+        "content": "encrypted-nip44-payload-placeholder"
+      }
+    }
+  ]
+}

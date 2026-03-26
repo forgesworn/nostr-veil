@@ -2,6 +2,8 @@ import { useEffect, useState, useMemo, useRef } from 'react'
 import { journalists } from '../data/journalists.js'
 import { source } from '../data/source.js'
 import { createTrustCircle, contributeAssertion, aggregateContributions } from 'nostr-veil/proof'
+import { Tip } from '../components/Tooltip.js'
+import { useRelay } from '../components/RelayProvider.js'
 import type { useVeilFlow } from '../hooks/useVeilFlow.js'
 
 interface Props { flow: ReturnType<typeof useVeilFlow> }
@@ -43,6 +45,7 @@ export function Veil({ flow }: Props) {
   const [event, setEvent] = useState<Record<string, unknown> | null>(null)
   const [aggregateScore, setAggregateScore] = useState<number | null>(null)
   const didRun = useRef(false)
+  const { addLogEntry } = useRelay()
 
   const pubkeys = useMemo(() => journalists.map(j => j.publicKey), [])
 
@@ -61,25 +64,44 @@ export function Veil({ flow }: Props) {
 
       const contributions = journalists.map((j, i) => {
         const score = flow.state.scores.get(i) ?? 50
-        return contributeAssertion(
+        const c = contributeAssertion(
           circle,
           source.publicKey,
           { rank: score },
           j.privateKey,
           circle.members.indexOf(j.publicKey),
         )
+        // Log each NIP-VA attestation created during contribution
+        addLogEntry({
+          kind: 31000,
+          subject: source.publicKey,
+          anonymous: true,
+          timestamp: Math.floor(Date.now() / 1000),
+          description: `NIP-VA (nostr-attestations). ${j.name} created a kind 31000 attestation anchoring their LSAG contribution. This links the ring signature to a verifiable Nostr event.`,
+        })
+        return c
       })
 
       setStatus('Aggregating contributions via LSAG...')
       await pause(400)
 
       const template = aggregateContributions(circle, source.publicKey, contributions)
+
+      // Log the aggregated ring endorsement
+      addLogEntry({
+        kind: 30382,
+        subject: source.publicKey,
+        anonymous: true,
+        timestamp: Math.floor(Date.now() / 1000),
+        description: `NIP-85 ring-endorsed user assertion (kind 30382). ${contributions.length} anonymous LSAG signatures aggregated into a single event with veil-ring and veil-sig tags. Median rank computed from all contributions.`,
+      })
+
       const fullEvent = {
         ...template,
         created_at: Math.floor(Date.now() / 1000),
         pubkey: '0000000000000000000000000000000000000000000000000000000000000000',
-        id: '(unsigned — ring-signed proof, no single author)',
-        sig: '(N/A — proof is in veil-sig tags)',
+        id: '(unsigned; ring-signed proof, no single author)',
+        sig: '(N/A; proof is in veil-sig tags)',
       }
 
       const rankTag = template.tags.find((t: string[]) => t[0] === 'rank')
@@ -98,9 +120,15 @@ export function Veil({ flow }: Props) {
 
   return (
     <div>
-      <p style={{ opacity: 0.5, fontSize: '0.8rem', marginBottom: '1.5rem', lineHeight: 1.6 }}>
-        Each journalist's score is wrapped in an LSAG ring signature. The aggregation produces
-        a single NIP-85 event — provably from circle members, with no way to tell who said what.
+      <p style={{ color: '#c0c0c0', fontSize: '1.15rem', marginBottom: '0.5rem', lineHeight: 1.7 }}>
+        <strong style={{ color: '#e0e0e0' }}>This is the core innovation.</strong> Each journalist's score is wrapped in an <Tip term="LSAG" /> <Tip term="ring signature" /> and
+        aggregated into a single, standard <Tip term="NIP-85" /> kind 30382 event. Any Nostr client can read
+        this event, but no one can tell which journalist gave which score.
+      </p>
+      <p style={{ color: '#9ca3af', fontSize: '1rem', marginBottom: '2rem', lineHeight: 1.6 }}>
+        The <Tip term="veil-ring" /> tag lists the circle's public keys. Each <Tip term="veil-sig" /> tag contains an
+        anonymous LSAG signature with a unique <Tip term="key image" />, preventing any journalist from scoring twice.
+        Watch the event being constructed below.
       </p>
 
       <div style={{
@@ -114,7 +142,7 @@ export function Veil({ flow }: Props) {
           width: 8, height: 8, borderRadius: '50%',
           background: event ? '#4ade80' : '#facc15',
         }} />
-        <span style={{ fontSize: '0.75rem', color: '#888' }}>{status}</span>
+        <span style={{ fontSize: '0.85rem', color: '#9ca3af' }}>{status}</span>
       </div>
 
       {event && (
@@ -126,34 +154,37 @@ export function Veil({ flow }: Props) {
               border: '1px solid rgba(123, 104, 238, 0.2)',
               marginBottom: '1.5rem',
             }}>
-              <div style={{ fontSize: '0.65rem', color: '#555', letterSpacing: '0.1em', marginBottom: '0.8rem' }}>
+              <div style={{ fontSize: '0.75rem', color: '#9ca3af', letterSpacing: '0.1em', marginBottom: '0.8rem' }}>
                 RESULT
               </div>
               <div style={{ fontSize: '1.4rem', color: '#e0e0e0', fontWeight: 500, marginBottom: '0.5rem' }}>
                 {journalists.length} of {journalists.length} journalists
               </div>
-              <div style={{ fontSize: '0.85rem', color: '#888', marginBottom: '1rem' }}>
-                scored this source at rank <span style={{ color: '#7b68ee', fontWeight: 600, fontSize: '1.1rem' }}>{aggregateScore ?? '—'}</span>
+              <div style={{ fontSize: '0.9rem', color: '#9ca3af', marginBottom: '1rem' }}>
+                scored this source at rank <span style={{ color: '#7b68ee', fontWeight: 600, fontSize: '1.1rem' }}>{aggregateScore ?? '-'}</span>
               </div>
 
-              <div style={{ display: 'flex', gap: '1.5rem', fontSize: '0.7rem' }}>
+              <div style={{ display: 'flex', gap: '1.5rem', fontSize: '0.85rem' }}>
                 <div>
-                  <div style={{ color: '#555', marginBottom: '0.2rem' }}>Kind</div>
+                  <div style={{ color: '#9ca3af', marginBottom: '0.2rem' }}>Kind</div>
                   <div style={{ color: '#e0e0e0' }}>30382</div>
                 </div>
                 <div>
-                  <div style={{ color: '#555', marginBottom: '0.2rem' }}>Ring size</div>
+                  <div style={{ color: '#9ca3af', marginBottom: '0.2rem' }}>Ring size</div>
                   <div style={{ color: '#e0e0e0' }}>8</div>
                 </div>
                 <div>
-                  <div style={{ color: '#555', marginBottom: '0.2rem' }}>Signatures</div>
+                  <div style={{ color: '#9ca3af', marginBottom: '0.2rem' }}>Signatures</div>
                   <div style={{ color: '#e0e0e0' }}>{journalists.length}</div>
                 </div>
               </div>
             </div>
 
             <button
-              onClick={flow.next}
+              onClick={() => {
+                addLogEntry({ kind: 0, subject: '', anonymous: false, timestamp: Math.floor(Date.now() / 1000), separator: 'VERIFICATION' })
+                flow.next()
+              }}
               style={{
                 padding: '0.7rem 2rem',
                 background: '#7b68ee',
@@ -171,20 +202,20 @@ export function Veil({ flow }: Props) {
           </div>
 
           <div style={{ flex: 1, minWidth: 400 }}>
-            <div style={{ fontSize: '0.65rem', color: '#555', letterSpacing: '0.1em', marginBottom: '0.5rem' }}>
+            <div style={{ fontSize: '0.75rem', color: '#9ca3af', letterSpacing: '0.1em', marginBottom: '0.5rem' }}>
               NIP-85 EVENT
             </div>
             <pre style={{
               background: '#0a0a12',
               border: '1px solid #1a1a2e',
               padding: '1rem',
-              fontSize: '0.65rem',
+              fontSize: '0.85rem',
               lineHeight: 1.7,
               maxHeight: 500,
               overflowY: 'auto',
               overflowX: 'auto',
               whiteSpace: 'pre',
-              color: '#888',
+              color: '#9ca3af',
             }}>
               {jsonStr && highlightJson(jsonStr)}
             </pre>

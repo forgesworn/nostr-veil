@@ -1,4 +1,7 @@
 import { useVeilFlow, type Screen } from './hooks/useVeilFlow.js'
+import { RelayProvider } from './components/RelayProvider.js'
+import { EventTicker } from './components/EventTicker.js'
+import { Network } from './screens/Network.js'
 import { Circle } from './screens/Circle.js'
 import { Source } from './screens/Source.js'
 import { Veil } from './screens/Veil.js'
@@ -12,6 +15,7 @@ const SCREEN_TITLES: Record<Screen, string> = {
   veil: 'The Veil',
   verification: 'Verification',
   reveal: 'The Reveal',
+  network: 'The Network',
 }
 
 const SCREEN_NUMBERS: Record<Screen, number> = {
@@ -20,6 +24,7 @@ const SCREEN_NUMBERS: Record<Screen, number> = {
   veil: 3,
   verification: 4,
   reveal: 5,
+  network: 6,
 }
 
 const SCREENS: Record<Screen, ComponentType<{ flow: ReturnType<typeof useVeilFlow> }>> = {
@@ -28,16 +33,17 @@ const SCREENS: Record<Screen, ComponentType<{ flow: ReturnType<typeof useVeilFlo
   veil: Veil,
   verification: Verification,
   reveal: Reveal,
+  network: Network,
 }
 
-export function App() {
+function AppInner() {
   const flow = useVeilFlow()
   const title = SCREEN_TITLES[flow.state.screen]
   const screenNum = SCREEN_NUMBERS[flow.state.screen]
   const ScreenComponent = SCREENS[flow.state.screen]
 
   return (
-    <div style={{ minHeight: '100vh', padding: '2rem 3rem', maxWidth: '1200px', margin: '0 auto' }}>
+    <div style={{ minHeight: '100vh', padding: '1.5rem 2rem', paddingBottom: '5.5rem' }}>
       <header style={{
         display: 'flex',
         alignItems: 'baseline',
@@ -46,10 +52,10 @@ export function App() {
         borderBottom: '1px solid #1a1a2e',
         paddingBottom: '1rem',
       }}>
-        <h1 style={{ fontSize: '1.5rem', letterSpacing: '0.2em', fontWeight: 300, color: '#7b68ee' }}>VEIL</h1>
-        <span style={{ fontSize: '0.7rem', opacity: 0.4, letterSpacing: '0.1em' }}>PRIVACY-PRESERVING WEB OF TRUST</span>
+        <h1 style={{ fontSize: '2rem', letterSpacing: '0.2em', fontWeight: 300, color: '#7b68ee' }}>VEIL</h1>
+        <span style={{ fontSize: '0.9rem', color: '#b0b0b0', letterSpacing: '0.1em' }}>ANONYMOUS GROUP TRUST FOR NOSTR</span>
         <div style={{ marginLeft: 'auto', display: 'flex', gap: '0.3rem' }}>
-          {[1, 2, 3, 4, 5].map(n => (
+          {[1, 2, 3, 4, 5, 6].map(n => (
             <div
               key={n}
               style={{
@@ -64,8 +70,8 @@ export function App() {
       </header>
 
       <main>
-        <h2 style={{ fontSize: '1.2rem', fontWeight: 400, marginBottom: '1.5rem', opacity: 0.8 }}>
-          <span style={{ color: '#7b68ee', opacity: 0.5, marginRight: '0.6rem', fontSize: '0.8rem' }}>
+        <h2 style={{ fontSize: '1.6rem', fontWeight: 400, marginBottom: '1.5rem', color: '#e0e0e0' }}>
+          <span style={{ color: '#7b68ee', opacity: 0.7, marginRight: '0.6rem', fontSize: '1rem' }}>
             {String(screenNum).padStart(2, '0')}
           </span>
           {title}
@@ -81,5 +87,14 @@ export function App() {
         }
       `}</style>
     </div>
+  )
+}
+
+export function App() {
+  return (
+    <RelayProvider useDemoData={true}>
+      <AppInner />
+      <EventTicker />
+    </RelayProvider>
   )
 }

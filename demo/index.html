@@ -5,16 +5,45 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Veil — Privacy-Preserving Web of Trust</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600&family=Playfair+Display:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
+    :root {
+      --bg-deep: #08090d;
+      --bg-surface: #0a0c12;
+      --bg-raised: #0d0d14;
+      --border-subtle: #141825;
+      --border-dim: #1a1a2e;
+      --text-primary: #e0e0e0;
+      --text-secondary: #9ca3af;
+      --text-muted: #4b5563;
+      --accent-teal: #0d9488;
+      --accent-amber: #d97706;
+      --accent-purple: #7b68ee;
+      --accent-crimson: #dc2626;
+    }
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
-      background: #08080d;
+      background: #08090d;
+      background-image:
+        repeating-linear-gradient(0deg, transparent, transparent 39px, rgba(26,26,46,0.3) 39px, rgba(26,26,46,0.3) 40px),
+        repeating-linear-gradient(90deg, transparent, transparent 39px, rgba(26,26,46,0.3) 39px, rgba(26,26,46,0.3) 40px);
       color: #e0e0e0;
-      font-family: 'JetBrains Mono', monospace;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, sans-serif;
       -webkit-font-smoothing: antialiased;
     }
+    h1, h2, h3 {
+      font-family: 'Playfair Display', serif;
+    }
+    code, pre, .mono {
+      font-family: 'JetBrains Mono', monospace;
+    }
     #root { min-height: 100vh; }
+
+    @keyframes ticker-scroll {
+      from { transform: translateX(0); }
+      to { transform: translateX(-50%); }
+    }
   </style>
 </head>
 <body>

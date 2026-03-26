@@ -13,7 +13,8 @@
       "nostr-veil": ["../src/index.ts"],
       "nostr-veil/proof": ["../src/proof/index.ts"],
       "nostr-veil/nip85": ["../src/nip85/index.ts"],
-      "nostr-veil/identity": ["../src/identity/index.ts"]
+      "nostr-veil/identity": ["../src/identity/index.ts"],
+      "nostr-veil/graph": ["../src/scorer/index.ts"]
     }
   },
   "include": ["src"]

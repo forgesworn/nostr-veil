@@ -1,6 +1,8 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { journalists } from '../data/journalists.js'
 import { source } from '../data/source.js'
+import { Tip } from '../components/Tooltip.js'
+import { useRelay } from '../components/RelayProvider.js'
 import type { useVeilFlow } from '../hooks/useVeilFlow.js'
 
 interface Props { flow: ReturnType<typeof useVeilFlow> }
@@ -26,6 +28,19 @@ export function Source({ flow }: Props) {
   const [feed, setFeed] = useState<AttestationCard[]>([])
   const [npcsDone, setNpcsDone] = useState(false)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const { addLogEntry } = useRelay()
+
+  const handleSubmit = useCallback(() => {
+    addLogEntry({
+      kind: 30382,
+      subject: source.publicKey,
+      anonymous: false,
+      timestamp: Math.floor(Date.now() / 1000),
+      description: `${journalists.length} journalists submitted NIP-85 credibility scores for the source. Scores range from 0 to 100. These will be aggregated via LSAG ring signatures in the next step.`,
+    })
+    addLogEntry({ kind: 0, subject: '', anonymous: false, timestamp: Math.floor(Date.now() / 1000), separator: 'THE VEIL' })
+    flow.next()
+  }, [addLogEntry, flow])
 
   // Drip-feed NPC attestations one at a time
   useEffect(() => {
@@ -66,9 +81,14 @@ export function Source({ flow }: Props) {
 
   return (
     <div>
-      <p style={{ opacity: 0.5, fontSize: '0.8rem', marginBottom: '1.5rem', lineHeight: 1.6 }}>
+      <p style={{ color: '#c0c0c0', fontSize: '1.15rem', marginBottom: '0.5rem', lineHeight: 1.7 }}>
         A whistleblower approaches the circle. Each journalist independently scores the
-        source's credibility — anonymously, through the veil.
+        source's credibility using the <Tip term="NIP-85" /> rank metric (0–100). In standard NIP-85, each
+        score would be published under the journalist's real identity, making them a target.
+        With nostr-veil, their individual scores stay private.
+      </p>
+      <p style={{ color: '#7b68ee', fontSize: '1.05rem', marginBottom: '2rem' }}>
+        Use the slider to set your score. The other journalists are scoring in parallel.
       </p>
 
       <div style={{ display: 'flex', gap: '3rem', flexWrap: 'wrap' }}>
@@ -93,10 +113,10 @@ export function Source({ flow }: Props) {
               </div>
               <div>
                 <div style={{ fontSize: '0.9rem', color: '#e0e0e0', fontWeight: 500 }}>{source.name}</div>
-                <div style={{ fontSize: '0.65rem', color: '#555' }}>{truncate(source.publicKey)}</div>
+                <div style={{ fontSize: '0.75rem', color: '#6b7280' }}>{truncate(source.publicKey)}</div>
               </div>
             </div>
-            <p style={{ fontSize: '0.75rem', color: '#888', lineHeight: 1.5 }}>
+            <p style={{ fontSize: '0.9rem', color: '#9ca3af', lineHeight: 1.5 }}>
               {source.description}
             </p>
           </div>
@@ -112,8 +132,8 @@ export function Source({ flow }: Props) {
               <div style={{ fontSize: '0.7rem', color: '#7b68ee', letterSpacing: '0.1em' }}>
                 YOUR CREDIBILITY SCORE
               </div>
-              <div style={{ fontSize: '1.2rem', color: '#e0e0e0', fontWeight: 500 }}>
-                {userScore !== null ? userScore : '—'}
+              <div style={{ fontSize: '1.2rem', color: userScore !== null ? '#e0e0e0' : '#7b68ee', fontWeight: 500 }}>
+                {userScore !== null ? userScore : 'Move the slider'}
               </div>
             </div>
 
@@ -137,27 +157,27 @@ export function Source({ flow }: Props) {
               />
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.6rem', color: '#444' }}>
-              <span>0 — not credible</span>
-              <span>100 — highly credible</span>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: '#6b7280' }}>
+              <span>0: not credible</span>
+              <span>100: highly credible</span>
             </div>
           </div>
 
-          <div style={{ fontSize: '0.65rem', color: '#444', marginBottom: '0.6rem' }}>
+          <div style={{ fontSize: '0.8rem', color: '#6b7280', marginBottom: '0.6rem' }}>
             Scoring as: <span style={{ color: '#7b68ee' }}>{journalists[selected].name}</span>
           </div>
 
           <button
-            onClick={flow.next}
+            onClick={handleSubmit}
             disabled={!allReady}
             style={{
               padding: '0.7rem 2rem',
               background: allReady ? '#7b68ee' : 'transparent',
-              border: allReady ? '1px solid #7b68ee' : '1px solid #333',
-              color: allReady ? '#08080d' : '#444',
+              border: allReady ? '1px solid #7b68ee' : '1px solid #374151',
+              color: allReady ? '#08080d' : '#6b7280',
               fontFamily: 'inherit',
-              fontSize: '0.8rem',
-              fontWeight: 500,
+              fontSize: '1rem',
+              fontWeight: 600,
               cursor: allReady ? 'pointer' : 'not-allowed',
               letterSpacing: '0.08em',
             }}
@@ -168,7 +188,7 @@ export function Source({ flow }: Props) {
 
         {/* Right: Attestation feed */}
         <div style={{ flex: 1, minWidth: 300 }}>
-          <div style={{ fontSize: '0.7rem', color: '#555', letterSpacing: '0.1em', marginBottom: '0.8rem' }}>
+          <div style={{ fontSize: '0.8rem', color: '#9ca3af', letterSpacing: '0.1em', marginBottom: '0.8rem' }}>
             ATTESTATION FEED
           </div>
 
@@ -191,7 +211,7 @@ export function Source({ flow }: Props) {
             ))}
 
             {feed.length === 0 && !userScore && (
-              <div style={{ fontSize: '0.7rem', color: '#333', padding: '1rem', textAlign: 'center' }}>
+              <div style={{ fontSize: '0.85rem', color: '#6b7280', padding: '1rem', textAlign: 'center' }}>
                 Waiting for attestations...
               </div>
             )}
@@ -210,7 +230,7 @@ function AttestationEntry({ name, score, isUser }: { name: string; score: number
       border: isUser ? '1px solid rgba(123, 104, 238, 0.2)' : '1px solid #1a1a2e',
     }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.3rem' }}>
-        <span style={{ fontSize: '0.75rem', color: isUser ? '#7b68ee' : '#888' }}>
+        <span style={{ fontSize: '0.85rem', color: isUser ? '#7b68ee' : '#9ca3af' }}>
           {name} {isUser && '(you)'}
         </span>
         <span style={{
@@ -221,7 +241,7 @@ function AttestationEntry({ name, score, isUser }: { name: string; score: number
           {score}
         </span>
       </div>
-      <div style={{ fontSize: '0.6rem', color: '#333' }}>
+      <div style={{ fontSize: '0.75rem', color: '#6b7280' }}>
         kind: 31000 &middot; type: vouch &middot; metric: rank
       </div>
     </div>

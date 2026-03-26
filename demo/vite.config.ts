@@ -10,6 +10,7 @@ export default defineConfig({
       { find: 'nostr-veil/nip85', replacement: path.resolve(__dirname, '../src/nip85/index.ts') },
       { find: 'nostr-veil/proof', replacement: path.resolve(__dirname, '../src/proof/index.ts') },
       { find: 'nostr-veil/identity', replacement: path.resolve(__dirname, '../src/identity/index.ts') },
+      { find: 'nostr-veil/graph', replacement: path.resolve(__dirname, '../src/scorer/index.ts') },
       { find: /^nostr-veil$/, replacement: path.resolve(__dirname, '../src/index.ts') },
       // @forgesworn/ring-sig uses bare imports without .js — map them to the correct exports
       { find: '@noble/hashes/utils', replacement: '@noble/hashes/utils.js' },
