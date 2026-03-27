@@ -100,8 +100,8 @@ export function Veil({ flow }: Props) {
         ...template,
         created_at: Math.floor(Date.now() / 1000),
         pubkey: '0000000000000000000000000000000000000000000000000000000000000000',
-        id: '(unsigned; ring-signed proof, no single author)',
-        sig: '(N/A; proof is in veil-sig tags)',
+        id: 'computed-on-publish',
+        sig: 'signed-by-publisher',
       }
 
       const rankTag = template.tags.find((t: string[]) => t[0] === 'rank')
