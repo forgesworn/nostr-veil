@@ -428,7 +428,7 @@ Produce an anonymous LSAG-signed contribution to a trust circle assertion.
 - **`metrics`** `Record<string, number>` — Metric key-value pairs
 - **`privateKey`** `string` — 32-byte hex private key of the contributing member
 - **`memberIndex`** `number` — 0-based index in `circle.members` (sorted order)
-- **Returns** `Contribution` with LSAG signature, key image, NIP-VA attestation, and metrics
+- **Returns** `Contribution` with LSAG signature, key image, and metrics
 - **Throws** if `memberIndex` is out of range or the private key doesn't match the expected pubkey
 
 ```ts

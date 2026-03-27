@@ -10,7 +10,6 @@ export default defineConfig({
       'nostr-veil': new URL('./src/index.ts', import.meta.url).pathname,
       'nostr-veil/nip85': new URL('./src/nip85/index.ts', import.meta.url).pathname,
       'nostr-veil/proof': new URL('./src/proof/index.ts', import.meta.url).pathname,
-      'nostr-veil/identity': new URL('./src/identity/index.ts', import.meta.url).pathname,
     },
   },
 })
