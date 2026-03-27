@@ -17,6 +17,17 @@ export function Circle({ flow }: Props) {
   const pubkeys = useMemo(() => journalists.map(j => j.publicKey), [])
   const circle = useMemo(() => createTrustCircle(pubkeys), [pubkeys])
 
+  const handleSelect = useCallback((index: number) => {
+    flow.selectJournalist(index)
+    addLogEntry({
+      kind: 30382,
+      subject: journalists[index].publicKey,
+      anonymous: false,
+      timestamp: Math.floor(Date.now() / 1000),
+      description: `${journalists[index].name} selected as circle member. You will score as this journalist.`,
+    })
+  }, [addLogEntry, flow])
+
   const handleJoin = useCallback(() => {
     addLogEntry({
       kind: 30382,
@@ -62,7 +73,7 @@ export function Circle({ flow }: Props) {
               const isSelected = selected === i
 
               return (
-                <g key={i} onClick={() => flow.selectJournalist(i)} style={{ cursor: 'pointer' }}>
+                <g key={i} onClick={() => handleSelect(i)} style={{ cursor: 'pointer' }}>
                   {isSelected && (
                     <circle cx={x} cy={y} r={34} fill="none" stroke="#7b68ee" strokeWidth={2.5} opacity={0.6} />
                   )}
@@ -141,7 +152,7 @@ export function Circle({ flow }: Props) {
             {journalists.map((j, i) => (
               <div
                 key={i}
-                onClick={() => flow.selectJournalist(i)}
+                onClick={() => handleSelect(i)}
                 style={{
                   display: 'flex',
                   alignItems: 'center',

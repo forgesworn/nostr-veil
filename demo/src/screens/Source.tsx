@@ -62,6 +62,13 @@ export function Source({ flow }: Props) {
         score,
         timestamp: Math.floor(Date.now() / 1000),
       }, ...prev])
+      addLogEntry({
+        kind: 31000,
+        subject: source.publicKey,
+        anonymous: false,
+        timestamp: Math.floor(Date.now() / 1000),
+        description: `${j.name} scored the source at ${score}. NIP-VA attestation (kind 31000).`,
+      })
       idx++
       timerRef.current = setTimeout(drip, 400)
     }
@@ -72,9 +79,22 @@ export function Source({ flow }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  const sliderLoggedRef = useRef(false)
+
   const handleSlider = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = parseInt(e.target.value, 10)
     flow.setScore(selected, val)
+    // Log only once when the user first moves the slider
+    if (!sliderLoggedRef.current) {
+      sliderLoggedRef.current = true
+      addLogEntry({
+        kind: 30382,
+        subject: source.publicKey,
+        anonymous: false,
+        timestamp: Math.floor(Date.now() / 1000),
+        description: `Score set to ${val} for source by ${journalists[selected].name}. NIP-85 credibility metric (0 to 100).`,
+      })
+    }
   }
 
   const allReady = npcsDone && userScore !== null

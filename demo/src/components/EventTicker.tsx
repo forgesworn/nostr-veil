@@ -79,13 +79,17 @@ export function EventTicker() {
     prevLenRef.current = eventLog.length
   }, [eventLog.length])
 
-  // Gentle auto-scroll: 0.5px per frame, pauses on hover
+  // Gentle auto-scroll: 0.3px per frame, pauses on hover, stops when all content is visible
   useEffect(() => {
     let raf: number
     const tick = () => {
       const el = scrollRef.current
       if (el && !pausedRef.current) {
-        el.scrollLeft += 0.5
+        const hasOverflow = el.scrollWidth > el.clientWidth
+        const atEnd = el.scrollLeft >= el.scrollWidth - el.clientWidth - 1
+        if (hasOverflow && !atEnd) {
+          el.scrollLeft += 0.3
+        }
       }
       raf = requestAnimationFrame(tick)
     }

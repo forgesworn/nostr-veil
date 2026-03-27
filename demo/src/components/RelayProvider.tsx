@@ -124,7 +124,7 @@ export function RelayProvider({ children, useDemoData = true }: RelayProviderPro
   const poolRef = useRef<SimplePool | null>(null)
   const demoDataLoadedRef = useRef(false)
 
-  // Drip-feed demo data so the ticker feels alive
+  // Load demo data into graph (but not into the event log ticker)
   useEffect(() => {
     if (!useDemoData || demoDataLoadedRef.current) return
     demoDataLoadedRef.current = true
@@ -133,26 +133,7 @@ export function RelayProvider({ children, useDemoData = true }: RelayProviderPro
     // Load all events into the graph immediately (for the trust graph to work)
     setEvents(demoEvents)
     setLoading(false)
-
-    // But drip-feed events into the log one at a time
-    let idx = 0
-    const drip = setInterval(() => {
-      if (idx >= demoEvents.length) {
-        clearInterval(drip)
-        return
-      }
-      const e = demoEvents[idx]
-      const dTag = e.tags.find(t => t[0] === 'd')
-      setEventLog(prev => [{
-        kind: e.kind,
-        subject: dTag?.[1] ?? '',
-        anonymous: e.tags.some(t => t[0] === 'veil-ring'),
-        timestamp: e.created_at ?? Math.floor(Date.now() / 1000),
-      }, ...prev].slice(0, 100))
-      idx++
-    }, 100)
-
-    return () => clearInterval(drip)
+    // The ticker starts empty. Events appear only as the user interacts.
   }, [useDemoData])
 
   // Attempt relay connection (non-blocking — demo data is already loaded)
