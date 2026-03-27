@@ -13,3 +13,4 @@ demo/dist/
 *.pfx
 credentials.json
 serviceAccountKey.json
+.DS_Store
