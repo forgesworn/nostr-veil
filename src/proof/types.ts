@@ -1,5 +1,3 @@
-import type { EventTemplate } from '../nip85/types.js'
-
 /** A trust circle is a fixed group of pubkeys */
 export interface TrustCircle {
   /** Sorted array of x-only hex pubkeys (64 chars each) */
@@ -12,8 +10,6 @@ export interface TrustCircle {
 
 /** A single member's contribution to a circle assertion */
 export interface Contribution {
-  /** Kind 31000 attestation (unsigned event template) */
-  attestation: EventTemplate
   /** LSAG signature object from @forgesworn/ring-sig */
   signature: {
     keyImage: string

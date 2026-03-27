@@ -1,5 +1,4 @@
 import { lsagSign } from '@forgesworn/ring-sig'
-import { createAttestation } from 'nostr-attestations'
 import type { TrustCircle, Contribution } from './types.js'
 import { canonicalMessage } from './circle.js'
 
@@ -14,7 +13,7 @@ import { canonicalMessage } from './circle.js'
  * @param metrics - Metric key-value pairs (e.g. `{ rank: 85, followers: 1200 }`)
  * @param privateKey - 32-byte hex private key of the contributing member
  * @param memberIndex - 0-based index of this member in `circle.members` (sorted order)
- * @returns A {@link Contribution} containing the LSAG signature, key image, and kind 31000 attestation
+ * @returns A {@link Contribution} containing the LSAG signature, key image, and metrics
  * @throws If `memberIndex` is out of range or the private key doesn't match the pubkey at that index
  */
 export function contributeAssertion(
@@ -29,15 +28,7 @@ export function contributeAssertion(
 
   const signature = lsagSign(message, circle.members, memberIndex, privateKey, electionId)
 
-  const attestation = createAttestation({
-    type: 'vouch',
-    identifier: subject,
-    subject,
-    content: JSON.stringify(metrics),
-  })
-
   return {
-    attestation,
     signature,
     keyImage: signature.keyImage,
     metrics,

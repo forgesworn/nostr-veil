@@ -15,11 +15,9 @@ describe('contributeAssertion', () => {
   const subject = 'dd'.repeat(32)
   const metrics = { rank: 85 }
 
-  it('returns an attestation, signature, and keyImage', () => {
+  it('returns a signature, keyImage, and metrics', () => {
     const memberIndex = circle.members.indexOf(pubKeys[0])
     const result = contributeAssertion(circle, subject, metrics, privKeys[0], memberIndex)
-    expect(result.attestation).toBeDefined()
-    expect(result.attestation.kind).toBe(31000)
     expect(result.signature).toBeDefined()
     expect(result.keyImage).toMatch(/^[0-9a-f]+$/)
     expect(result.metrics).toEqual(metrics)

@@ -6,21 +6,20 @@ Generic AI agent instructions. See also: [CLAUDE.md](./CLAUDE.md) for Claude-spe
 
 ```bash
 npm run build    # tsc -p tsconfig.build.json
-npm test         # vitest run (100 tests across 13 files)
+npm test         # vitest run (115 tests across 11 files)
 npm run lint     # tsc --noEmit
 npm run demo     # Vite dev server for demo app
 ```
 
 ## Architecture
 
-Three layers, each a subpath export:
+Two layers, each a subpath export:
 
 - `src/nip85/` -- NIP-85 foundation (kinds 30382-30385, 10040)
 - `src/proof/` -- LSAG ring-signature proof layer (trust circles, contributions, aggregation, verification)
-- `src/identity/` -- nsec-tree sub-identity compartmentalisation (personas, provider trees, disclosure proofs)
 - `src/signing.ts` -- BIP-340 Schnorr event signing
 
-Tests mirror source: `test/nip85/`, `test/proof/`, `test/identity/`, `test/integration.test.ts`
+Tests mirror source: `test/nip85/`, `test/proof/`, `test/integration.test.ts`
 
 ## Conventions
 
@@ -33,7 +32,7 @@ Tests mirror source: `test/nip85/`, `test/proof/`, `test/identity/`, `test/integ
 ## Key types
 
 - `TrustCircle` -- sorted member pubkeys + SHA-256 circle ID
-- `Contribution` -- LSAG-signed attestation with key image and metrics
+- `Contribution` -- LSAG-signed metrics with key image
 - `ProofVerification` -- result of verifyProof(): valid, circleSize, threshold, distinctSigners, errors
 - `EventTemplate` -- unsigned Nostr event (kind, tags, content)
 

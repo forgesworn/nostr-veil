@@ -5,12 +5,12 @@
 > political dissent. nostr-veil adds LSAG ring-signature privacy to NIP-85
 > assertions so trust scores are verifiable without exposing contributors.
 
-nostr-veil is a TypeScript library for privacy-preserving, cryptographically-
-backed Web of Trust on Nostr. It layers three primitives onto standard NIP-85:
-ring-signature anonymity (LSAG on secp256k1), verifiable attestations (NIP-VA
-kind 31000), and sub-identity compartmentalisation (nsec-tree). The output is a
-standard kind 30382 event that any NIP-85 client reads unchanged -- veil-aware
-clients can additionally verify the cryptographic proofs.
+nostr-veil is a TypeScript library for anonymous trust assertions on Nostr. It
+layers LSAG ring-signature anonymity (on secp256k1) onto standard NIP-85
+assertion events. The output is a standard kind 30382 event that any NIP-85
+client reads unchanged -- veil-aware clients can additionally verify the
+cryptographic proofs via three extra tags: `veil-ring`, `veil-threshold`, and
+`veil-sig`.
 
 ## Getting Started
 
@@ -38,18 +38,16 @@ const result = verifyProof(assertion)
 
 ## Key Concepts
 
-- **Trust circle**: A fixed group of pubkeys that can contribute assertions anonymously. Created with `createTrustCircle()`. Minimum 2 members.
+- **Trust circle**: A fixed group of pubkeys that can contribute assertions anonymously. Created with `createTrustCircle()`. Minimum 2 members, maximum 1000.
 - **Contribution**: A single member's anonymous vote, signed with an LSAG ring signature. The key image prevents double-signing without revealing the signer.
 - **Aggregation**: Contributions are combined (median by default) into a standard NIP-85 event with `veil-ring`, `veil-threshold`, and `veil-sig` tags.
-- **Verification**: `verifyProof()` confirms each LSAG signature is valid, key images are distinct, and the threshold is met -- all without learning who signed.
-- **Sub-identities**: nsec-tree-derived personas let contributors participate under compartmentalised keys, with optional disclosure proofs to link back to a master key.
-- **Threshold**: The threshold in `verifyProof()` equals the number of valid contributions collected -- it is not a configurable minimum. If 3 of 5 members contribute, the threshold is 3. A consuming client can enforce its own minimum by checking `result.distinctSigners >= requiredMinimum`.
-- **Key lifecycle**: `createUserPersona()` and `createProviderTree()` return a `destroy()` handle. Call it when done to zeroize secret key material in memory. Failing to call `destroy()` leaves private keys in the heap. Note: persona identity keys are `Uint8Array` — convert with `bytesToHex()` from `@noble/hashes/utils.js` before passing to `signEvent()`.
+- **Verification**: `verifyProof()` confirms each LSAG signature is valid, key images are distinct, election IDs match, and the threshold is met -- all without learning who signed.
+- **Election ID**: Format `veil:v1:<circleId>:<subject>`. Binds signatures to a specific circle and subject, preventing transplant attacks.
 - **Signing**: `signEvent(template, privateKey)` is exported from the root package. It computes the NIP-01 event ID (SHA-256 of canonical serialisation), signs with BIP-340 Schnorr, and returns a complete `SignedEvent`.
 
 ## API Surface
 
-Three subpath exports, plus a root that re-exports everything:
+Two subpath exports, plus a root that re-exports everything:
 
 **`nostr-veil/nip85`** -- NIP-85 foundation (kinds 30382-30385 + 10040):
 `buildUserAssertion(pubkey, metrics)`, `buildEventAssertion(eventId, metrics)`, `buildAddressableAssertion(address, metrics)`, `buildIdentifierAssertion(identifier, kTag, metrics)`, `buildProviderDeclaration(providers, encryptedContent?)` where providers is `{ kind, metric, servicePubkey, relayHint }[]`, `parseAssertion(event)`, `parseProviderDeclaration(event, decryptFn?)`, `validateAssertion(event)`, `assertionFilter({ kind, subject?, provider? })`, `providerFilter(pubkey)`, `NIP85_KINDS`
@@ -57,19 +55,17 @@ Three subpath exports, plus a root that re-exports everything:
 **`nostr-veil/proof`** -- Ring-signature proof layer:
 `createTrustCircle`, `contributeAssertion`, `aggregateContributions`, `verifyProof`, `canonicalMessage`, `computeCircleId`
 
-**`nostr-veil/identity`** -- Sub-identity compartmentalisation:
-`createUserPersona`, `createProviderTree`, `proveCommonOwnership`, `buildDisclosureEvent`
+## Companion Libraries
 
-**`nostr-veil/graph`** -- Trust graph scoring:
-`buildTrustGraph(events)` builds a directed graph from NIP-85 events (ring-endorsed edges tagged `anonymous: true`). `computeTrustRank(graph)` scores nodes 0-100 with ring endorsements weighted 2x.
+These are not dependencies but complement nostr-veil:
 
-**`nostr-veil/duress`** -- Duress monitoring:
-`createDuressMonitor(options)` timer-based heartbeat monitor, emits `'duress'` events on missed check-ins. `propagateDuressAlert(pubkey, seed, location?)` encrypts a duress alert with AES-256-GCM derived from the group seed. `decryptDuressAlert(key, encrypted)` decrypts (re-exported from canary-kit).
+- [nsec-tree](https://github.com/forgesworn/nsec-tree) -- Deterministic sub-identity derivation for compartmentalised trust circle personas
+- [canary-kit](https://github.com/forgesworn/canary-kit) -- Coercion-resistant verification and duress detection
+- [signet](https://github.com/forgesworn/signet) -- Decentralised identity verification for Nostr
+- [dominion](https://github.com/forgesworn/dominion) -- Epoch-based encrypted content access control
 
 ## Optional
 
 - [README](https://github.com/forgesworn/nostr-veil/blob/main/README.md): Full documentation with architecture diagram
 - [IMPACT.md](https://github.com/forgesworn/nostr-veil/blob/main/IMPACT.md): Problem statement and ecosystem impact
 - [@forgesworn/ring-sig](https://github.com/forgesworn/ring-sig): Underlying LSAG ring signature library
-- [nostr-attestations](https://github.com/forgesworn/nostr-attestations): NIP-VA kind 31000 attestation library
-- [nsec-tree](https://github.com/TheCryptoDonkey/nsec-tree): Deterministic sub-identity derivation

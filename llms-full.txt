@@ -5,12 +5,12 @@
 > political dissent. nostr-veil adds LSAG ring-signature privacy to NIP-85
 > assertions so trust scores are verifiable without exposing contributors.
 
-nostr-veil is a TypeScript library for privacy-preserving, cryptographically-
-backed Web of Trust on Nostr. It layers three primitives onto standard NIP-85:
-ring-signature anonymity (LSAG on secp256k1), verifiable attestations (NIP-VA
-kind 31000), and sub-identity compartmentalisation (nsec-tree). The output is a
-standard kind 30382 event that any NIP-85 client reads unchanged — veil-aware
-clients can additionally verify the cryptographic proofs.
+nostr-veil is a TypeScript library for anonymous trust assertions on Nostr. It
+layers LSAG ring-signature anonymity (on secp256k1) onto standard NIP-85
+assertion events. The output is a standard kind 30382 event that any NIP-85
+client reads unchanged -- veil-aware clients can additionally verify the
+cryptographic proofs via three extra tags: `veil-ring`, `veil-threshold`, and
+`veil-sig`.
 
 ## Installation
 
@@ -85,7 +85,6 @@ interface TrustCircle {
 
 ```ts
 interface Contribution {
-  attestation: EventTemplate   // kind 31000 NIP-VA attestation (unsigned)
   signature: {
     keyImage: string
     c0: string
@@ -227,23 +226,6 @@ interface NostrFilter {
 
 ```ts
 type AggregateFn = (values: number[]) => number
-```
-
-### Identity types
-
-```ts
-interface ProviderTree {
-  algorithms: Map<string, Identity>           // algorithm name → nsec-tree Identity
-  metadataTemplates: Map<string, EventTemplate> // algorithm name → kind 0 template
-  destroy(): void
-}
-
-interface PersonaHandle {
-  persona: Persona    // nsec-tree Persona
-  destroy(): void
-}
-
-type DisclosureProofs = [LinkageProof, LinkageProof]
 ```
 
 ## API Reference
@@ -521,240 +503,7 @@ const msg = canonicalMessage(circle.circleId, subjectPubkey, { rank: 85 })
 
 ---
 
-### `nostr-veil/identity` — Sub-Identity Compartmentalisation
-
-#### `createUserPersona(rootNsec, name) → PersonaHandle`
-
-Derive a named persona from a master nsec using nsec-tree.
-
-- **`rootNsec`** `string` — Bech32 master nsec (`nsec1…`)
-- **`name`** `string` — Persona name used as the derivation path
-- **Returns** `PersonaHandle` with `persona` and a `destroy()` method
-
-```ts
-const handle = createUserPersona(masterNsec, 'whistleblower')
-const anonPubkey = handle.persona.identity.pubkey
-handle.destroy()
-```
-
----
-
-#### `createProviderTree(rootNsec, algorithms) → ProviderTree`
-
-Derive per-algorithm provider identities from a master nsec.
-
-- **`rootNsec`** `string` — Bech32 master nsec (`nsec1…`)
-- **`algorithms`** `string[]` — Algorithm names (e.g. `['lsag-median']`)
-- **Returns** `ProviderTree` with `algorithms` map, `metadataTemplates` map, and `destroy()`
-
-```ts
-const tree = createProviderTree(masterNsec, ['lsag-median'])
-const providerIdentity = tree.algorithms.get('lsag-median')!
-tree.destroy()
-```
-
----
-
-#### `proveCommonOwnership(root, identityA, identityB, mode?) → DisclosureProofs`
-
-Prove two identities share a common master key without revealing the derivation path.
-
-- **`root`** `TreeRoot` — nsec-tree root from which both identities were derived
-- **`identityA`** `Identity` — First identity (e.g. anonymous persona)
-- **`identityB`** `Identity` — Second identity (e.g. public journalist key)
-- **`mode`** `'blind' | 'full'` — `'blind'` (default) hides the derivation path; `'full'` reveals it
-- **Returns** `DisclosureProofs` — a pair of `LinkageProof` objects sharing the same `masterPubkey`
-
-```ts
-const proofs = proveCommonOwnership(root, personaIdentity, journalistIdentity)
-const tmpl = buildDisclosureEvent(proofs)
-```
-
----
-
-#### `buildDisclosureEvent(proofs) → EventTemplate`
-
-Build a kind 30078 event embedding linkage proofs for two related identities.
-
-- **`proofs`** `DisclosureProofs` — Pair of `LinkageProof` objects from `proveCommonOwnership`
-- **Returns** `EventTemplate` (kind 30078) with `veil-linkage-a`, `veil-linkage-b`, `veil-master` tags
-
-```ts
-const proofs = proveCommonOwnership(root, personaIdentity, journalistIdentity)
-const tmpl = buildDisclosureEvent(proofs)
-const event = signEvent(tmpl, masterPrivkey)
-await relay.publish(event)
-```
-
----
-
-### `nostr-veil/graph` — Trust Graph Scoring
-
-#### `buildTrustGraph(events) → TrustGraph`
-
-Build a directed trust graph from an array of NIP-85 assertion events.
-
-Each unique subject (d-tag value) becomes a node. Each event becomes an edge.
-Events carrying a `veil-ring` tag are treated as anonymous ring endorsements.
-
-- **`events`** `EventTemplate[]` — Array of unsigned NIP-85 assertion events
-- **Returns** `TrustGraph` with `nodes` (Map keyed by subject pubkey) and `edges` array
-
-```ts
-import { buildTrustGraph } from 'nostr-veil/graph'
-
-const graph = buildTrustGraph(assertionEvents)
-for (const [pubkey, node] of graph.nodes) {
-  console.log(pubkey, node.endorsements, node.ringEndorsements)
-}
-```
-
----
-
-#### `computeTrustRank(graph) → TrustRank[]`
-
-Compute trust rankings from a trust graph. Ring endorsements are weighted 2x:
-`score = endorsements + (ringEndorsements * 2)`, normalised to 0–100.
-
-- **`graph`** `TrustGraph` — Produced by `buildTrustGraph`
-- **Returns** `TrustRank[]` sorted by rank descending
-
-```ts
-import { buildTrustGraph, computeTrustRank } from 'nostr-veil/graph'
-
-const graph = buildTrustGraph(events)
-const rankings = computeTrustRank(graph)
-rankings.forEach(r => console.log(r.pubkey, r.rank, r.providers))
-```
-
----
-
-#### Graph types
-
-```ts
-interface TrustNode {
-  pubkey: string
-  metrics: Record<string, number>
-  endorsements: number
-  ringEndorsements: number
-  providers: string[]
-}
-
-interface TrustEdge {
-  from: string
-  to: string
-  kind: number
-  anonymous: boolean
-  metrics: Record<string, number>
-}
-
-interface TrustGraph {
-  nodes: Map<string, TrustNode>
-  edges: TrustEdge[]
-}
-
-interface TrustRank {
-  pubkey: string
-  rank: number          // 0–100
-  endorsements: number
-  ringEndorsements: number
-  providers: number
-}
-```
-
----
-
-### `nostr-veil/duress` — Duress Monitoring
-
-#### `createDuressMonitor(options) → DuressMonitor`
-
-Create a timer-based duress monitor. Tracks heartbeats per member pubkey. When a
-member fails to check in within `toleranceMs`, a duress event is emitted.
-
-- **`options.toleranceMs`** `number` — Maximum time between heartbeats before alert
-- **`options.checkIntervalMs`** `number` — Check interval (currently unused, reserved)
-- **Returns** `DuressMonitor` with `start()`, `stop()`, `heartbeat(pubkey)`, `on('duress', handler)`, `getState()`
-
-```ts
-import { createDuressMonitor } from 'nostr-veil/duress'
-
-const monitor = createDuressMonitor({ toleranceMs: 60_000, checkIntervalMs: 10_000 })
-monitor.on('duress', (event) => {
-  console.log(`${event.pubkey} missed heartbeat — level: ${event.level}`)
-})
-monitor.start()
-monitor.heartbeat(memberPubkey) // call periodically
-```
-
----
-
-#### `propagateDuressAlert(pubkey, seed, location?) → Promise<string>`
-
-Encrypt a duress alert for a group member. Derives an AES-256 key from the group
-seed via canary-kit, builds the alert payload, and encrypts with AES-256-GCM.
-
-- **`pubkey`** `string` — 64-char hex pubkey of the member under duress
-- **`seed`** `string` — 64-char hex group seed (32 bytes)
-- **`location`** `{ geohash: string; precision: number } | null` — Optional location
-- **Returns** `Promise<string>` — Base64 encrypted alert, ready for Nostr event content
-
-```ts
-import { propagateDuressAlert } from 'nostr-veil/duress'
-
-const encrypted = await propagateDuressAlert(memberPubkey, groupSeed, {
-  geohash: 'gcpuuz',
-  precision: 6,
-})
-```
-
----
-
-#### `decryptDuressAlert(key, encrypted) → DuressAlert`
-
-Decrypt a duress alert (re-exported from canary-kit/beacon).
-
-- **`key`** `Uint8Array` — AES-256 key derived from the group seed
-- **`encrypted`** `string` — Base64 ciphertext from `propagateDuressAlert`
-- **Returns** Decrypted `DuressAlert` payload
-
----
-
-#### Duress types
-
-```ts
-type AlertLevel = 'warning' | 'critical'
-
-interface HeartbeatState {
-  pubkey: string
-  lastSeen: number
-  status: 'active' | 'warning' | 'critical'
-}
-
-interface DuressEvent {
-  type: 'heartbeat-missed'
-  pubkey: string
-  lastSeen: number
-  elapsed: number
-  level: AlertLevel
-}
-
-interface DuressMonitor {
-  heartbeat(pubkey: string): void
-  start(): void
-  stop(): void
-  on(event: 'duress', handler: (e: DuressEvent) => void): void
-  getState(): Map<string, HeartbeatState>
-}
-
-interface DuressMonitorOptions {
-  toleranceMs: number
-  checkIntervalMs: number
-}
-```
-
----
-
-### `nostr-veil` root export — Signing Utilities
+### `nostr-veil` root export -- Signing Utilities
 
 #### `computeEventId(event) → string`
 
@@ -808,35 +557,17 @@ const result = verifyProof(event)
 // { valid: true, circleSize: 3, threshold: 2, distinctSigners: 2, errors: [] }
 ```
 
-## Persona and Disclosure Example
+## Companion Libraries
 
-```ts
-import { createUserPersona, proveCommonOwnership, buildDisclosureEvent } from 'nostr-veil/identity'
-import { signEvent } from 'nostr-veil'
-import { fromNsec } from 'nsec-tree/core'
+These are not dependencies but complement nostr-veil:
 
-// Derive an anonymous persona for whistleblowing participation
-const handle = createUserPersona(masterNsec, 'whistleblower')
-const anonPubkey = handle.persona.identity.pubkey
-
-// … use anonPubkey for trust circle contributions …
-
-// Later: selectively disclose that anonPubkey and publicPubkey share a master key
-const root = fromNsec(masterNsec)
-const proofs = proveCommonOwnership(root, handle.persona.identity, journalistIdentity)
-const tmpl = buildDisclosureEvent(proofs)
-const event = signEvent(tmpl, masterPrivkey)
-await relay.publish(event)
-
-// Always clean up key material
-handle.destroy()
-root.destroy()
-```
+- [nsec-tree](https://github.com/forgesworn/nsec-tree) -- Sub-identity derivation for compartmentalised trust circle personas
+- [canary-kit](https://github.com/forgesworn/canary-kit) -- Coercion-resistant verification and duress detection
+- [signet](https://github.com/forgesworn/signet) -- Decentralised identity verification for Nostr
+- [dominion](https://github.com/forgesworn/dominion) -- Epoch-based encrypted content access control
 
 ## Optional
 
 - [README](https://github.com/forgesworn/nostr-veil/blob/main/README.md): Full documentation with architecture diagram
 - [IMPACT.md](https://github.com/forgesworn/nostr-veil/blob/main/IMPACT.md): Problem statement and ecosystem impact
 - [@forgesworn/ring-sig](https://github.com/forgesworn/ring-sig): Underlying LSAG ring signature library
-- [nostr-attestations](https://github.com/forgesworn/nostr-attestations): NIP-VA kind 31000 attestation library
-- [nsec-tree](https://github.com/TheCryptoDonkey/nsec-tree): Deterministic sub-identity derivation

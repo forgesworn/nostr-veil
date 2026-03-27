@@ -12,12 +12,12 @@ We aim to respond within 48 hours and will coordinate disclosure timelines with 
 
 ## Scope
 
-nostr-veil handles cryptographic key material (secp256k1 private keys, nsec master keys) and ring signature operations. Security-relevant areas include:
+nostr-veil handles cryptographic key material (secp256k1 private keys) and ring signature operations. Security-relevant areas include:
 
-- **Key lifecycle** — TreeRoot and Identity objects hold secret key bytes; `destroy()` must be called to zeroize
 - **Canonical JSON** — Ring signature messages use deterministic serialisation; any deviation breaks cross-platform verification
 - **LSAG signatures** — Key image uniqueness uses timing-safe comparison via `@forgesworn/ring-sig`
 - **Event signing** — NIP-01 serialisation for event IDs
+- **Election ID binding** — Signatures are bound to a specific circle+subject combination to prevent transplant attacks
 
 ## Dependencies
 
@@ -25,5 +25,3 @@ This project's cryptographic dependencies are:
 
 - `@forgesworn/ring-sig` — SAG/LSAG ring signatures
 - `@noble/curves` / `@noble/hashes` — Elliptic curve and hash primitives (audited)
-- `nsec-tree` — Deterministic key derivation
-- `nostr-attestations` — Event template construction (no crypto)

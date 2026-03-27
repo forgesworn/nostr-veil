@@ -1,7 +1,7 @@
 {
   "name": "nostr-veil",
   "version": "0.1.0",
-  "description": "Privacy-preserving, verifiable Web of Trust for Nostr. LSAG ring-signature-backed NIP-85 assertions with sub-identity compartmentalisation.",
+  "description": "Anonymous trust assertions for Nostr. LSAG ring-signature-backed NIP-85 endorsements where contributors are verifiable but unidentifiable.",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -17,18 +17,6 @@
     "./proof": {
       "types": "./dist/proof/index.d.ts",
       "import": "./dist/proof/index.js"
-    },
-    "./identity": {
-      "types": "./dist/identity/index.d.ts",
-      "import": "./dist/identity/index.js"
-    },
-    "./graph": {
-      "types": "./dist/scorer/index.d.ts",
-      "import": "./dist/scorer/index.js"
-    },
-    "./duress": {
-      "types": "./dist/duress/index.d.ts",
-      "import": "./dist/duress/index.js"
     }
   },
   "bin": {
@@ -60,7 +48,6 @@
     "lsag",
     "privacy",
     "trust",
-    "attestations",
     "anonymous",
     "cryptography",
     "secp256k1",
@@ -87,10 +74,7 @@
   "dependencies": {
     "@forgesworn/ring-sig": "^2.0.0",
     "@noble/curves": "^2.0.1",
-    "@noble/hashes": "^2.0.1",
-    "canary-kit": "^2.6.2",
-    "nostr-attestations": "^2.1.0",
-    "nsec-tree": "^1.4.1"
+    "@noble/hashes": "^2.0.1"
   },
   "devDependencies": {
     "@playwright/test": "^1.58.2",

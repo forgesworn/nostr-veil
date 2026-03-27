@@ -7,7 +7,6 @@ Runnable examples for nostr-veil. Each script is self-contained.
 ```bash
 npx tsx examples/basic-circle.ts
 npx tsx examples/partial-threshold.ts
-npx tsx examples/identity-disclosure.ts
 npx tsx examples/nip85-provider.ts
 ```
 

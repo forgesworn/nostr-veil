@@ -25,7 +25,6 @@ The demo is a separate Vite app in `demo/` with its own `package.json`. Run `cd 
 
 - `src/nip85/` — NIP-85 event builders, parsers, validators, filters
 - `src/proof/` — LSAG ring-signature trust circles, contributions, aggregation, verification
-- `src/identity/` — nsec-tree provider trees, personas, disclosure proofs
 - `src/signing.ts` — BIP-340 Schnorr event signing
 - `test/` — mirrors `src/` structure
 - `demo/` — Vite + React interactive demo
