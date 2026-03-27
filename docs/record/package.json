@@ -1,8 +1,0 @@
-{
-  "name": "nostr-veil-demo-recording",
-  "private": true,
-  "type": "module",
-  "dependencies": {
-    "@playwright/test": "^1.58.0"
-  }
-}
