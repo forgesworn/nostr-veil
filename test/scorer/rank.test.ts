@@ -127,7 +127,7 @@ describe('computeTrustRank', () => {
           metrics: {},
           endorsements: 0,
           ringEndorsements: 0,
-          providers: [],
+          providers: new Set<string>(),
         }],
       ]),
       edges: [],

@@ -67,4 +67,31 @@ describe('verifyProof', () => {
     expect(result.valid).toBe(false)
     expect(result.errors[0]).toMatch(/Invalid threshold/)
   })
+
+  it('rejects signature transplant: valid sigs from subject A placed on event for subject B', () => {
+    const eventA = makeEvent()
+    const differentSubject = 'ee'.repeat(32)
+    // Transplant all tags except d-tag onto a different subject
+    const transplanted = {
+      kind: eventA.kind,
+      tags: eventA.tags.map(t => t[0] === 'd' ? ['d', differentSubject] : t[0] === 'p' ? ['p', differentSubject] : t),
+      content: eventA.content,
+    }
+    const result = verifyProof(transplanted)
+    expect(result.valid).toBe(false)
+    expect(result.errors.some(e => /electionId mismatch/.test(e))).toBe(true)
+  })
+
+  it('rejects signatures with missing electionId (bypass attempt)', () => {
+    const event = makeEvent()
+    const sigIdx = event.tags.findIndex(t => t[0] === 'veil-sig')
+    const sig = JSON.parse(event.tags[sigIdx][1])
+    delete sig.electionId
+    event.tags[sigIdx][1] = JSON.stringify(sig)
+    const result = verifyProof(event)
+    // LSAG verification itself fails without electionId (it's part of the signed structure),
+    // so the signature is rejected before we even reach the binding check
+    expect(result.valid).toBe(false)
+    expect(result.errors.length).toBeGreaterThan(0)
+  })
 })

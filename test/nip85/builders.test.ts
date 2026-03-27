@@ -58,3 +58,25 @@ describe('buildProviderDeclaration', () => {
     expect(event.tags).toEqual([])
   })
 })
+
+describe('input validation', () => {
+  it('rejects non-hex pubkey in buildUserAssertion', () => {
+    expect(() => buildUserAssertion('not-a-hex-pubkey', { rank: 50 })).toThrow(/64-character lowercase hex/)
+  })
+
+  it('rejects uppercase hex pubkey', () => {
+    expect(() => buildUserAssertion('A'.repeat(64), { rank: 50 })).toThrow(/64-character lowercase hex/)
+  })
+
+  it('rejects 63-char hex pubkey', () => {
+    expect(() => buildUserAssertion('a'.repeat(63), { rank: 50 })).toThrow(/64-character lowercase hex/)
+  })
+
+  it('rejects NaN metric value', () => {
+    expect(() => buildUserAssertion('a'.repeat(64), { rank: NaN })).toThrow(/finite number/)
+  })
+
+  it('rejects Infinity metric value', () => {
+    expect(() => buildUserAssertion('a'.repeat(64), { rank: Infinity })).toThrow(/finite number/)
+  })
+})

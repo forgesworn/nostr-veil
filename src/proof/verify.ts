@@ -53,6 +53,7 @@ export function verifyProof(event: {
     return { valid: false, circleSize, threshold, distinctSigners: 0, errors }
   }
 
+  const dTag = event.tags.find(t => t[0] === 'd')
   const keyImages: string[] = []
   let validSigs = 0
 
@@ -70,12 +71,16 @@ export function verifyProof(event: {
       // Bind the signature to this event's subject: the electionId must match
       // the pattern veil:v1:<circleId>:<subject> derived from the ring and d-tag.
       // Without this check, valid signatures could be transplanted between events.
-      const dTag = event.tags.find(t => t[0] === 'd')
-      if (dTag && typeof sigData.electionId === 'string') {
+      // Missing electionId is treated as failure — stripping it is the simplest bypass.
+      if (dTag) {
+        if (typeof sigData.electionId !== 'string') {
+          errors.push(`Signature at index ${i} missing electionId`)
+          continue
+        }
         const expectedCircleId = computeCircleId([...ring].sort())
         const expectedElectionId = `veil:v1:${expectedCircleId}:${dTag[1]}`
         if (sigData.electionId !== expectedElectionId) {
-          errors.push(`Signature at index ${i} electionId mismatch: expected "${expectedElectionId}" but got "${sigData.electionId}"`)
+          errors.push(`Signature at index ${i} electionId mismatch`)
           continue
         }
       }
