@@ -120,6 +120,21 @@ The resulting `assertion` is a plain `EventTemplate` you sign and publish like a
 | `proveCommonOwnership(root, identityA, identityB, mode?)` | Prove two personas share a master key (blind or full disclosure) |
 | `buildDisclosureEvent(proofs)` | Build a kind 30078 disclosure event from linkage proofs |
 
+### `nostr-veil/graph` — Trust graph scoring
+
+| Export | Description |
+|--------|-------------|
+| `buildTrustGraph(events)` | Build a directed trust graph from NIP-85 assertion events. Ring-endorsed edges are tagged `anonymous: true`. |
+| `computeTrustRank(graph)` | Compute trust rankings from a graph. Ring endorsements are weighted 2x. Returns sorted `TrustRank[]` with normalised 0–100 scores. |
+
+### `nostr-veil/duress` — Duress monitoring
+
+| Export | Description |
+|--------|-------------|
+| `createDuressMonitor(options)` | Create a timer-based heartbeat monitor. Emits `'duress'` events when a member fails to check in within `toleranceMs`. |
+| `propagateDuressAlert(pubkey, seed, location?)` | Derive an AES-256 key from the group seed, encrypt a duress alert payload. Returns base64 ciphertext ready for Nostr. |
+| `decryptDuressAlert(key, encrypted)` | Decrypt a duress alert (re-exported from canary-kit). |
+
 ### Signing utility (root export)
 
 | Export | Description |

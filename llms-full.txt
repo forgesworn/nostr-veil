@@ -455,17 +455,17 @@ const contrib = contributeAssertion(circle, subjectPubkey, { rank: 85 }, alicePr
 
 ---
 
-#### `aggregateContributions(circle, subject, contributions, aggregateFn?) → EventTemplate`
+#### `aggregateContributions(circle, subject, contributions, options?) → EventTemplate`
 
-Aggregate multiple contributions into a single NIP-85 kind 30382 event with proof tags.
+Aggregate multiple contributions into a single NIP-85 event with proof tags.
 
 Validates all LSAG signatures and checks key image uniqueness before aggregating.
 
 - **`circle`** `TrustCircle` — The trust circle the contributions belong to
 - **`subject`** `string` — The d-tag value (must match what contributors signed)
 - **`contributions`** `Contribution[]` — Array of contributions from circle members
-- **`aggregateFn`** `AggregateFn` — Optional; defaults to median
-- **Returns** `EventTemplate` (kind 30382) with `veil-ring`, `veil-threshold`, and `veil-sig` tags
+- **`options`** `AggregateFn | { aggregateFn?: AggregateFn; kind?: number }` — Pass a function for custom aggregation (default: median), or an options object to also specify the NIP-85 assertion kind (default: 30382 USER). Supports kinds 30382, 30383, 30384, 30385.
+- **Returns** `EventTemplate` with `veil-ring`, `veil-threshold`, and `veil-sig` tags
 - **Throws** if any LSAG signature is invalid or duplicate key images are detected
 
 ```ts
@@ -584,6 +584,172 @@ const proofs = proveCommonOwnership(root, personaIdentity, journalistIdentity)
 const tmpl = buildDisclosureEvent(proofs)
 const event = signEvent(tmpl, masterPrivkey)
 await relay.publish(event)
+```
+
+---
+
+### `nostr-veil/graph` — Trust Graph Scoring
+
+#### `buildTrustGraph(events) → TrustGraph`
+
+Build a directed trust graph from an array of NIP-85 assertion events.
+
+Each unique subject (d-tag value) becomes a node. Each event becomes an edge.
+Events carrying a `veil-ring` tag are treated as anonymous ring endorsements.
+
+- **`events`** `EventTemplate[]` — Array of unsigned NIP-85 assertion events
+- **Returns** `TrustGraph` with `nodes` (Map keyed by subject pubkey) and `edges` array
+
+```ts
+import { buildTrustGraph } from 'nostr-veil/graph'
+
+const graph = buildTrustGraph(assertionEvents)
+for (const [pubkey, node] of graph.nodes) {
+  console.log(pubkey, node.endorsements, node.ringEndorsements)
+}
+```
+
+---
+
+#### `computeTrustRank(graph) → TrustRank[]`
+
+Compute trust rankings from a trust graph. Ring endorsements are weighted 2x:
+`score = endorsements + (ringEndorsements * 2)`, normalised to 0–100.
+
+- **`graph`** `TrustGraph` — Produced by `buildTrustGraph`
+- **Returns** `TrustRank[]` sorted by rank descending
+
+```ts
+import { buildTrustGraph, computeTrustRank } from 'nostr-veil/graph'
+
+const graph = buildTrustGraph(events)
+const rankings = computeTrustRank(graph)
+rankings.forEach(r => console.log(r.pubkey, r.rank, r.providers))
+```
+
+---
+
+#### Graph types
+
+```ts
+interface TrustNode {
+  pubkey: string
+  metrics: Record<string, number>
+  endorsements: number
+  ringEndorsements: number
+  providers: string[]
+}
+
+interface TrustEdge {
+  from: string
+  to: string
+  kind: number
+  anonymous: boolean
+  metrics: Record<string, number>
+}
+
+interface TrustGraph {
+  nodes: Map<string, TrustNode>
+  edges: TrustEdge[]
+}
+
+interface TrustRank {
+  pubkey: string
+  rank: number          // 0–100
+  endorsements: number
+  ringEndorsements: number
+  providers: number
+}
+```
+
+---
+
+### `nostr-veil/duress` — Duress Monitoring
+
+#### `createDuressMonitor(options) → DuressMonitor`
+
+Create a timer-based duress monitor. Tracks heartbeats per member pubkey. When a
+member fails to check in within `toleranceMs`, a duress event is emitted.
+
+- **`options.toleranceMs`** `number` — Maximum time between heartbeats before alert
+- **`options.checkIntervalMs`** `number` — Check interval (currently unused, reserved)
+- **Returns** `DuressMonitor` with `start()`, `stop()`, `heartbeat(pubkey)`, `on('duress', handler)`, `getState()`
+
+```ts
+import { createDuressMonitor } from 'nostr-veil/duress'
+
+const monitor = createDuressMonitor({ toleranceMs: 60_000, checkIntervalMs: 10_000 })
+monitor.on('duress', (event) => {
+  console.log(`${event.pubkey} missed heartbeat — level: ${event.level}`)
+})
+monitor.start()
+monitor.heartbeat(memberPubkey) // call periodically
+```
+
+---
+
+#### `propagateDuressAlert(pubkey, seed, location?) → Promise<string>`
+
+Encrypt a duress alert for a group member. Derives an AES-256 key from the group
+seed via canary-kit, builds the alert payload, and encrypts with AES-256-GCM.
+
+- **`pubkey`** `string` — 64-char hex pubkey of the member under duress
+- **`seed`** `string` — 64-char hex group seed (32 bytes)
+- **`location`** `{ geohash: string; precision: number } | null` — Optional location
+- **Returns** `Promise<string>` — Base64 encrypted alert, ready for Nostr event content
+
+```ts
+import { propagateDuressAlert } from 'nostr-veil/duress'
+
+const encrypted = await propagateDuressAlert(memberPubkey, groupSeed, {
+  geohash: 'gcpuuz',
+  precision: 6,
+})
+```
+
+---
+
+#### `decryptDuressAlert(key, encrypted) → DuressAlert`
+
+Decrypt a duress alert (re-exported from canary-kit/beacon).
+
+- **`key`** `Uint8Array` — AES-256 key derived from the group seed
+- **`encrypted`** `string` — Base64 ciphertext from `propagateDuressAlert`
+- **Returns** Decrypted `DuressAlert` payload
+
+---
+
+#### Duress types
+
+```ts
+type AlertLevel = 'warning' | 'critical'
+
+interface HeartbeatState {
+  pubkey: string
+  lastSeen: number
+  status: 'active' | 'warning' | 'critical'
+}
+
+interface DuressEvent {
+  type: 'heartbeat-missed'
+  pubkey: string
+  lastSeen: number
+  elapsed: number
+  level: AlertLevel
+}
+
+interface DuressMonitor {
+  heartbeat(pubkey: string): void
+  start(): void
+  stop(): void
+  on(event: 'duress', handler: (e: DuressEvent) => void): void
+  getState(): Map<string, HeartbeatState>
+}
+
+interface DuressMonitorOptions {
+  toleranceMs: number
+  checkIntervalMs: number
+}
 ```
 
 ---

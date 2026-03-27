@@ -39,22 +39,30 @@ function serialiseSig(sig: Contribution['signature']): string {
  * Aggregate multiple anonymous contributions into a single NIP-85 event.
  *
  * Validates all LSAG signatures and checks key image uniqueness before
- * aggregating metrics (default: median). The result is a standard kind 30382
+ * aggregating metrics (default: median). The result is a standard NIP-85
  * event with additional `veil-ring`, `veil-threshold`, and `veil-sig` tags.
  *
  * @param circle - Trust circle the contributions belong to
  * @param subject - The d-tag value (must match what contributors signed)
  * @param contributions - Array of {@link Contribution} objects from circle members
- * @param aggregateFn - Function to combine metric values (default: median). Receives an array of numbers, returns a single number.
- * @returns An unsigned {@link EventTemplate} (kind 30382) with proof tags — sign and publish as a standard Nostr event
+ * @param options - Optional configuration
+ * @param options.aggregateFn - Function to combine metric values (default: median). Receives an array of numbers, returns a single number.
+ * @param options.kind - NIP-85 assertion kind (default: 30382 USER). Use `NIP85_KINDS.EVENT` (30383), `NIP85_KINDS.ADDRESSABLE` (30384), or `NIP85_KINDS.IDENTIFIER` (30385) for other assertion types.
+ * @returns An unsigned {@link EventTemplate} with proof tags — sign and publish as a standard Nostr event
  * @throws If any LSAG signature is invalid or duplicate key images are detected
  */
 export function aggregateContributions(
   circle: TrustCircle,
   subject: string,
   contributions: Contribution[],
-  aggregateFn: AggregateFn = median
+  options?: AggregateFn | { aggregateFn?: AggregateFn; kind?: number }
 ): EventTemplate {
+  const aggregateFn = typeof options === 'function'
+    ? options
+    : options?.aggregateFn ?? median
+  const kind = typeof options === 'object' && options !== null && 'kind' in options
+    ? options.kind ?? NIP85_KINDS.USER
+    : NIP85_KINDS.USER
   // Validate all signatures
   for (let i = 0; i < contributions.length; i++) {
     if (!lsagVerify(contributions[i].signature)) {
@@ -90,7 +98,7 @@ export function aggregateContributions(
   const sigTags = contributions.map(c => ['veil-sig', serialiseSig(c.signature), c.keyImage])
 
   return {
-    kind: NIP85_KINDS.USER,
+    kind,
     tags: [
       ['d', subject],
       ['p', subject],

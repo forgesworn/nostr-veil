@@ -60,6 +60,12 @@ Three subpath exports, plus a root that re-exports everything:
 **`nostr-veil/identity`** -- Sub-identity compartmentalisation:
 `createUserPersona`, `createProviderTree`, `proveCommonOwnership`, `buildDisclosureEvent`
 
+**`nostr-veil/graph`** -- Trust graph scoring:
+`buildTrustGraph(events)` builds a directed graph from NIP-85 events (ring-endorsed edges tagged `anonymous: true`). `computeTrustRank(graph)` scores nodes 0-100 with ring endorsements weighted 2x.
+
+**`nostr-veil/duress`** -- Duress monitoring:
+`createDuressMonitor(options)` timer-based heartbeat monitor, emits `'duress'` events on missed check-ins. `propagateDuressAlert(pubkey, seed, location?)` encrypts a duress alert with AES-256-GCM derived from the group seed. `decryptDuressAlert(key, encrypted)` decrypts (re-exported from canary-kit).
+
 ## Optional
 
 - [README](https://github.com/forgesworn/nostr-veil/blob/main/README.md): Full documentation with architecture diagram

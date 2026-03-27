@@ -21,10 +21,22 @@
     "./identity": {
       "types": "./dist/identity/index.d.ts",
       "import": "./dist/identity/index.js"
+    },
+    "./graph": {
+      "types": "./dist/scorer/index.d.ts",
+      "import": "./dist/scorer/index.js"
+    },
+    "./duress": {
+      "types": "./dist/duress/index.d.ts",
+      "import": "./dist/duress/index.js"
     }
+  },
+  "bin": {
+    "nostr-veil": "./bin/cli.js"
   },
   "files": [
     "dist",
+    "bin",
     "LICENCE",
     "llms.txt",
     "llms-full.txt"
@@ -76,10 +88,12 @@
     "@forgesworn/ring-sig": "^2.0.0",
     "@noble/curves": "^2.0.1",
     "@noble/hashes": "^2.0.1",
+    "canary-kit": "^2.6.2",
     "nostr-attestations": "^2.1.0",
     "nsec-tree": "^1.4.1"
   },
   "devDependencies": {
+    "@playwright/test": "^1.58.2",
     "@semantic-release/changelog": "^6.0.3",
     "@semantic-release/git": "^10.0.1",
     "@semantic-release/github": "^12.0.6",
