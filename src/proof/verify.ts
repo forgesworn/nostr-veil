@@ -12,6 +12,7 @@ import type { ProofVerification } from './types.js'
  * @returns A {@link ProofVerification} with `valid`, `circleSize`, `threshold`, `distinctSigners`, and any `errors`
  */
 const MAX_RING_SIZE = 1000
+const HEX64_RE = /^[0-9a-f]{64}$/
 
 export function verifyProof(event: {
   kind: number
@@ -20,24 +21,48 @@ export function verifyProof(event: {
 }): ProofVerification {
   const errors: string[] = []
 
+  // Require d tag -- without it the electionId check cannot bind signatures to a subject
+  const dTag = event.tags.find(t => t[0] === 'd')
+  if (!dTag) {
+    return { valid: false, circleSize: 0, threshold: 0, distinctSigners: 0, errors: ['Missing d tag'] }
+  }
+
   const ringTag = event.tags.find(t => t[0] === 'veil-ring')
   if (!ringTag) {
     return { valid: false, circleSize: 0, threshold: 0, distinctSigners: 0, errors: ['Missing veil-ring tag'] }
   }
   const ring = ringTag.slice(1)
 
+  if (ring.length < 2) {
+    return { valid: false, circleSize: ring.length, threshold: 0, distinctSigners: 0, errors: ['veil-ring requires at least 2 members'] }
+  }
+
   // Guard against relay-supplied DoS: unbounded ring inflates memory + verification time
   if (ring.length > MAX_RING_SIZE) {
     return { valid: false, circleSize: ring.length, threshold: 0, distinctSigners: 0, errors: [`veil-ring exceeds maximum size (${MAX_RING_SIZE})`] }
   }
 
+  // Validate ring members are valid hex pubkeys in sorted order
+  for (let i = 0; i < ring.length; i++) {
+    if (!HEX64_RE.test(ring[i])) {
+      return { valid: false, circleSize: ring.length, threshold: 0, distinctSigners: 0, errors: [`Invalid pubkey format in veil-ring at index ${i}`] }
+    }
+    if (i > 0 && ring[i] <= ring[i - 1]) {
+      return { valid: false, circleSize: ring.length, threshold: 0, distinctSigners: 0, errors: ['veil-ring pubkeys are not in sorted order'] }
+    }
+  }
+
+  // Require veil-threshold tag
   const thresholdTag = event.tags.find(t => t[0] === 'veil-threshold')
-  const threshold = thresholdTag ? parseInt(thresholdTag[1], 10) : ring.length
-  const circleSize = thresholdTag ? parseInt(thresholdTag[2], 10) : ring.length
+  if (!thresholdTag) {
+    return { valid: false, circleSize: ring.length, threshold: 0, distinctSigners: 0, errors: ['Missing veil-threshold tag'] }
+  }
+  const threshold = parseInt(thresholdTag[1], 10)
+  const circleSize = parseInt(thresholdTag[2], 10)
 
   // Validate threshold is a sane integer
   if (!Number.isInteger(threshold) || threshold < 1 || threshold > ring.length) {
-    errors.push(`Invalid threshold: ${thresholdTag?.[1] ?? 'missing'}`)
+    errors.push(`Invalid threshold: ${thresholdTag[1]}`)
     return { valid: false, circleSize, threshold: 0, distinctSigners: 0, errors }
   }
 
@@ -47,13 +72,16 @@ export function verifyProof(event: {
     return { valid: false, circleSize, threshold, distinctSigners: 0, errors }
   }
 
-  // Cap sig tags at ring size — legitimate events cannot have more sigs than members
+  // Cap sig tags at ring size -- legitimate events cannot have more sigs than members
   if (sigTags.length > ring.length) {
     errors.push(`Too many veil-sig tags (${sigTags.length}) for ring of size ${ring.length}`)
     return { valid: false, circleSize, threshold, distinctSigners: 0, errors }
   }
 
-  const dTag = event.tags.find(t => t[0] === 'd')
+  // Circle ID is derived from the already-validated sorted ring
+  const expectedCircleId = computeCircleId(ring)
+  const expectedElectionId = `veil:v1:${expectedCircleId}:${dTag[1]}`
+
   const keyImages: string[] = []
   let validSigs = 0
 
@@ -71,18 +99,14 @@ export function verifyProof(event: {
       // Bind the signature to this event's subject: the electionId must match
       // the pattern veil:v1:<circleId>:<subject> derived from the ring and d-tag.
       // Without this check, valid signatures could be transplanted between events.
-      // Missing electionId is treated as failure — stripping it is the simplest bypass.
-      if (dTag) {
-        if (typeof sigData.electionId !== 'string') {
-          errors.push(`Signature at index ${i} missing electionId`)
-          continue
-        }
-        const expectedCircleId = computeCircleId([...ring].sort())
-        const expectedElectionId = `veil:v1:${expectedCircleId}:${dTag[1]}`
-        if (sigData.electionId !== expectedElectionId) {
-          errors.push(`Signature at index ${i} electionId mismatch`)
-          continue
-        }
+      // Missing electionId is treated as failure -- stripping it is the simplest bypass.
+      if (typeof sigData.electionId !== 'string') {
+        errors.push(`Signature at index ${i} missing electionId`)
+        continue
+      }
+      if (sigData.electionId !== expectedElectionId) {
+        errors.push(`Signature at index ${i} electionId mismatch`)
+        continue
       }
 
       if (hasDuplicateKeyImage(keyImage, keyImages)) {

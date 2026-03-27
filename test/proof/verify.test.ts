@@ -94,4 +94,30 @@ describe('verifyProof', () => {
     expect(result.valid).toBe(false)
     expect(result.errors.length).toBeGreaterThan(0)
   })
+
+  it('rejects events without a d tag', () => {
+    const event = makeEvent()
+    event.tags = event.tags.filter(t => t[0] !== 'd')
+    const result = verifyProof(event)
+    expect(result.valid).toBe(false)
+    expect(result.errors[0]).toMatch(/Missing d tag/)
+  })
+
+  it('rejects events without a veil-threshold tag', () => {
+    const event = makeEvent()
+    event.tags = event.tags.filter(t => t[0] !== 'veil-threshold')
+    const result = verifyProof(event)
+    expect(result.valid).toBe(false)
+    expect(result.errors[0]).toMatch(/Missing veil-threshold/)
+  })
+
+  it('rejects events with unsorted veil-ring', () => {
+    const event = makeEvent()
+    const ringIdx = event.tags.findIndex(t => t[0] === 'veil-ring')
+    const members = event.tags[ringIdx].slice(1)
+    event.tags[ringIdx] = ['veil-ring', ...members.reverse()]
+    const result = verifyProof(event)
+    expect(result.valid).toBe(false)
+    expect(result.errors[0]).toMatch(/not in sorted order/)
+  })
 })
