@@ -86,9 +86,11 @@ export function createTrustCircle(memberPubkeys: string[]): TrustCircle {
   if (memberPubkeys.length < 2) {
     throw new Error('Trust circle requires at least 2 members')
   }
+  const HEX64_RE = /^[0-9a-f]{64}$/
   const sorted = [...memberPubkeys].sort()
   const seen = new Set<string>()
   for (const pk of sorted) {
+    if (!HEX64_RE.test(pk)) throw new Error(`Invalid pubkey format: expected 64-char lowercase hex`)
     if (seen.has(pk)) throw new Error(`Duplicate pubkey in trust circle: ${pk}`)
     seen.add(pk)
   }

@@ -51,5 +51,16 @@ export function validateAssertion(event: RawEvent): ValidationResult {
     }
   }
 
+  // Validate all numeric metric tags are finite numbers
+  const NUMERIC_METRICS = new Set(['rank', 'followers', 'following', 'zap_amt_sent', 'zap_amt_recd', 'zap_cnt_sent', 'zap_cnt_recd', 'post_cnt', 'reply_cnt', 'repost_cnt', 'reaction_cnt'])
+  for (const tag of event.tags) {
+    if (NUMERIC_METRICS.has(tag[0]) && tag[0] !== 'rank') {
+      const value = Number(tag[1])
+      if (!Number.isFinite(value)) {
+        errors.push(`Invalid metric "${tag[0]}": "${tag[1]}" is not a finite number.`)
+      }
+    }
+  }
+
   return { valid: errors.length === 0, errors }
 }

@@ -4,7 +4,7 @@ export interface TrustNode {
   metrics: Record<string, number>
   endorsements: number
   ringEndorsements: number
-  providers: string[]
+  providers: Set<string>
 }
 
 /** A directed edge from a provider to a subject, carrying assertion metrics */

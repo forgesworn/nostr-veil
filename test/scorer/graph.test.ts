@@ -39,7 +39,7 @@ describe('buildTrustGraph', () => {
     expect(node.metrics).toEqual({ rank: 85, followers: 1200 })
     expect(node.endorsements).toBe(1)
     expect(node.ringEndorsements).toBe(0)
-    expect(node.providers).toEqual([providerX])
+    expect(node.providers).toEqual(new Set([providerX]))
 
     const edge = graph.edges[0]
     expect(edge.from).toBe(providerX)
@@ -125,7 +125,7 @@ describe('buildTrustGraph', () => {
 
     const graph = buildTrustGraph(events)
     const node = graph.nodes.get(subjectA)!
-    expect(node.providers).toEqual([providerX])
+    expect(node.providers).toEqual(new Set([providerX]))
     expect(node.endorsements).toBe(2)
   })
 
@@ -149,7 +149,7 @@ describe('buildTrustGraph', () => {
 
     const graph = buildTrustGraph(events)
     const node = graph.nodes.get(subjectA)!
-    expect(node.providers).toEqual([providerX, providerY])
+    expect(node.providers).toEqual(new Set([providerX, providerY]))
   })
 
   it('creates separate nodes for different subjects', () => {
@@ -200,7 +200,7 @@ describe('buildTrustGraph', () => {
 
     const graph = buildTrustGraph([event])
     const node = graph.nodes.get(subjectA)!
-    expect(node.providers).toEqual([])
+    expect(node.providers).toEqual(new Set())
     expect(node.endorsements).toBe(1)
 
     const edge = graph.edges[0]

@@ -65,7 +65,12 @@ function resolveHexKey(secretKey, format) {
 function extractJsonFlag(args) {
   const idx = args.indexOf('--json')
   if (idx === -1 || idx + 1 >= args.length) return undefined
-  return JSON.parse(args[idx + 1])
+  try {
+    return JSON.parse(args[idx + 1])
+  } catch {
+    console.error('Error: invalid JSON after --json flag')
+    process.exit(1)
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -143,7 +148,17 @@ function cmdVerify(args) {
     process.exit(1)
   }
 
-  const event = JSON.parse(eventJson)
+  let event
+  try {
+    event = JSON.parse(eventJson)
+  } catch {
+    console.error('Error: invalid JSON in event argument')
+    process.exit(1)
+  }
+  if (!event || typeof event !== 'object' || !Array.isArray(event.tags)) {
+    console.error('Error: event must be a JSON object with a "tags" array')
+    process.exit(1)
+  }
   const result = verifyProof(event)
   console.log(JSON.stringify(result, null, 2))
 }

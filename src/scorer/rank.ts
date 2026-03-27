@@ -35,7 +35,7 @@ export function computeTrustRank(graph: TrustGraph): TrustRank[] {
       rank,
       endorsements: node.endorsements,
       ringEndorsements: node.ringEndorsements,
-      providers: node.providers.length,
+      providers: node.providers.size,
     })
   }
 

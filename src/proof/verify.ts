@@ -1,4 +1,5 @@
 import { lsagVerify, hasDuplicateKeyImage } from '@forgesworn/ring-sig'
+import { computeCircleId } from './circle.js'
 import type { ProofVerification } from './types.js'
 
 /**
@@ -64,6 +65,19 @@ export function verifyProof(event: {
       if (!lsagVerify(fullSig)) {
         errors.push(`Invalid LSAG signature at index ${i}`)
         continue
+      }
+
+      // Bind the signature to this event's subject: the electionId must match
+      // the pattern veil:v1:<circleId>:<subject> derived from the ring and d-tag.
+      // Without this check, valid signatures could be transplanted between events.
+      const dTag = event.tags.find(t => t[0] === 'd')
+      if (dTag && typeof sigData.electionId === 'string') {
+        const expectedCircleId = computeCircleId([...ring].sort())
+        const expectedElectionId = `veil:v1:${expectedCircleId}:${dTag[1]}`
+        if (sigData.electionId !== expectedElectionId) {
+          errors.push(`Signature at index ${i} electionId mismatch: expected "${expectedElectionId}" but got "${sigData.electionId}"`)
+          continue
+        }
       }
 
       if (hasDuplicateKeyImage(keyImage, keyImages)) {

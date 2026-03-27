@@ -3,10 +3,23 @@ import { NIP85_KINDS } from './types.js'
 
 type AnyMetrics = UserMetrics | EventMetrics | IdentifierMetrics
 
+const HEX64_RE = /^[0-9a-f]{64}$/
+
+function validateHex64(value: string, label: string): void {
+  if (!HEX64_RE.test(value)) {
+    throw new Error(`${label} must be a 64-character lowercase hex string, got "${value.slice(0, 20)}${value.length > 20 ? '...' : ''}"`)
+  }
+}
+
 function metricsToTags(metrics: AnyMetrics): string[][] {
   return Object.entries(metrics as Record<string, string | number | undefined>)
     .filter(([, v]) => v !== undefined)
-    .map(([k, v]) => [k, String(v)])
+    .map(([k, v]) => {
+      if (typeof v === 'number' && !Number.isFinite(v)) {
+        throw new Error(`Metric "${k}" must be a finite number, got ${v}`)
+      }
+      return [k, String(v)]
+    })
 }
 
 /**
@@ -22,6 +35,7 @@ function metricsToTags(metrics: AnyMetrics): string[][] {
  * await relay.publish(event)
  */
 export function buildUserAssertion(pubkey: string, metrics: UserMetrics): EventTemplate {
+  validateHex64(pubkey, 'pubkey')
   return {
     kind: NIP85_KINDS.USER,
     tags: [
@@ -46,6 +60,7 @@ export function buildUserAssertion(pubkey: string, metrics: UserMetrics): EventT
  * await relay.publish(event)
  */
 export function buildEventAssertion(eventId: string, metrics: EventMetrics): EventTemplate {
+  validateHex64(eventId, 'eventId')
   return {
     kind: NIP85_KINDS.EVENT,
     tags: [['d', eventId], ['e', eventId], ...metricsToTags(metrics)],

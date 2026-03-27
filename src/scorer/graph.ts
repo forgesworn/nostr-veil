@@ -44,7 +44,7 @@ export function buildTrustGraph(events: EventTemplate[]): TrustGraph {
         metrics: {},
         endorsements: 0,
         ringEndorsements: 0,
-        providers: [],
+        providers: new Set<string>(),
       }
       nodes.set(subject, node)
     }
@@ -62,8 +62,8 @@ export function buildTrustGraph(events: EventTemplate[]): TrustGraph {
     }
 
     // Track unique providers
-    if (provider !== '' && !node.providers.includes(provider)) {
-      node.providers.push(provider)
+    if (provider !== '') {
+      node.providers.add(provider)
     }
 
     // Create the edge
