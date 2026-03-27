@@ -99,9 +99,6 @@ export function Veil({ flow }: Props) {
       const fullEvent = {
         ...template,
         created_at: Math.floor(Date.now() / 1000),
-        pubkey: '0000000000000000000000000000000000000000000000000000000000000000',
-        id: 'computed-on-publish',
-        sig: 'signed-by-publisher',
       }
 
       const rankTag = template.tags.find((t: string[]) => t[0] === 'rank')
