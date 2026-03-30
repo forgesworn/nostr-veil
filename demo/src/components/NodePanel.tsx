@@ -1,4 +1,4 @@
-import type { TrustNode } from 'nostr-veil/graph'
+import type { TrustNode } from '../graph.js'
 
 interface NodePanelProps {
   node: TrustNode | null

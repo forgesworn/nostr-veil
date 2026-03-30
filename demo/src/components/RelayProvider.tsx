@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import type { ReactNode } from 'react'
 import { SimplePool, type Event as NostrEvent } from 'nostr-tools'
-import { buildTrustGraph, type TrustGraph } from 'nostr-veil/graph'
+import { buildTrustGraph, type TrustGraph } from '../graph.js'
 import { NIP85_KINDS, type EventTemplate } from 'nostr-veil/nip85'
 import { journalists } from '../data/journalists.js'
 import { source } from '../data/source.js'

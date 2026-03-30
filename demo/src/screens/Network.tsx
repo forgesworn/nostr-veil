@@ -3,7 +3,7 @@ import { TrustGraphView, type GraphNode, type GraphEdge, type RingEvent } from '
 import { NodePanel } from '../components/NodePanel.js'
 import { Tip } from '../components/Tooltip.js'
 import { useRelay } from '../components/RelayProvider.js'
-import type { TrustNode } from 'nostr-veil/graph'
+import type { TrustNode } from '../graph.js'
 import type { useVeilFlow } from '../hooks/useVeilFlow.js'
 
 interface Props { flow: ReturnType<typeof useVeilFlow> }
