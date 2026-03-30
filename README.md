@@ -30,20 +30,46 @@ nostr-veil solves all three. Assertions are standard NIP-85 events that any exis
 
 ## Architecture
 
-```
-┌─────────────────────────────────────────────────────────┐
-│  NIP-85 foundation  (nostr-veil/nip85)                  │
-│  Kind 30382–30385 assertion events + kind 10040         │
-│  providers. Standard Nostr. Any client reads it.        │
-└─────────────────────────┬───────────────────────────────┘
-                          │
-┌─────────────────────────▼───────────────────────────────┐
-│  Proof layer  (nostr-veil/proof)                        │
-│  LSAG ring signatures — each contributor signs          │
-│  anonymously. Key images prove distinct signers.        │
-│  K-of-N threshold verification without revealing K      │
-│  individual identities.                                 │
-└─────────────────────────────────────────────────────────┘
+```mermaid
+graph TB
+  subgraph Consumers["Nostr Clients"]
+    any["Any NIP-85 client<br/>reads standard assertions"]
+    veil["Veil-aware client<br/>verifies ring proofs"]
+  end
+
+  subgraph Veil["nostr-veil"]
+    proof["nostr-veil/proof<br/>LSAG ring signatures<br/>anonymous contributions<br/>threshold aggregation"]
+    nip85["nostr-veil/nip85<br/>Kind 30382–30385 assertions<br/>Kind 10040 providers<br/>builders · parsers · filters"]
+  end
+
+  subgraph Crypto["Cryptographic Primitives"]
+    ringsig["@forgesworn/ring-sig<br/>SAG / LSAG on secp256k1"]
+    noble["@noble/curves + hashes<br/>Schnorr · SHA-256"]
+  end
+
+  subgraph Companions["Companion Libraries"]
+    nsec["nsec-tree<br/>sub-identity derivation"]
+    canary["canary-kit<br/>coercion detection"]
+    signet["signet<br/>identity verification"]
+  end
+
+  any -->|"read"| nip85
+  veil -->|"verify"| proof
+  proof -->|"builds on"| nip85
+  proof --> ringsig
+  nip85 --> noble
+  nsec -.->|"personas for"| proof
+  canary -.->|"liveness for"| proof
+
+  style any fill:#3b82f6,color:#fff
+  style veil fill:#d97706,color:#000
+  style proof fill:#d97706,color:#000
+  style nip85 fill:#0d9488,color:#fff
+  style ringsig fill:#8b5cf6,color:#fff
+  style noble fill:#8b5cf6,color:#fff
+  style nsec fill:#374151,color:#e5e7eb
+  style canary fill:#374151,color:#e5e7eb
+  style signet fill:#374151,color:#e5e7eb
 ```
 
 ---
