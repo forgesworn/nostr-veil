@@ -36,7 +36,8 @@
     "typecheck": "tsc --noEmit",
     "lint": "tsc --noEmit",
     "demo": "cd demo && npm run dev",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "npm run build",
+    "prepare": "npm run build"
   },
   "keywords": [
     "nostr",
