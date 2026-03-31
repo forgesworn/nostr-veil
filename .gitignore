@@ -14,3 +14,4 @@ demo/dist/
 credentials.json
 serviceAccountKey.json
 .DS_Store
+.idea/
