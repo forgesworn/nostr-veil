@@ -1,3 +1,10 @@
+## [0.2.2](https://github.com/forgesworn/nostr-veil/compare/v0.2.1...v0.2.2) (2026-04-03)
+
+
+### Bug Fixes
+
+* responsive demo layout, upgrade ring-sig to v3 ([da11eb4](https://github.com/forgesworn/nostr-veil/commit/da11eb4fcc5b284f38fb227970f6ece5900f3364))
+
 ## [0.2.1](https://github.com/forgesworn/nostr-veil/compare/v0.2.0...v0.2.1) (2026-03-31)
 
 
