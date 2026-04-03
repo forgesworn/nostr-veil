@@ -78,7 +78,7 @@ export function Verification({ flow }: Props) {
 
       <div style={{ display: 'flex', gap: '3rem', flexWrap: 'wrap' }}>
         {/* Verification steps */}
-        <div style={{ flex: 1, minWidth: 400 }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: '0.9rem', color: '#b0b0b0', letterSpacing: '0.1em', marginBottom: '1rem' }}>
             VERIFICATION PIPELINE
           </div>
@@ -135,7 +135,7 @@ export function Verification({ flow }: Props) {
         </div>
 
         {/* Result badge */}
-        <div style={{ minWidth: 320 }}>
+        <div style={{ minWidth: 0 }}>
           {result && (
             <>
               {/* Badge */}

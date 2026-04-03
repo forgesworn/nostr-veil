@@ -7,14 +7,14 @@
     "build": "vite build"
   },
   "dependencies": {
-    "@forgesworn/ring-sig": "^1.0.2",
+    "@forgesworn/ring-sig": "^3.0.0",
     "@noble/curves": "^2.0.1",
     "@noble/hashes": "^2.0.1",
     "@types/d3": "^7.4.3",
     "d3": "^7.9.0",
-    "nostr-attestations": "^2.1.0",
+    "nostr-attestations": "^2.5.0",
     "nostr-tools": "^2.23.3",
-    "nsec-tree": "^1.4.1",
+    "nsec-tree": "^1.4.3",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },

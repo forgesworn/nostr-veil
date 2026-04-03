@@ -114,6 +114,7 @@ The resulting `assertion` is a plain `EventTemplate` you sign and publish like a
 | `buildIdentifierAssertion(identifier, kTag, metrics)` | Build a kind 30385 identifier assertion |
 | `buildProviderDeclaration(providers, encryptedContent?)` | Build a kind 10040 provider declaration |
 | `parseAssertion(event)` | Parse a raw event into a `ParsedAssertion` |
+| `parseProviderDeclaration(event, decryptFn?)` | Parse a kind 10040 provider declaration into `ParsedProvider[]` (supports optional NIP-44 decryption) |
 | `validateAssertion(event)` | Validate a NIP-85 assertion -- returns `{ valid, errors }` |
 | `assertionFilter({ kind, subject?, provider? })` | Build a relay query filter for assertions |
 | `providerFilter(pubkey)` | Build a relay query filter for a provider declaration |

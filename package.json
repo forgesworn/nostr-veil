@@ -57,7 +57,7 @@
   ],
   "author": "ForgeSworn",
   "license": "MIT",
-  "homepage": "https://github.com/forgesworn/nostr-veil",
+  "homepage": "https://forgesworn.github.io/nostr-veil/",
   "repository": {
     "type": "git",
     "url": "https://github.com/forgesworn/nostr-veil"
@@ -73,7 +73,7 @@
     "node": ">=20"
   },
   "dependencies": {
-    "@forgesworn/ring-sig": "^2.0.0",
+    "@forgesworn/ring-sig": "^3.0.0",
     "@noble/curves": "^2.0.1",
     "@noble/hashes": "^2.0.1"
   },

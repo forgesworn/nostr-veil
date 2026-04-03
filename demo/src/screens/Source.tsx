@@ -113,7 +113,7 @@ export function Source({ flow }: Props) {
 
       <div style={{ display: 'flex', gap: '3rem', flexWrap: 'wrap' }}>
         {/* Left: Source info + your score */}
-        <div style={{ flex: 1, minWidth: 300 }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
           {/* Source card */}
           <div style={{
             padding: '1.2rem',
@@ -207,7 +207,7 @@ export function Source({ flow }: Props) {
         </div>
 
         {/* Right: Attestation feed */}
-        <div style={{ flex: 1, minWidth: 300 }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: '0.8rem', color: '#9ca3af', letterSpacing: '0.1em', marginBottom: '0.8rem' }}>
             ATTESTATION FEED
           </div>

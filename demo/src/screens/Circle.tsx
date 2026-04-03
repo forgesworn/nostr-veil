@@ -62,8 +62,8 @@ export function Circle({ flow }: Props) {
 
       <div style={{ display: 'flex', gap: '2.5rem', alignItems: 'flex-start', flexWrap: 'wrap' }}>
         {/* SVG Ring — compact */}
-        <div style={{ position: 'relative', width: 400, height: 400, flexShrink: 0 }}>
-          <svg width={400} height={400} viewBox="0 0 400 400">
+        <div style={{ position: 'relative', width: '100%', maxWidth: 400, aspectRatio: '1', flexShrink: 0 }}>
+          <svg width="100%" height="100%" viewBox="0 0 400 400">
             <circle cx={cx} cy={cy} r={radius} fill="none" stroke="#1a1a2e" strokeWidth={1} strokeDasharray="4 4" />
 
             {journalists.map((j, i) => {
@@ -143,7 +143,7 @@ export function Circle({ flow }: Props) {
         </div>
 
         {/* Details panel */}
-        <div style={{ flex: 1, minWidth: 320 }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
           <h3 style={{ fontSize: '1.05rem', fontWeight: 600, color: '#7b68ee', marginBottom: '1rem', letterSpacing: '0.1em' }}>
             MEMBERS
           </h3>

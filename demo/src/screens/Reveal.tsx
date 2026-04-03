@@ -126,7 +126,7 @@ export function Reveal({ flow }: Props) {
             onClick={() => switchMode(mode)}
             style={{
               flex: 1,
-              minWidth: 280,
+              minWidth: 0,
               padding: '1rem',
               background: proofMode === mode ? 'rgba(123, 104, 238, 0.08)' : '#0d0d14',
               border: proofMode === mode ? '1px solid rgba(123, 104, 238, 0.4)' : '1px solid #1a1a2e',
@@ -322,7 +322,7 @@ function IdentityCard({ title, subtitle, pubkey, purpose, index, colour, showDet
   return (
     <div style={{
       flex: 1,
-      minWidth: 240,
+      minWidth: 0,
       padding: '1.2rem',
       background: '#0d0d14',
       border: `1px solid ${colour === '#7b68ee' ? 'rgba(123, 104, 238, 0.3)' : '#2a2a3e'}`,

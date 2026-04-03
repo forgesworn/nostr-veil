@@ -144,7 +144,7 @@ export function Veil({ flow }: Props) {
 
       {event && (
         <div style={{ display: 'flex', gap: '2rem', flexWrap: 'wrap' }}>
-          <div style={{ minWidth: 280 }}>
+          <div style={{ minWidth: 0 }}>
             <div style={{
               padding: '1.5rem',
               background: 'rgba(123, 104, 238, 0.05)',
@@ -198,7 +198,7 @@ export function Veil({ flow }: Props) {
             </button>
           </div>
 
-          <div style={{ flex: 1, minWidth: 400 }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: '0.75rem', color: '#9ca3af', letterSpacing: '0.1em', marginBottom: '0.5rem' }}>
               NIP-85 EVENT
             </div>

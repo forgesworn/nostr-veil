@@ -43,23 +43,24 @@ function AppInner() {
   const ScreenComponent = SCREENS[flow.state.screen]
 
   return (
-    <div style={{ minHeight: '100vh', padding: '1.5rem 2rem', paddingBottom: '5.5rem' }}>
+    <div style={{ minHeight: '100vh', padding: 'clamp(1rem, 3vw, 2rem)', paddingBottom: '5.5rem' }}>
       <header style={{
         display: 'flex',
+        flexWrap: 'wrap',
         alignItems: 'baseline',
-        gap: '1.5rem',
+        gap: '0.75rem 1.5rem',
         marginBottom: '2.5rem',
         borderBottom: '1px solid #1a1a2e',
         paddingBottom: '1rem',
       }}>
-        <h1 style={{ fontSize: '2rem', letterSpacing: '0.2em', fontWeight: 300, color: '#7b68ee' }}>VEIL</h1>
-        <span style={{ fontSize: '0.9rem', color: '#b0b0b0', letterSpacing: '0.1em' }}>ANONYMOUS GROUP TRUST FOR NOSTR</span>
+        <h1 style={{ fontSize: 'clamp(1.4rem, 4vw, 2rem)', letterSpacing: '0.2em', fontWeight: 300, color: '#7b68ee' }}>VEIL</h1>
+        <span style={{ fontSize: 'clamp(0.7rem, 2vw, 0.9rem)', color: '#b0b0b0', letterSpacing: '0.1em' }}>ANONYMOUS GROUP TRUST FOR NOSTR</span>
         <div style={{ marginLeft: 'auto', display: 'flex', gap: '0.3rem' }}>
           {[1, 2, 3, 4, 5, 6].map(n => (
             <div
               key={n}
               style={{
-                width: 24,
+                width: 'clamp(16px, 3vw, 24px)',
                 height: 3,
                 background: n <= screenNum ? '#7b68ee' : '#1a1a2e',
                 transition: 'background 0.3s',
