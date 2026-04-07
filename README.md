@@ -98,6 +98,8 @@ const result = verifyProof(assertion)
 // { valid: true, circleSize: 3, threshold: 2, distinctSigners: 2, errors: [] }
 ```
 
+**Important:** `memberIndex` must match the member's position in the *sorted* pubkey array. `createTrustCircle` sorts pubkeys lexicographically -- the index you pass to `contributeAssertion` must reflect that sorted order, not the order you passed to `createTrustCircle`. Use `circle.members.indexOf(myPubkey)` to find the correct index.
+
 The resulting `assertion` is a plain `EventTemplate` you sign and publish like any other Nostr event.
 
 ---
@@ -182,6 +184,23 @@ Each project is independently maintained and published. nostr-veil focuses solel
 - [SECURITY.md](./SECURITY.md) -- Vulnerability reporting and cryptographic scope
 - [llms.txt](./llms.txt) -- Machine-readable project summary for LLMs
 - [CLAUDE.md](./CLAUDE.md) -- AI agent instructions for contributing
+
+## Part of the ForgeSworn Toolkit
+
+[ForgeSworn](https://forgesworn.dev) builds open-source cryptographic identity, payments, and coordination tools for Nostr.
+
+| Library | What it does |
+|---------|-------------|
+| [nsec-tree](https://github.com/forgesworn/nsec-tree) | Deterministic sub-identity derivation |
+| [ring-sig](https://github.com/forgesworn/ring-sig) | SAG/LSAG ring signatures on secp256k1 |
+| [range-proof](https://github.com/forgesworn/range-proof) | Pedersen commitment range proofs |
+| [canary-kit](https://github.com/forgesworn/canary-kit) | Coercion-resistant spoken verification |
+| [spoken-token](https://github.com/forgesworn/spoken-token) | Human-speakable verification tokens |
+| [toll-booth](https://github.com/forgesworn/toll-booth) | L402 payment middleware |
+| [geohash-kit](https://github.com/forgesworn/geohash-kit) | Geohash toolkit with polygon coverage |
+| [nostr-attestations](https://github.com/forgesworn/nostr-attestations) | NIP-VA verifiable attestations |
+| [dominion](https://github.com/forgesworn/dominion) | Epoch-based encrypted access control |
+| [nostr-veil](https://github.com/forgesworn/nostr-veil) | Privacy-preserving Web of Trust |
 
 ## Licence
 
