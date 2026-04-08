@@ -1,3 +1,10 @@
+## [0.4.1](https://github.com/forgesworn/nostr-veil/compare/v0.4.0...v0.4.1) (2026-04-08)
+
+
+### Bug Fixes
+
+* warm up Bark connection before signEvent to avoid stale WebSockets ([6a24bc4](https://github.com/forgesworn/nostr-veil/commit/6a24bc402ee4c9ab5d1b59146e5450d20b72e491))
+
 # [0.4.0](https://github.com/forgesworn/nostr-veil/compare/v0.3.0...v0.4.0) (2026-04-08)
 
 
