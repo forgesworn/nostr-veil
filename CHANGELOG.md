@@ -1,3 +1,10 @@
+# [0.3.0](https://github.com/forgesworn/nostr-veil/compare/v0.2.2...v0.3.0) (2026-04-08)
+
+
+### Features
+
+* WoT-a-thon demo overhaul ([9db7a3f](https://github.com/forgesworn/nostr-veil/commit/9db7a3f0f0f174c08296fae4bbf5d9081f53327c))
+
 ## [0.2.2](https://github.com/forgesworn/nostr-veil/compare/v0.2.1...v0.2.2) (2026-04-03)
 
 
