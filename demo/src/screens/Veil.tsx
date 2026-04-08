@@ -44,6 +44,7 @@ export function Veil({ flow }: Props) {
   const [status, setStatus] = useState('Initialising...')
   const [event, setEvent] = useState<Record<string, unknown> | null>(null)
   const [aggregateScore, setAggregateScore] = useState<number | null>(null)
+  const [signerCount, setSignerCount] = useState<number>(0)
   const didRun = useRef(false)
   const { addLogEntry } = useRelay()
 
@@ -62,26 +63,44 @@ export function Veil({ flow }: Props) {
       setStatus('Collecting ring-signed attestations...')
       await pause(400)
 
-      const contributions = journalists.map((j, i) => {
-        const score = flow.state.scores.get(i) ?? 50
-        const c = contributeAssertion(
-          circle,
-          source.publicKey,
-          { rank: score },
-          j.privateKey,
-          circle.members.indexOf(j.publicKey),
-        )
-        // Log each NIP-VA attestation created during contribution
-        addLogEntry({
-          kind: 31000,
-          subject: source.publicKey,
-          anonymous: true,
-          timestamp: Math.floor(Date.now() / 1000),
-          description: `NIP-VA (nostr-attestations). ${j.name} created a kind 31000 attestation anchoring their LSAG contribution. This links the ring signature to a verifiable Nostr event.`,
-        })
-        return c
-      })
+      // Pick 5 of 8 contributors. Always include the user's selected journalist.
+      const CONTRIBUTOR_COUNT = 5
+      const selected = flow.state.selectedJournalistIndex ?? 0
+      const signerIndices = new Set<number>([selected])
+      const pool = journalists.map((_, i) => i).filter(i => i !== selected)
+      for (let i = pool.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [pool[i], pool[j]] = [pool[j], pool[i]]
+      }
+      for (const idx of pool) {
+        if (signerIndices.size >= CONTRIBUTOR_COUNT) break
+        signerIndices.add(idx)
+      }
 
+      const contributions = journalists
+        .map((j, i) => ({ j, i }))
+        .filter(({ i }) => signerIndices.has(i))
+        .map(({ j, i }) => {
+          const score = flow.state.scores.get(i) ?? 50
+          const c = contributeAssertion(
+            circle,
+            source.publicKey,
+            { rank: score },
+            j.privateKey,
+            circle.members.indexOf(j.publicKey),
+          )
+          // Log each NIP-VA attestation created during contribution
+          addLogEntry({
+            kind: 31000,
+            subject: source.publicKey,
+            anonymous: true,
+            timestamp: Math.floor(Date.now() / 1000),
+            description: `NIP-VA (nostr-attestations). ${j.name} created a kind 31000 attestation anchoring their LSAG contribution. This links the ring signature to a verifiable Nostr event.`,
+          })
+          return c
+        })
+
+      setSignerCount(contributions.length)
       setStatus('Aggregating contributions via LSAG...')
       await pause(400)
 
@@ -155,7 +174,7 @@ export function Veil({ flow }: Props) {
                 RESULT
               </div>
               <div style={{ fontSize: '1.4rem', color: '#e0e0e0', fontWeight: 500, marginBottom: '0.5rem' }}>
-                {journalists.length} of {journalists.length} journalists
+                {signerCount} of {journalists.length} journalists
               </div>
               <div style={{ fontSize: '0.9rem', color: '#9ca3af', marginBottom: '1rem' }}>
                 scored this source at rank <span style={{ color: '#7b68ee', fontWeight: 600, fontSize: '1.1rem' }}>{aggregateScore ?? '-'}</span>
@@ -172,7 +191,7 @@ export function Veil({ flow }: Props) {
                 </div>
                 <div>
                   <div style={{ color: '#9ca3af', marginBottom: '0.2rem' }}>Signatures</div>
-                  <div style={{ color: '#e0e0e0' }}>{journalists.length}</div>
+                  <div style={{ color: '#e0e0e0' }}>{signerCount}</div>
                 </div>
               </div>
             </div>

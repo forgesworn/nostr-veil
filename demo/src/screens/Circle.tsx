@@ -1,5 +1,5 @@
-import { useMemo, useCallback } from 'react'
-import { journalists } from '../data/journalists.js'
+import { useMemo, useCallback, useState, useEffect } from 'react'
+import { journalists, connectNip07Identity } from '../data/journalists.js'
 import { createTrustCircle } from 'nostr-veil/proof'
 import { Tip } from '../components/Tooltip.js'
 import { useRelay } from '../components/RelayProvider.js'
@@ -14,7 +14,32 @@ function truncate(hex: string): string {
 export function Circle({ flow }: Props) {
   const selected = flow.state.selectedJournalistIndex
   const { addLogEntry } = useRelay()
-  const pubkeys = useMemo(() => journalists.map(j => j.publicKey), [])
+  const [nip07Connected, setNip07Connected] = useState(false)
+
+  // Auto-detect Bark / NIP-07 signer
+  useEffect(() => {
+    const detect = async () => {
+      const nostr = (window as unknown as { nostr?: { getPublicKey: () => Promise<string> } }).nostr
+      if (!nostr) return
+      try {
+        const pubkey = await nostr.getPublicKey()
+        connectNip07Identity(pubkey)
+        setNip07Connected(true)
+        addLogEntry({
+          kind: 0,
+          subject: pubkey,
+          anonymous: false,
+          timestamp: Math.floor(Date.now() / 1000),
+          description: `NIP-07 signer detected (Bark). Connected as Donkey: ${pubkey.slice(0, 12)}...`,
+        })
+      } catch {
+        // NIP-07 available but user declined
+      }
+    }
+    detect()
+  }, [addLogEntry])
+
+  const pubkeys = useMemo(() => journalists.map(j => j.publicKey), [nip07Connected]) // eslint-disable-line react-hooks/exhaustive-deps
   const circle = useMemo(() => createTrustCircle(pubkeys), [pubkeys])
 
   const handleSelect = useCallback((index: number) => {
@@ -167,8 +192,20 @@ export function Circle({ flow }: Props) {
                 <span style={{ fontSize: '0.95rem', color: selected === i ? '#7b68ee' : '#9ca3af', width: '1.5rem' }}>
                   {String(i + 1).padStart(2, '0')}
                 </span>
-                <span style={{ fontSize: '1rem', color: selected === i ? '#e0e0e0' : '#c0c0c0', flex: 1 }}>
+                <span style={{ fontSize: '1rem', color: selected === i ? '#e0e0e0' : '#c0c0c0', flex: 1, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                   {j.name}
+                  {j.nip07 && (
+                    <span style={{
+                      fontSize: '0.65rem',
+                      color: '#10b981',
+                      background: 'rgba(16, 185, 129, 0.1)',
+                      border: '1px solid rgba(16, 185, 129, 0.25)',
+                      padding: '1px 6px',
+                      letterSpacing: '0.06em',
+                    }}>
+                      BARK
+                    </span>
+                  )}
                 </span>
                 <span style={{ fontSize: '0.85rem', color: '#9ca3af', fontFamily: "'JetBrains Mono', monospace" }}>
                   {truncate(j.publicKey)}

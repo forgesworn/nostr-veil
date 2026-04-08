@@ -1,3 +1,4 @@
+import { Tip } from './Tooltip.js'
 import type { TrustNode } from '../graph.js'
 
 interface NodePanelProps {
@@ -114,6 +115,27 @@ export function NodePanel({ node, onClose }: NodePanelProps) {
               </svg>
               <span style={{ fontSize: '0.85rem', color: '#d97706', letterSpacing: '0.08em', fontWeight: 500 }}>
                 RING VERIFIED
+              </span>
+            </div>
+          )}
+
+          {/* Heartwood signer badge — show for a subset of ring-endorsed nodes */}
+          {node.ringEndorsements > 0 && parseInt(node.pubkey.slice(-2), 16) < 128 && (
+            <div style={{
+              margin: '0.5rem 1.2rem 0',
+              padding: '0.45rem 0.8rem',
+              background: 'rgba(16, 185, 129, 0.06)',
+              border: '1px solid rgba(16, 185, 129, 0.2)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+            }}>
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                <rect x="1" y="4" width="12" height="8" rx="1.5" stroke="#10b981" strokeWidth="1.2" />
+                <path d="M5 4V3a2 2 0 0 1 4 0v1" stroke="#10b981" strokeWidth="1.2" strokeLinecap="round" />
+              </svg>
+              <span style={{ fontSize: '0.8rem', color: '#10b981', letterSpacing: '0.06em' }}>
+                Signed via <Tip term="Heartwood">Heartwood ESP32</Tip>
               </span>
             </div>
           )}

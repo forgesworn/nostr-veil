@@ -5,6 +5,8 @@ import { useRelay } from '../components/RelayProvider.js'
 import type { ProofVerification } from 'nostr-veil/proof'
 import type { useVeilFlow } from '../hooks/useVeilFlow.js'
 
+const PUBLISH_RELAYS = ['wss://relay.trotters.cc']
+
 interface Props { flow: ReturnType<typeof useVeilFlow> }
 
 interface Step {
@@ -23,6 +25,8 @@ export function Verification({ flow }: Props) {
   ]
   const [steps, setSteps] = useState<Step[]>(stepLabels.map(label => ({ label, status: 'pending' })))
   const [result, setResult] = useState<ProofVerification | null>(null)
+  const [publishState, setPublishState] = useState<'idle' | 'signing' | 'publishing' | 'done' | 'error' | 'no-signer'>('idle')
+  const [publishInfo, setPublishInfo] = useState<string | null>(null)
   const didRun = useRef(false)
 
   useEffect(() => {
@@ -112,25 +116,160 @@ export function Verification({ flow }: Props) {
           </div>
 
           {result && (
-            <button
-              onClick={() => {
-                addLogEntry({ kind: 0, subject: '', anonymous: false, timestamp: Math.floor(Date.now() / 1000), separator: 'THE REVEAL' })
-                flow.next()
-              }}
-              style={{
-                padding: '0.7rem 2rem',
-                background: '#7b68ee',
-                border: '1px solid #7b68ee',
-                color: '#08080d',
-                fontFamily: 'inherit',
-                fontSize: '0.8rem',
-                fontWeight: 500,
-                cursor: 'pointer',
-                letterSpacing: '0.08em',
-              }}
-            >
-              CONTINUE
-            </button>
+            <div style={{ display: 'flex', gap: '0.8rem', alignItems: 'center', flexWrap: 'wrap' }}>
+              <button
+                onClick={() => {
+                  addLogEntry({ kind: 0, subject: '', anonymous: false, timestamp: Math.floor(Date.now() / 1000), separator: 'THE REVEAL' })
+                  flow.next()
+                }}
+                style={{
+                  padding: '0.7rem 2rem',
+                  background: '#7b68ee',
+                  border: '1px solid #7b68ee',
+                  color: '#08080d',
+                  fontFamily: 'inherit',
+                  fontSize: '0.8rem',
+                  fontWeight: 500,
+                  cursor: 'pointer',
+                  letterSpacing: '0.08em',
+                }}
+              >
+                CONTINUE
+              </button>
+
+              {publishState === 'idle' && (
+                <button
+                  onClick={async () => {
+                    const nostr = (window as unknown as { nostr?: { signEvent: (event: Record<string, unknown>) => Promise<Record<string, unknown>> } }).nostr
+                    if (!nostr) {
+                      setPublishState('no-signer')
+                      return
+                    }
+
+                    try {
+                      setPublishState('signing')
+                      addLogEntry({
+                        kind: 30382, subject: '', anonymous: false,
+                        timestamp: Math.floor(Date.now() / 1000),
+                        description: 'Requesting NIP-07 signature via Bark. The aggregated ring-endorsed event will be signed by your hardware key via NIP-46.',
+                      })
+
+                      const template = flow.state.aggregatedEvent as Record<string, unknown>
+                      const unsigned = {
+                        kind: template.kind,
+                        tags: template.tags,
+                        content: template.content ?? '',
+                        created_at: Math.floor(Date.now() / 1000),
+                      }
+
+                      const signed = await nostr.signEvent(unsigned)
+                      console.log('Bark signed event:', signed)
+
+                      setPublishState('publishing')
+                      addLogEntry({
+                        kind: 30382, subject: '', anonymous: false,
+                        timestamp: Math.floor(Date.now() / 1000),
+                        description: `Event signed via Bark. ID: ${String(signed.id ?? '').slice(0, 12)}... Publishing to ${PUBLISH_RELAYS.length} relays.`,
+                      })
+
+                      // Publish to relays
+                      let accepted = 0
+                      const results = await Promise.allSettled(PUBLISH_RELAYS.map(url =>
+                        new Promise<boolean>((resolve) => {
+                          try {
+                            const ws = new WebSocket(url)
+                            const timeout = setTimeout(() => {
+                              console.log(`[${url}] timeout`)
+                              ws.close()
+                              resolve(false)
+                            }, 8000)
+                            ws.onopen = () => {
+                              console.log(`[${url}] connected, sending event`)
+                              ws.send(JSON.stringify(['EVENT', signed]))
+                            }
+                            ws.onmessage = (msg) => {
+                              console.log(`[${url}] message:`, msg.data)
+                              try {
+                                const data = JSON.parse(String(msg.data))
+                                if (data[0] === 'OK') {
+                                  if (data[2] === true) accepted++
+                                  clearTimeout(timeout)
+                                  ws.close()
+                                  resolve(data[2] === true)
+                                  return
+                                }
+                              } catch { /* ignore non-JSON */ }
+                            }
+                            ws.onerror = (err) => {
+                              console.log(`[${url}] error:`, err)
+                              clearTimeout(timeout)
+                              resolve(false)
+                            }
+                            ws.onclose = () => {
+                              clearTimeout(timeout)
+                            }
+                          } catch (err) {
+                            console.log(`[${url}] exception:`, err)
+                            resolve(false)
+                          }
+                        })
+                      ))
+                      console.log('Publish results:', results)
+
+                      setPublishState('done')
+                      setPublishInfo(`Published to ${accepted}/${PUBLISH_RELAYS.length} relays. Event ID: ${String(signed.id ?? '').slice(0, 16)}...`)
+                      addLogEntry({
+                        kind: 30382, subject: '', anonymous: false,
+                        timestamp: Math.floor(Date.now() / 1000),
+                        description: `Event published to ${accepted}/${PUBLISH_RELAYS.length} relays. This ring-endorsed NIP-85 assertion is now live on Nostr.`,
+                      })
+                    } catch (err) {
+                      setPublishState('error')
+                      setPublishInfo(String((err as Error).message))
+                    }
+                  }}
+                  style={{
+                    padding: '0.7rem 2rem',
+                    background: 'rgba(16, 185, 129, 0.1)',
+                    border: '1px solid rgba(16, 185, 129, 0.3)',
+                    color: '#10b981',
+                    fontFamily: 'inherit',
+                    fontSize: '0.8rem',
+                    fontWeight: 500,
+                    cursor: 'pointer',
+                    letterSpacing: '0.08em',
+                  }}
+                >
+                  PUBLISH VIA BARK
+                </button>
+              )}
+
+              {publishState === 'signing' && (
+                <span style={{ fontSize: '0.85rem', color: '#d97706', letterSpacing: '0.05em' }}>
+                  Waiting for Bark approval...
+                </span>
+              )}
+              {publishState === 'publishing' && (
+                <span style={{ fontSize: '0.85rem', color: '#d97706', letterSpacing: '0.05em' }}>
+                  Publishing to relays...
+                </span>
+              )}
+              {publishState === 'done' && (
+                <span style={{ fontSize: '0.85rem', color: '#10b981', letterSpacing: '0.05em' }}>
+                  {publishInfo}
+                </span>
+              )}
+              {publishState === 'no-signer' && (
+                <span style={{ fontSize: '0.85rem', color: '#9ca3af', letterSpacing: '0.05em' }}>
+                  No NIP-07 signer detected. Install Bark to publish.
+                </span>
+              )}
+              {publishState === 'error' && (
+                <span style={{ fontSize: '0.85rem', color: '#f87171', letterSpacing: '0.05em' }}>
+                  {publishInfo}
+                </span>
+              )}
+            </div>
           )}
         </div>
 

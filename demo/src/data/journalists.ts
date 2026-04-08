@@ -13,14 +13,35 @@ const SEEDS = [
 ]
 
 const NAMES = [
-  'Elena Novak', 'Marcus Chen', 'Amira Hassan', "Liam O'Brien",
+  'Donkey', 'Marcus Chen', 'Amira Hassan', "Liam O'Brien",
   'Yuki Tanaka', 'Fatima Reyes', 'Nikolai Petrov', 'Sarah Okafor',
 ]
 
-export interface Journalist { name: string; privateKey: string; publicKey: string }
+export interface Journalist {
+  name: string
+  privateKey: string
+  publicKey: string
+  /** True if this member connected via NIP-07 (Bark) */
+  nip07?: boolean
+  /** Real pubkey from NIP-07 signer (used for display + publishing, not LSAG ring) */
+  nip07Pubkey?: string
+}
 
 export const journalists: Journalist[] = SEEDS.map((seed, i) => ({
   name: NAMES[i],
   privateKey: seed,
   publicKey: bytesToHex(schnorr.getPublicKey(hexToBytes(seed))),
 }))
+
+/**
+ * Mark the first journalist as connected via NIP-07.
+ * The ring pubkey stays as the demo key (LSAG needs a matching keypair).
+ * The real pubkey is stored separately for display and final event signing.
+ */
+export function connectNip07Identity(pubkey: string): void {
+  journalists[0] = {
+    ...journalists[0],
+    nip07: true,
+    nip07Pubkey: pubkey,
+  }
+}

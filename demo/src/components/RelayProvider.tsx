@@ -39,7 +39,7 @@ export function useRelay() {
   return useContext(RelayContext)
 }
 
-const RELAYS = ['wss://relay.damus.io', 'wss://nos.lol']
+const RELAYS = ['wss://relay.trotters.cc']
 
 /** Generate demo data using the same 8 journalists + 1 source from the story */
 function generateDemoEvents(): EventTemplate[] {
