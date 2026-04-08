@@ -148,6 +148,15 @@ export function Verification({ flow }: Props) {
 
                     try {
                       setPublishState('signing')
+
+                      // Wake the Bark service worker and force-reconnect stale
+                      // NIP-46 relay WebSockets before the real signEvent call.
+                      // MV3 kills WebSockets after ~30s of inactivity.
+                      console.log('[publish] warming up Bark connection...')
+                      try { await (nostr as unknown as { getPublicKey: () => Promise<string> }).getPublicKey() } catch { /* reconnect will fire */ }
+                      // Give Bark time to reconnect if the warmup triggered it
+                      await new Promise(r => setTimeout(r, 1500))
+
                       addLogEntry({
                         kind: 30382, subject: '', anonymous: false,
                         timestamp: Math.floor(Date.now() / 1000),
@@ -162,7 +171,15 @@ export function Verification({ flow }: Props) {
                         created_at: Math.floor(Date.now() / 1000),
                       }
 
-                      const signed = await nostr.signEvent(unsigned)
+                      // Retry once if the first signEvent fails (stale connection)
+                      let signed: Record<string, unknown>
+                      try {
+                        signed = await nostr.signEvent(unsigned)
+                      } catch (firstErr) {
+                        console.log('[publish] first signEvent failed, retrying after reconnect...', firstErr)
+                        await new Promise(r => setTimeout(r, 3000))
+                        signed = await nostr.signEvent(unsigned)
+                      }
                       console.log('Bark signed event:', signed)
 
                       setPublishState('publishing')
