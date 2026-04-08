@@ -208,7 +208,7 @@ export function Circle({ flow }: Props) {
                   )}
                 </span>
                 <span style={{ fontSize: '0.85rem', color: '#9ca3af', fontFamily: "'JetBrains Mono', monospace" }}>
-                  {truncate(j.publicKey)}
+                  {truncate(j.displayPubkey ?? j.publicKey)}
                 </span>
               </div>
             ))}
