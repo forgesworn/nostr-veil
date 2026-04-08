@@ -1,3 +1,10 @@
+# [0.4.0](https://github.com/forgesworn/nostr-veil/compare/v0.3.0...v0.4.0) (2026-04-08)
+
+
+### Features
+
+* use nsec-tree derived persona for demo journalist ([9dabe53](https://github.com/forgesworn/nostr-veil/commit/9dabe53da1c6a49abab86af1bd3b8941d30b3d34))
+
 # [0.3.0](https://github.com/forgesworn/nostr-veil/compare/v0.2.2...v0.3.0) (2026-04-08)
 
 
