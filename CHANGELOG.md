@@ -1,3 +1,10 @@
+## [0.8.2](https://github.com/forgesworn/nostr-veil/compare/v0.8.1...v0.8.2) (2026-04-09)
+
+
+### Bug Fixes
+
+* timeout Heartwood switch calls to prevent Bark hangs ([33ad105](https://github.com/forgesworn/nostr-veil/commit/33ad105d614decec7c83c7815d81e9ff9998375a))
+
 ## [0.8.1](https://github.com/forgesworn/nostr-veil/compare/v0.8.0...v0.8.1) (2026-04-09)
 
 
