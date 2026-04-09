@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import type { ReactNode } from 'react'
-import { SimplePool, type Event as NostrEvent } from 'nostr-tools'
+import { SimplePool, type Event as NostrEvent, type Filter } from 'nostr-tools'
 import { buildTrustGraph, type TrustGraph } from '../graph.js'
 import { NIP85_KINDS, type EventTemplate } from 'nostr-veil/nip85'
 import { journalists } from '../data/journalists.js'
@@ -143,8 +143,8 @@ export function RelayProvider({ children, useDemoData = true }: RelayProviderPro
 
     let cancelled = false
 
-    const kinds = [NIP85_KINDS.USER, NIP85_KINDS.PROVIDER]
-    const sub = pool.subscribeMany(RELAYS, [{ kinds, limit: 50 }], {
+    const filter: Filter = { kinds: [NIP85_KINDS.USER, NIP85_KINDS.PROVIDER], limit: 50 }
+    const sub = pool.subscribeMany(RELAYS, filter, {
       onevent(event: NostrEvent) {
         if (cancelled) return
         const template: EventTemplate = {

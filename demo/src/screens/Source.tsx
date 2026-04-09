@@ -1,9 +1,11 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { journalists } from '../data/journalists.js'
+import { journalists, DERIVED_PUBKEY } from '../data/journalists.js'
 import { source } from '../data/source.js'
 import { Tip } from '../components/Tooltip.js'
 import { useRelay } from '../components/RelayProvider.js'
 import type { useVeilFlow } from '../hooks/useVeilFlow.js'
+
+type SigningStage = 'switching' | 'verifying' | 'signing' | null
 
 interface Props { flow: ReturnType<typeof useVeilFlow> }
 
@@ -30,23 +32,130 @@ export function Source({ flow }: Props) {
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const { addLogEntry } = useRelay()
 
-  const handleSubmit = useCallback(() => {
+  const [signingStage, setSigningStage] = useState<SigningStage>(null)
+  const [activeKey, setActiveKey] = useState<string | null>(null)
+  const [keyMismatch, setKeyMismatch] = useState(false)
+
+  const handleSubmit = useCallback(async () => {
+    // Sign a real kind 31000 attestation via Bark, using the derived persona
+    const nostr = (window as unknown as { nostr?: { signEvent: (e: Record<string, unknown>) => Promise<Record<string, unknown>>; getPublicKey: () => Promise<string>; heartwood?: { switch: (target: string) => Promise<{ npub?: string }>; derivePersona: (name: string, index?: number) => Promise<{ npub?: string }> } } }).nostr
+    if (nostr && userScore !== null) {
+      setSigningStage('switching')
+      setActiveKey(null)
+      setKeyMismatch(false)
+      try {
+        // Ensure the persona exists on the device (its RAM cache clears on restart),
+        // then switch to it.
+        let switchedNpub: string | undefined
+        if (nostr.heartwood?.derivePersona) {
+          await nostr.heartwood.derivePersona('veil-demo-journalist', 0)
+        }
+        if (nostr.heartwood?.switch) {
+          const result = await nostr.heartwood.switch('veil-demo-journalist')
+          switchedNpub = result?.npub
+        }
+
+        // Verify which key is now active
+        setSigningStage('verifying')
+        let pubkey: string | null = null
+        try {
+          pubkey = await nostr.getPublicKey()
+          setActiveKey(pubkey)
+          // Sanity check: compare against DERIVED_PUBKEY and also warn if getPublicKey
+          // doesn't agree with what the switch reported (npub decodes to the same key)
+          if (pubkey !== DERIVED_PUBKEY) {
+            setKeyMismatch(true)
+            console.warn('[source] persona switch key mismatch — active:', pubkey, 'expected:', DERIVED_PUBKEY, 'switch reported npub:', switchedNpub)
+          }
+        } catch { /* reconnect fires */ }
+        await new Promise(r => setTimeout(r, 600))
+        setSigningStage('signing')
+
+        const unsigned = {
+          kind: 31000,
+          tags: [
+            ['d', source.publicKey],
+            ['p', source.publicKey],
+            ['rank', String(userScore)],
+            ['type', 'vouch'],
+          ],
+          content: '',
+          created_at: Math.floor(Date.now() / 1000),
+        }
+        const signed = await nostr.signEvent(unsigned)
+
+        // Publish to relay
+        try {
+          const ws = new WebSocket('wss://relay.trotters.cc')
+          await new Promise<void>((resolve) => {
+            const timeout = setTimeout(() => {
+              console.warn('[source] relay publish timeout — no OK received for kind 31000')
+              ws.close()
+              resolve()
+            }, 8000)
+            ws.onopen = () => {
+              console.log('[source] relay connected, sending kind 31000 event', signed.id)
+              ws.send(JSON.stringify(['EVENT', signed]))
+            }
+            ws.onmessage = (msg) => {
+              try {
+                const data = JSON.parse(String(msg.data))
+                console.log('[source] relay message:', data)
+                if (data[0] === 'OK') {
+                  clearTimeout(timeout)
+                  ws.close()
+                  resolve()
+                }
+              } catch { /* ignore */ }
+            }
+            ws.onerror = (e) => {
+              console.error('[source] relay WebSocket error for kind 31000:', e)
+              clearTimeout(timeout)
+              resolve()
+            }
+          })
+        } catch (pubErr) {
+          console.error('[source] relay publish failed:', pubErr)
+        }
+
+        addLogEntry({
+          kind: 31000,
+          subject: source.publicKey,
+          anonymous: false,
+          timestamp: Math.floor(Date.now() / 1000),
+          description: `${journalists[selected].name} signed a kind 31000 attestation via Bark (persona: veil-demo-journalist). Score: ${userScore}. Event ID: ${String(signed.id ?? '').slice(0, 12)}...`,
+        })
+      } catch (err) {
+        console.error('[source] Bark sign failed:', err)
+        addLogEntry({
+          kind: 31000,
+          subject: source.publicKey,
+          anonymous: false,
+          timestamp: Math.floor(Date.now() / 1000),
+          description: `${journalists[selected].name} submitted score ${userScore}. NIP-VA attestation (kind 31000).`,
+        })
+      } finally {
+        setSigningStage(null)
+      }
+    }
+
     addLogEntry({
       kind: 30382,
       subject: source.publicKey,
       anonymous: false,
       timestamp: Math.floor(Date.now() / 1000),
-      description: `${journalists.length} journalists submitted NIP-85 credibility scores for the source. Scores range from 0 to 100. These will be aggregated via LSAG ring signatures in the next step.`,
+      description: `${flow.state.contributorIndices.size} journalists submitted NIP-85 credibility scores for the source. These will be aggregated via LSAG ring signatures in the next step.`,
     })
     addLogEntry({ kind: 0, subject: '', anonymous: false, timestamp: Math.floor(Date.now() / 1000), separator: 'THE VEIL' })
     flow.next()
-  }, [addLogEntry, flow])
+  }, [addLogEntry, flow, userScore, selected])
 
-  // Drip-feed NPC attestations one at a time
+  // Drip-feed NPC attestations — only the other ring contributors
+  const contributorIndices = flow.state.contributorIndices
   useEffect(() => {
     const npcs = journalists
       .map((j, i) => ({ j, i }))
-      .filter(({ i }) => i !== selected)
+      .filter(({ i }) => i !== selected && contributorIndices.has(i))
 
     let idx = 0
     const drip = () => {
@@ -189,21 +298,37 @@ export function Source({ flow }: Props) {
 
           <button
             onClick={handleSubmit}
-            disabled={!allReady}
+            disabled={!allReady || signingStage !== null}
             style={{
               padding: '0.7rem 2rem',
-              background: allReady ? '#7b68ee' : 'transparent',
+              background: allReady && signingStage === null ? '#7b68ee' : 'transparent',
               border: allReady ? '1px solid #7b68ee' : '1px solid #374151',
-              color: allReady ? '#08080d' : '#6b7280',
+              color: allReady && signingStage === null ? '#08080d' : '#6b7280',
               fontFamily: 'inherit',
               fontSize: '1rem',
               fontWeight: 600,
-              cursor: allReady ? 'pointer' : 'not-allowed',
+              cursor: allReady && signingStage === null ? 'pointer' : 'not-allowed',
               letterSpacing: '0.08em',
             }}
           >
-            SUBMIT SCORES
+            {signingStage === null ? 'SUBMIT SCORES' : {
+              switching: 'SWITCHING PERSONA...',
+              verifying: 'VERIFYING KEY...',
+              signing: 'REQUESTING SIGNATURE...',
+            }[signingStage]}
           </button>
+
+          {/* HSM signing status */}
+          {signingStage !== null && (
+            <div style={{ marginTop: '0.8rem', padding: '0.6rem 0.8rem', background: '#0d0d14', border: '1px solid #1a1a2e', fontSize: '0.8rem' }}>
+              <div style={{ color: '#9ca3af', marginBottom: '0.3rem' }}>ESP32 HARDWARE SIGNER</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+                <HsmStep label="Derive &amp; switch to journalist persona" done={signingStage !== 'switching'} active={signingStage === 'switching'} />
+                <HsmStep label={activeKey ? `Key: ${activeKey.slice(0, 10)}...${activeKey.slice(-6)}` : 'Verify active key'} done={signingStage === 'signing'} active={signingStage === 'verifying'} warning={keyMismatch} />
+                <HsmStep label="Sign kind 31000 attestation" done={false} active={signingStage === 'signing'} />
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Right: Attestation feed */}
@@ -264,6 +389,17 @@ function AttestationEntry({ name, score, isUser }: { name: string; score: number
       <div style={{ fontSize: '0.75rem', color: '#6b7280' }}>
         kind: 31000 &middot; type: vouch &middot; metric: rank
       </div>
+    </div>
+  )
+}
+
+function HsmStep({ label, done, active, warning }: { label: string; done: boolean; active: boolean; warning?: boolean }) {
+  const color = warning ? '#f87171' : done ? '#4ade80' : active ? '#7b68ee' : '#374151'
+  const prefix = warning ? '!' : done ? '✓' : active ? '›' : '·'
+  return (
+    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', color }}>
+      <span style={{ width: 10, textAlign: 'center', fontSize: '0.8rem' }}>{prefix}</span>
+      <span style={{ fontSize: '0.78rem' }}>{label}{warning ? ' (key mismatch — check console)' : ''}</span>
     </div>
   )
 }

@@ -4,19 +4,25 @@ export type Screen = 'circle' | 'source' | 'veil' | 'verification' | 'reveal' | 
 
 const SCREEN_ORDER: Screen[] = ['circle', 'source', 'veil', 'verification', 'reveal', 'network']
 
+/** Total ring signature contributors (user + NPCs). */
+export const CONTRIBUTOR_COUNT = 3
+
 export interface VeilFlowState {
   screen: Screen
   selectedJournalistIndex: number | null
+  /** Indices of the journalists who contribute to the ring signature. */
+  contributorIndices: Set<number>
   scores: Map<number, number>
   aggregatedEvent: unknown | null
   proofResult: unknown | null
   disclosureProofs: unknown | null
 }
 
-export function useVeilFlow() {
+export function useVeilFlow(ringSize: number) {
   const [state, setState] = useState<VeilFlowState>({
     screen: 'circle',
     selectedJournalistIndex: null,
+    contributorIndices: new Set(),
     scores: new Map(),
     aggregatedEvent: null,
     proofResult: null,
@@ -36,8 +42,20 @@ export function useVeilFlow() {
   }, [])
 
   const selectJournalist = useCallback((index: number) => {
-    setState(s => ({ ...s, selectedJournalistIndex: index }))
-  }, [])
+    // Pre-compute which journalists will contribute to the ring.
+    // Always includes the user's selected journalist + random others.
+    const indices = new Set<number>([index])
+    const pool = Array.from({ length: ringSize }, (_, i) => i).filter(i => i !== index)
+    for (let i = pool.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [pool[i], pool[j]] = [pool[j], pool[i]]
+    }
+    for (const idx of pool) {
+      if (indices.size >= CONTRIBUTOR_COUNT) break
+      indices.add(idx)
+    }
+    setState(s => ({ ...s, selectedJournalistIndex: index, contributorIndices: indices }))
+  }, [ringSize])
 
   const setScore = useCallback((journalistIndex: number, rank: number) => {
     setState(s => {

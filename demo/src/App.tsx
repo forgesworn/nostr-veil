@@ -1,4 +1,5 @@
 import { useVeilFlow, type Screen } from './hooks/useVeilFlow.js'
+import { journalists } from './data/journalists.js'
 import { RelayProvider } from './components/RelayProvider.js'
 import { EventTicker } from './components/EventTicker.js'
 import { Network } from './screens/Network.js'
@@ -15,7 +16,7 @@ const SCREEN_TITLES: Record<Screen, string> = {
   veil: 'The Veil',
   verification: 'Verification',
   reveal: 'The Reveal',
-  network: 'The Network',
+  network: 'The Recap',
 }
 
 const SCREEN_NUMBERS: Record<Screen, number> = {
@@ -37,7 +38,7 @@ const SCREENS: Record<Screen, ComponentType<{ flow: ReturnType<typeof useVeilFlo
 }
 
 function AppInner() {
-  const flow = useVeilFlow()
+  const flow = useVeilFlow(journalists.length)
   const title = SCREEN_TITLES[flow.state.screen]
   const screenNum = SCREEN_NUMBERS[flow.state.screen]
   const ScreenComponent = SCREENS[flow.state.screen]

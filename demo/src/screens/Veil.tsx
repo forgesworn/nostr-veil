@@ -63,19 +63,8 @@ export function Veil({ flow }: Props) {
       setStatus('Collecting ring-signed attestations...')
       await pause(400)
 
-      // Pick 5 of 8 contributors. Always include the user's selected journalist.
-      const CONTRIBUTOR_COUNT = 5
-      const selected = flow.state.selectedJournalistIndex ?? 0
-      const signerIndices = new Set<number>([selected])
-      const pool = journalists.map((_, i) => i).filter(i => i !== selected)
-      for (let i = pool.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [pool[i], pool[j]] = [pool[j], pool[i]]
-      }
-      for (const idx of pool) {
-        if (signerIndices.size >= CONTRIBUTOR_COUNT) break
-        signerIndices.add(idx)
-      }
+      // Use the pre-computed contributor set from the flow state.
+      const signerIndices = flow.state.contributorIndices
 
       const contributions = journalists
         .map((j, i) => ({ j, i }))

@@ -18,7 +18,7 @@ const NAMES = [
 ]
 
 /** Real derived pubkey from nsec-tree persona "veil-demo-journalist" */
-const DERIVED_PUBKEY = 'f8237d3cba84106bee74c583f0772a1b852d3360f0186eae5ee0285cca4f8f6b'
+export const DERIVED_PUBKEY = '5d3b5d92da6f8852a68a048af3e5db24438d42c66396e95e8c92a4a651cc1323'
 
 export interface Journalist {
   name: string
