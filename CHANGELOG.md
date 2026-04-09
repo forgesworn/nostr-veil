@@ -1,3 +1,10 @@
+## [0.8.1](https://github.com/forgesworn/nostr-veil/compare/v0.8.0...v0.8.1) (2026-04-09)
+
+
+### Bug Fixes
+
+* use full persona path for Heartwood switch ([075dd4d](https://github.com/forgesworn/nostr-veil/commit/075dd4df6b60fa342767833850cad7a82c57ff47))
+
 # [0.8.0](https://github.com/forgesworn/nostr-veil/compare/v0.7.0...v0.8.0) (2026-04-09)
 
 
