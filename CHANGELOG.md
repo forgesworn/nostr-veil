@@ -1,3 +1,10 @@
+# [0.8.0](https://github.com/forgesworn/nostr-veil/compare/v0.7.0...v0.8.0) (2026-04-09)
+
+
+### Features
+
+* welcome screen, Hetzner deploy, wotathon submission ([d27a6d0](https://github.com/forgesworn/nostr-veil/commit/d27a6d00a679aac37a640a76f1bd6164eb81071e))
+
 # [0.7.0](https://github.com/forgesworn/nostr-veil/compare/v0.6.0...v0.7.0) (2026-04-09)
 
 
