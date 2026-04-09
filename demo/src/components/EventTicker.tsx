@@ -14,8 +14,8 @@ function kindLabel(entry: EventLogEntry): string {
     case 30385: return 'NIP-85 identifier assertion'
     case 10040: return 'NIP-85 provider declaration'
     case 20078: return entry.description?.includes('Duress') ? 'CANARY duress alert' : 'CANARY heartbeat'
-    case 31000: return 'NIP-VA attestation'
-    case 30078: return 'nostr-veil disclosure'
+    case 31000: return entry.description?.includes('disclosure') ? 'nostr-veil disclosure' : 'NIP-VA attestation'
+    case 31871: return 'verifier attestation'
     default: return `kind ${entry.kind}`
   }
 }
@@ -27,8 +27,9 @@ function isAlertDuress(entry: EventLogEntry): boolean {
 function entryColour(entry: EventLogEntry): string {
   if (isAlertDuress(entry)) return '#dc2626'
   if (entry.kind === 20078) return '#22c55e'
+  if (entry.kind === 31000 && entry.description?.includes('disclosure')) return '#38bdf8'
   if (entry.kind === 31000) return '#7b68ee'
-  if (entry.kind === 30078) return '#38bdf8'
+  if (entry.kind === 31871) return '#06b6d4'
   if (entry.anonymous) return '#d97706'
   return '#9ca3af'
 }
@@ -36,8 +37,9 @@ function entryColour(entry: EventLogEntry): string {
 function badge(entry: EventLogEntry): string | null {
   if (isAlertDuress(entry)) return 'DURESS'
   if (entry.kind === 20078) return 'HEARTBEAT'
+  if (entry.kind === 31000 && entry.description?.includes('disclosure')) return 'DISCLOSURE'
   if (entry.kind === 31000) return 'ATTESTATION'
-  if (entry.kind === 30078) return 'DISCLOSURE'
+  if (entry.kind === 31871) return 'ATTESTED'
   if (entry.anonymous) return 'RING'
   return null
 }
@@ -49,11 +51,14 @@ function defaultDescription(entry: EventLogEntry): string {
   if (entry.kind === 20078) {
     return `CANARY protocol (canary-kit). Heartbeat from ${truncate(entry.subject)}. This circle member is alive and well. Ephemeral kind 20078, published periodically. If heartbeats stop, a duress alert fires.`
   }
+  if (entry.kind === 31000 && entry.description?.includes('disclosure')) {
+    return `nostr-veil disclosure. Kind 31000 NIP-VA attestation (type: ownership-claim) proving two identities share a master key (nsec-tree common ownership proof). Voluntary identity reveal.`
+  }
   if (entry.kind === 31000) {
     return `NIP-VA (nostr-attestations). Kind 31000 verifiable attestation for ${truncate(entry.subject)}. Used by the proof layer to anchor LSAG contributions to Nostr events.`
   }
-  if (entry.kind === 30078) {
-    return `nostr-veil disclosure. Kind 30078 addressable event proving two identities share a master key (nsec-tree common ownership proof). Voluntary identity reveal.`
+  if (entry.kind === 31871) {
+    return `Independent verifier attestation (kind 31871). Third-party confirmation that the ring-signed assertion for ${truncate(entry.subject)} is valid. Demonstrates kind-agnostic compatibility.`
   }
   if (entry.anonymous) {
     return `NIP-85 anonymous ring assertion for ${truncate(entry.subject)}. Ring-signed by a trust circle via LSAG (nostr-veil proof layer). Kind ${entry.kind} with veil-ring/veil-sig tags.`

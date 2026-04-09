@@ -2,6 +2,7 @@ import { useVeilFlow, type Screen } from './hooks/useVeilFlow.js'
 import { journalists } from './data/journalists.js'
 import { RelayProvider } from './components/RelayProvider.js'
 import { EventTicker } from './components/EventTicker.js'
+import { Welcome } from './screens/Welcome.js'
 import { Network } from './screens/Network.js'
 import { Circle } from './screens/Circle.js'
 import { Source } from './screens/Source.js'
@@ -11,6 +12,7 @@ import { Reveal } from './screens/Reveal.js'
 import type { ComponentType } from 'react'
 
 const SCREEN_TITLES: Record<Screen, string> = {
+  welcome: 'Setup',
   circle: 'The Circle',
   source: 'The Source',
   veil: 'The Veil',
@@ -20,6 +22,7 @@ const SCREEN_TITLES: Record<Screen, string> = {
 }
 
 const SCREEN_NUMBERS: Record<Screen, number> = {
+  welcome: 0,
   circle: 1,
   source: 2,
   veil: 3,
@@ -29,6 +32,7 @@ const SCREEN_NUMBERS: Record<Screen, number> = {
 }
 
 const SCREENS: Record<Screen, ComponentType<{ flow: ReturnType<typeof useVeilFlow> }>> = {
+  welcome: Welcome,
   circle: Circle,
   source: Source,
   veil: Veil,

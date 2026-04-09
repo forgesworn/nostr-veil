@@ -2,6 +2,8 @@ import { useEffect, useState, useMemo, useRef } from 'react'
 import { journalists } from '../data/journalists.js'
 import { source } from '../data/source.js'
 import { createTrustCircle, contributeAssertion, aggregateContributions } from 'nostr-veil/proof'
+import { signEvent } from '../../../src/signing.js'
+import { publishToRelay } from '../publish.js'
 import { Tip } from '../components/Tooltip.js'
 import { useRelay } from '../components/RelayProvider.js'
 import type { useVeilFlow } from '../hooks/useVeilFlow.js'
@@ -114,6 +116,16 @@ export function Veil({ flow }: Props) {
 
       setEvent(fullEvent as Record<string, unknown>)
       flow.setAggregatedEvent(template)
+
+      // Sign the ring assertion so we have a complete event to display on the recap screen
+      const selected = flow.state.selectedJournalistIndex ?? 0
+      const signed = signEvent(
+        { ...template, created_at: fullEvent.created_at },
+        journalists[selected].privateKey,
+      )
+      flow.addGeneratedEvent(signed)
+      publishToRelay(signed)
+
       setStatus('Aggregation complete')
     }
 

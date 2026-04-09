@@ -1,0 +1,173 @@
+nostr-veil — Anonymous Trust Assertions for Nostr
+==================================================
+
+Project:  nostr-veil
+Author:   forgesworn
+GitHub:   https://github.com/forgesworn/nostr-veil
+npm:      https://www.npmjs.com/package/nostr-veil (v0.2.2)
+Licence:  MIT
+Demo:     See attached video
+
+Dependencies (all independently published, MIT):
+  - @forgesworn/ring-sig  — LSAG ring signatures on secp256k1
+  - nsec-tree              — deterministic sub-identity derivation
+  - nostr-attestations     — NIP-VA kind 31000 verifiable attestations
+
+
+The Problem
+-----------
+
+Every Web of Trust system built for sensitive contexts has the same flaw:
+participation is traceable. Vouch for someone and the whole world sees you
+did it. That works for follower counts. It collapses the moment the subject
+is abuse reporting, whistleblowing, or political dissent.
+
+NIP-85 Trusted Assertions are a significant step forward for Nostr, but the
+current design assumes every assertion is signed by a known provider. For
+benign social signals, that's fine. For anything that requires courage,
+it's a deal-breaker.
+
+
+What nostr-veil Does
+--------------------
+
+nostr-veil layers ring signature anonymity onto standard NIP-85 events.
+
+A trust circle of N members can collectively score a subject. Each member
+contributes anonymously via LSAG (Linkable Spontaneous Anonymous Group)
+signatures. The result is a standard kind 30382 event that any existing
+Nostr client reads unchanged. Three extra tags carry the proof:
+
+  veil-ring       Sorted public keys of circle members
+  veil-threshold  How many signed / circle size (e.g. "5", "8")
+  veil-sig        One per signer: LSAG signature + key image
+
+Key images prevent double-signing. If the same person tries to contribute
+twice, the duplicate key image is detected. You get anonymity AND ballot
+integrity.
+
+NIP-85 is permissive about tags. Clients that don't recognise the veil
+tags simply ignore them and display the metrics as normal. No fork, no new
+event kind, no breaking change. Backwards compatible by design.
+
+
+What Makes This Different
+-------------------------
+
+LSAG ring signatures are battle-tested in Monero since 2014, but nobody
+has shipped a JavaScript implementation for the Nostr ecosystem.
+@forgesworn/ring-sig implements the maths from scratch on secp256k1.
+
+This is not hackathon code. The cryptographic primitives are independently
+published npm packages with their own test suites, release cycles, and
+funding applications. nostr-veil is a thin integration layer over:
+
+  @forgesworn/ring-sig   118 tests, SAG + LSAG
+  nsec-tree              136 tests, deterministic identity derivation
+  nostr-attestations     NIP-VA kind 31000, collaborative spec with Nathan Day
+
+nostr-veil itself has 118 tests across 11 files, full NIP-85 kind coverage
+(30382-30385 + 10040), builders, parsers, validators, and relay filters for
+all five assertion kinds.
+
+
+NIP-85 Interoperability
+-----------------------
+
+Full coverage of all NIP-85 event kinds:
+
+  Kind 30382  User assertions (rank, followers, zap activity)
+  Kind 30383  Event assertions
+  Kind 30384  Addressable event assertions
+  Kind 30385  Identifier assertions (with k-tag)
+  Kind 10040  Provider declarations (plaintext + NIP-44 encrypted)
+
+All 17 user assertion metric tags supported. Provider key management via
+nsec-tree. The output of aggregateContributions() is a standard NIP-85
+event. Amethyst reads it today.
+
+
+Selective Disclosure
+--------------------
+
+A circle member can optionally prove they contributed, without revealing
+anything about the other signers. nsec-tree derives anonymous and public
+personas from a single master key. A linkage proof connects them
+cryptographically. Blind proof hides the derivation path. Full proof
+reveals it. The circle member controls what to disclose and when.
+
+
+NIP-VA Connection
+-----------------
+
+Nathan Day and I came at attestations from different angles and condensed
+our work into NIP-VA: a single event kind (31000) for any verifiable claim.
+The ring signature pattern in nostr-veil is kind-agnostic. NIP-85 trust
+scores are the first application, but any NIP-VA attestation could be
+ring-signed. Anonymous credential endorsements, peer reviews, safety
+reports.
+
+
+The ForgeSworn Ecosystem
+------------------------
+
+nostr-veil connects to the broader ForgeSworn stack:
+
+  Heartwood    Nostr signing software for Raspberry Pi / ESP32.
+               Keys never leave the device. Tor by default.
+               We've added LSAG signing to the NIP-46 bunker so
+               ring signatures can be computed on the hardware
+               device itself.
+
+  Bark         NIP-07 browser extension bridging web apps to
+               Heartwood via NIP-46. The demo publishes the
+               aggregated event via Bark to real relays.
+
+  canary-kit   Duress detection. When a circle member is
+               compromised, the network can isolate them.
+
+All MIT, all published, all shipping.
+
+
+Interactive Demo
+----------------
+
+Six-screen whistleblower scenario:
+
+  1. The Circle    — form a trust circle of 8 journalists
+  2. The Source    — score an anonymous whistleblower's credibility
+  3. The Veil      — watch LSAG ring signatures being constructed
+  4. Verification  — 5-step verification pipeline (real cryptography)
+  5. The Reveal    — optional selective disclosure via nsec-tree
+  6. The Network   — trust graph with ring endorsement + duress animations
+
+Run it yourself:
+  git clone https://github.com/forgesworn/nostr-veil
+  cd nostr-veil/demo && npm install && npm run dev
+
+
+What This Enables
+-----------------
+
+Before nostr-veil, anonymous trust contributions on Nostr were impossible.
+After it, they are an npm install away.
+
+Abuse reporters can vouch without exposure. Journalists can verify sources
+without creating a traceable graph. Trust circles can form, contribute, and
+dissolve without any single member's participation being attributable.
+
+The people who need Web of Trust most can finally use it.
+
+
+Links
+-----
+
+  GitHub:          https://github.com/forgesworn/nostr-veil
+  ring-sig:        https://github.com/forgesworn/ring-sig
+  nsec-tree:       https://github.com/forgesworn/nsec-tree
+  Heartwood:       https://github.com/forgesworn/heartwood
+  Bark:            https://github.com/forgesworn/bark
+  nostr-attestations: https://github.com/forgesworn/nostr-attestations
+  npm:             https://www.npmjs.com/package/nostr-veil
+
+Contact: forgesworn on Nostr

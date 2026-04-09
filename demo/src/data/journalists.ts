@@ -1,8 +1,19 @@
 import { schnorr } from '@noble/curves/secp256k1.js'
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js'
+import { nip19 } from 'nostr-tools'
+
+/** Decode nsec from env var to hex privkey; fall back to placeholder if unset. */
+function journalistPrivkey(): string {
+  const raw = import.meta.env.VITE_JOURNALIST_PRIVKEY as string | undefined
+  if (raw?.startsWith('nsec1')) {
+    const decoded = nip19.decode(raw)
+    if (decoded.type === 'nsec') return bytesToHex(decoded.data as Uint8Array)
+  }
+  return '1001010101010101010101010101010101010101010101010101010101010101'
+}
 
 const SEEDS = [
-  '1001010101010101010101010101010101010101010101010101010101010101',
+  journalistPrivkey(), // TODO(lsag-esp32): replace with heartwood_lsag_sign when ESP32 firmware lands
   '2002020202020202020202020202020202020202020202020202020202020202',
   '3003030303030303030303030303030303030303030303030303030303030303',
   '4004040404040404040404040404040404040404040404040404040404040404',
@@ -17,18 +28,17 @@ const NAMES = [
   'Yuki Tanaka', 'Fatima Reyes', 'Nikolai Petrov', 'Sarah Okafor',
 ]
 
-/** Real derived pubkey from nsec-tree persona "veil-demo-journalist" */
-export const DERIVED_PUBKEY = '5d3b5d92da6f8852a68a048af3e5db24438d42c66396e95e8c92a4a651cc1323'
-
 export interface Journalist {
   name: string
   privateKey: string
   publicKey: string
   /** True if this member connected via NIP-07 (Bark) */
   nip07?: boolean
+  /** True if this member uses a browser-generated demo identity */
+  demo?: boolean
   /** Real pubkey from NIP-07 signer (used for display + publishing, not LSAG ring) */
   nip07Pubkey?: string
-  /** Pubkey to show in the UI (derived persona or NIP-07 pubkey) */
+  /** Pubkey to show in the UI */
   displayPubkey?: string
 }
 
@@ -38,18 +48,20 @@ export const journalists: Journalist[] = SEEDS.map((seed, i) => ({
   publicKey: bytesToHex(schnorr.getPublicKey(hexToBytes(seed))),
 }))
 
-/**
- * Mark the first journalist as connected via NIP-07.
- * The ring pubkey stays as the demo key (LSAG needs a matching keypair).
- * The real pubkey is stored separately for display and final event signing.
- * If the connected pubkey matches the derived persona, show it in the UI.
- */
 export function connectNip07Identity(pubkey: string): void {
   journalists[0] = {
     ...journalists[0],
     nip07: true,
     nip07Pubkey: pubkey,
-    // Show the derived persona pubkey in the member list if connected
-    displayPubkey: pubkey === DERIVED_PUBKEY ? DERIVED_PUBKEY : pubkey,
+    displayPubkey: pubkey,
+  }
+}
+
+export function injectDemoIdentity(privateKey: string, publicKey: string): void {
+  journalists[0] = {
+    ...journalists[0],
+    privateKey,
+    publicKey,
+    demo: true,
   }
 }

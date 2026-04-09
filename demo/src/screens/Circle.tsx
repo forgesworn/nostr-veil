@@ -1,5 +1,6 @@
-import { useMemo, useCallback, useState, useEffect } from 'react'
-import { journalists, connectNip07Identity } from '../data/journalists.js'
+import { useMemo, useCallback } from 'react'
+import { nip19 } from 'nostr-tools'
+import { journalists } from '../data/journalists.js'
 import { createTrustCircle } from 'nostr-veil/proof'
 import { Tip } from '../components/Tooltip.js'
 import { useRelay } from '../components/RelayProvider.js'
@@ -14,32 +15,8 @@ function truncate(hex: string): string {
 export function Circle({ flow }: Props) {
   const selected = flow.state.selectedJournalistIndex
   const { addLogEntry } = useRelay()
-  const [nip07Connected, setNip07Connected] = useState(false)
 
-  // Auto-detect Bark / NIP-07 signer
-  useEffect(() => {
-    const detect = async () => {
-      const nostr = (window as unknown as { nostr?: { getPublicKey: () => Promise<string> } }).nostr
-      if (!nostr) return
-      try {
-        const pubkey = await nostr.getPublicKey()
-        connectNip07Identity(pubkey)
-        setNip07Connected(true)
-        addLogEntry({
-          kind: 0,
-          subject: pubkey,
-          anonymous: false,
-          timestamp: Math.floor(Date.now() / 1000),
-          description: `NIP-07 signer detected (Bark). Connected as Donkey: ${pubkey.slice(0, 12)}...`,
-        })
-      } catch {
-        // NIP-07 available but user declined
-      }
-    }
-    detect()
-  }, [addLogEntry])
-
-  const pubkeys = useMemo(() => journalists.map(j => j.publicKey), [nip07Connected]) // eslint-disable-line react-hooks/exhaustive-deps
+  const pubkeys = useMemo(() => journalists.map(j => j.publicKey), []) // eslint-disable-line react-hooks/exhaustive-deps
   const circle = useMemo(() => createTrustCircle(pubkeys), [pubkeys])
 
   const handleSelect = useCallback((index: number) => {
@@ -206,9 +183,26 @@ export function Circle({ flow }: Props) {
                       BARK
                     </span>
                   )}
+                  {j.demo && (
+                    <span style={{
+                      fontSize: '0.65rem',
+                      color: '#7b68ee',
+                      background: 'rgba(123, 104, 238, 0.1)',
+                      border: '1px solid rgba(123, 104, 238, 0.25)',
+                      padding: '1px 6px',
+                      letterSpacing: '0.06em',
+                    }}>
+                      DEMO
+                    </span>
+                  )}
                 </span>
-                <span style={{ fontSize: '0.85rem', color: '#9ca3af', fontFamily: "'JetBrains Mono', monospace" }}>
-                  {truncate(j.displayPubkey ?? j.publicKey)}
+                <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.1rem' }}>
+                  <span style={{ fontSize: '0.78rem', color: '#9ca3af', fontFamily: "'JetBrains Mono', monospace" }}>
+                    {truncate(j.displayPubkey ?? j.publicKey)}
+                  </span>
+                  <span style={{ fontSize: '0.68rem', color: '#4b5563', fontFamily: "'JetBrains Mono', monospace" }}>
+                    {(() => { try { const n = nip19.npubEncode(j.displayPubkey ?? j.publicKey); return n.slice(0, 12) + '…' + n.slice(-6) } catch { return '' } })()}
+                  </span>
                 </span>
               </div>
             ))}

@@ -33,6 +33,10 @@ const KIND_META: Record<number, KindMeta> = {
     nip: 'NIP-VA',
     badge: 'ATTRIBUTABLE',
     explain: (ev) => {
+      if (isDisclosure(ev)) {
+        const masterPk = ev.tags.find(t => t[0] === 'master-pubkey')?.[1] ?? ''
+        return `Voluntary proof linking the anonymous persona key to the journalist's Heartwood master key (${truncate(masterPk, 6)}…). The master signed a kind 1 event declaring ownership of the persona key — that event is embedded verbatim in the content. Anyone can verify it: parse the JSON, call schnorr.verify(sig, id, pubkey). The master-pubkey and child tags form the nsec-tree linkage.`
+      }
       const rank = ev.tags.find(t => t[0] === 'rank')?.[1] ?? '?'
       const subject = ev.tags.find(t => t[0] === 'p')?.[1] ?? ''
       return `Personal credibility attestation. The journalist scored the source (${truncate(subject, 6)}…) at rank ${rank}/100. Signed on an ESP32 hardware signer via NIP-46, published under the journalist's real persona pubkey — publicly attributable. In the next step this score is hidden inside an anonymous ring signature.`
@@ -51,14 +55,15 @@ const KIND_META: Record<number, KindMeta> = {
       return `${veilSigs.length} journalists from a ring of ${ringSize} members each contributed an anonymous score via LSAG ring signatures. The median rank is ${rank}/100. Each veil-sig tag contains a ring signature with a unique key image that prevents double-scoring. No one — not even the relay operator — can determine which journalist gave which score.`
     },
   },
-  30078: {
-    label: 'Identity Disclosure',
-    colour: '#7b68ee',
-    nip: 'NIP-78',
-    badge: 'VOLUNTARY',
+  31871: {
+    label: 'Verifier Attestation',
+    colour: '#06b6d4',
+    nip: 'NIP-ATTEST',
+    badge: 'INDEPENDENT',
     explain: (ev) => {
-      const masterPk = ev.tags.find(t => t[0] === 'master-pubkey')?.[1] ?? ''
-      return `Voluntary proof linking the anonymous persona key to the journalist's Heartwood master key (${truncate(masterPk, 6)}…). The master signed a kind 1 event declaring ownership of the persona key — that event is embedded verbatim in the content. Anyone can verify it: parse the JSON, call schnorr.verify(sig, id, pubkey). The master-pubkey and child tags form the nsec-tree linkage.`
+      const aTag = ev.tags.find(t => t[0] === 'a')?.[1] ?? ''
+      const status = ev.tags.find(t => t[0] === 's')?.[1] ?? '?'
+      return `Independent third-party attestation (kind 31871). A verifier checked the ring-signed assertion (${truncate(aTag, 12)}…) and declared it "${status}". This demonstrates that nostr-veil's ring signature layer is kind-agnostic: the same LSAG proof can be attested by NIP-VA (kind 31000) and NIP-ATTEST (kind 31871) simultaneously.`
     },
   },
   1: {
@@ -66,7 +71,7 @@ const KIND_META: Record<number, KindMeta> = {
     colour: '#94a3b8',
     nip: 'NIP-01',
     badge: 'NESTED',
-    explain: () => `Signed by the Heartwood master key. Contains a child tag pointing to the persona pubkey, and content in the form nsec-tree:own|master|persona, proving both keys share the same Heartwood root. Embedded verbatim inside the kind 30078 disclosure event.`,
+    explain: () => `Signed by the Heartwood master key. Contains a child tag pointing to the persona pubkey, and content in the form nsec-tree:own|master|persona, proving both keys share the same Heartwood root. Embedded verbatim inside the kind 31000 disclosure event (type: ownership-claim).`,
   },
 }
 
@@ -75,6 +80,10 @@ const KIND_META: Record<number, KindMeta> = {
 function truncate(hex: string, n = 8): string {
   if (hex.length <= n * 2 + 3) return hex
   return hex.slice(0, n) + '...' + hex.slice(-6)
+}
+
+function isDisclosure(ev: RelayEvent): boolean {
+  return ev.kind === 31000 && ev.tags.find(t => t[0] === 'type')?.[1] === 'ownership-claim'
 }
 
 function toNpub(hex: string): string {
@@ -229,14 +238,14 @@ function EventHeader({ ev, meta, nested = false }: { ev: RelayEvent; meta: KindM
           kind {ev.kind}
         </span>
         <span style={{ fontSize: nested ? '0.9rem' : '1rem', color: '#e0e0e0', fontWeight: 600 }}>
-          {meta.label}
+          {isDisclosure(ev) ? 'Identity Disclosure' : meta.label}
         </span>
         <span style={{
           fontSize: '0.62rem', padding: '0.1rem 0.35rem',
           border: `1px solid ${meta.colour}30`, color: `${meta.colour}99`,
           letterSpacing: '0.08em',
         }}>
-          {meta.badge}
+          {isDisclosure(ev) ? 'VOLUNTARY' : meta.badge}
         </span>
       </div>
 
@@ -300,13 +309,15 @@ function NestedKind1({ content }: { content: string }) {
           <SectionLabel>HOW TO VERIFY</SectionLabel>
           <div style={{
             padding: '0.5rem 0.7rem', background: '#0d0d14',
-            border: '1px solid #1a1a2e', fontSize: '0.72rem', color: '#6b7280', lineHeight: 1.6,
+            border: '1px solid #1a1a2e', fontSize: '0.72rem', color: '#6b7280', lineHeight: 1.8,
           }}>
-            <code style={{ color: '#9ca3af' }}>
-              schnorr.verify(event.sig, hexToBytes(event.id), hexToBytes(event.pubkey))
-            </code>
-            <br />
-            Then confirm <code style={{ color: '#7b68ee' }}>event.pubkey === master-pubkey tag</code> on the outer 30078.
+            <div><span style={{ color: '#4b5563' }}>1.</span> Verify the master signed this event:</div>
+            <pre style={{ color: '#9ca3af', paddingLeft: '0.8rem', margin: '0.2rem 0', fontSize: '0.72rem' }}>
+              {'echo \'<kind 1 json>\' | nak verify'}
+            </pre>
+            <div style={{ marginTop: '0.4rem' }}><span style={{ color: '#4b5563' }}>2.</span> Confirm <code style={{ color: '#7b68ee' }}>kind1.tags.child</code> equals the persona pubkey on the outer kind 31000.</div>
+            <div style={{ marginTop: '0.2rem' }}><span style={{ color: '#4b5563' }}>3.</span> Confirm <code style={{ color: '#7b68ee' }}>kind1.pubkey</code> equals the <code style={{ color: '#7b68ee' }}>master-pubkey</code> tag on the outer kind 31000.</div>
+            <div style={{ marginTop: '0.4rem', color: '#374151' }}>Steps 2 and 3 close the chain: master claims persona, persona signed the outer event.</div>
           </div>
         </div>
 
@@ -319,7 +330,7 @@ function NestedKind1({ content }: { content: string }) {
 // ─── identity strip ───────────────────────────────────────────────────────────
 
 function IdentityStrip({ events }: { events: RelayEvent[] }) {
-  const disclosure = events.find(e => e.kind === 30078)
+  const disclosure = events.find(e => isDisclosure(e))
   const personaHex = disclosure?.pubkey ?? events.find(e => e.kind === 31000)?.pubkey ?? ''
   const masterHex = disclosure?.tags.find(t => t[0] === 'master-pubkey')?.[1] ?? ''
 
@@ -334,7 +345,7 @@ function IdentityStrip({ events }: { events: RelayEvent[] }) {
       marginBottom: '1.2rem',
     }}>
       <div style={{ fontSize: '0.68rem', color: '#4b5563', letterSpacing: '0.1em', alignSelf: 'center', marginRight: '0.2rem' }}>
-        HEARTWOOD KEYS
+        SIGNING KEYS
       </div>
       {masterHex && (
         <KeyPill label="master" hex={masterHex} colour="#94a3b8" />
@@ -466,13 +477,13 @@ function DetailPanel({ ev, onClose }: { ev: RelayEvent; onClose: () => void }) {
         </div>
       )}
 
-      {/* Embedded kind 1 for 30078 */}
-      {ev.kind === 30078 && ev.content && (
+      {/* Embedded kind 1 for disclosure (kind 31000, type: ownership-claim) */}
+      {isDisclosure(ev) && ev.content && (
         <NestedKind1 content={ev.content} />
       )}
 
-      {/* Content for non-30078, non-NIP-46 events */}
-      {ev.content && ev.kind !== 30078 && ev.kind !== 24133 && (
+      {/* Content for non-disclosure, non-NIP-46 events */}
+      {ev.content && !isDisclosure(ev) && ev.kind !== 24133 && (
         <div style={{ marginTop: '0.8rem' }}>
           <SectionLabel>CONTENT</SectionLabel>
           <pre style={{
@@ -491,13 +502,77 @@ function DetailPanel({ ev, onClose }: { ev: RelayEvent; onClose: () => void }) {
   )
 }
 
+// ─── nak verify block ─────────────────────────────────────────────────────────
+
+function NakVerify({ events }: { events: RelayEvent[] }) {
+  const [open, setOpen] = useState(false)
+
+  const persona = events.find(e => e.kind === 31000 || e.kind === 30382)?.pubkey ?? '<persona-pubkey>'
+  const subject = events.find(e => e.kind === 31000)?.tags.find(t => t[0] === 'd')?.[1] ?? '<subject-pubkey>'
+
+  const cmds = [
+    { label: 'NIP-VA attestation (kind 31000)', cmd: `nak req -k 31000 -a ${persona} -d ${subject} -l 1 ${RELAY} | nak verify` },
+    { label: 'ring assertion (kind 30382)',      cmd: `nak req -k 30382 -a ${persona} -d ${subject} -l 1 ${RELAY} | nak verify` },
+    { label: 'identity disclosure (kind 31000, type: ownership-claim)', cmd: `nak req -k 31000 -a ${persona} -d veil-disclosure:master -l 1 ${RELAY} | nak verify` },
+    { label: 'verifier attestation (kind 31871)', cmd: `nak req -k 31871 -l 5 ${RELAY} | nak verify` },
+  ]
+
+  return (
+    <div style={{ marginTop: '1.5rem', border: '1px solid #1a1a2e' }}>
+      <div
+        onClick={() => setOpen(o => !o)}
+        style={{
+          display: 'flex', alignItems: 'center', gap: '0.4rem',
+          padding: '0.6rem 0.9rem', cursor: 'pointer',
+          fontSize: '0.72rem', color: '#4b5563', letterSpacing: '0.08em',
+          userSelect: 'none',
+        }}
+      >
+        <span style={{ fontSize: '0.65rem' }}>{open ? '▾' : '▸'}</span>
+        VERIFY INDEPENDENTLY WITH NAK
+      </div>
+
+      {open && (
+        <div style={{ padding: '0 0.9rem 0.9rem' }}>
+          <p style={{ fontSize: '0.78rem', color: '#6b7280', marginBottom: '0.9rem', lineHeight: 1.65, marginTop: 0 }}>
+            <a href="https://github.com/fiatjaf/nak" target="_blank" rel="noreferrer"
+              style={{ color: '#7b68ee' }}>nak</a>{' '}
+            fetches each event from the relay and pipes it into{' '}
+            <code style={{ color: '#9ca3af' }}>nak verify</code>, which checks the Schnorr signature against the event hash.
+            Empty output means valid. All three are parameterised replaceable events (kinds 30xxx) — querying by
+            author + kind + <code style={{ color: '#9ca3af' }}>d</code> tag fetches the latest version regardless of event ID.
+          </p>
+
+          {cmds.map(({ label, cmd }) => (
+            <div key={label} style={{ marginBottom: '0.75rem' }}>
+              <div style={{ fontSize: '0.68rem', color: '#4b5563', marginBottom: '0.25rem', letterSpacing: '0.05em' }}>
+                {label}
+              </div>
+              <pre style={{
+                fontSize: '0.72rem', color: '#9ca3af', background: '#08080d',
+                padding: '0.5rem 0.7rem', border: '1px solid #1a1a2e',
+                whiteSpace: 'pre-wrap', wordBreak: 'break-all', margin: 0,
+              }}>
+                {cmd}
+              </pre>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── main component ───────────────────────────────────────────────────────────
 
-export function Network({ flow: _flow }: Props) {
+export function Network({ flow }: Props) {
   const [events, setEvents] = useState<RelayEvent[]>([])
   const [status, setStatus] = useState('Connecting to relay...')
   const [selected, setSelected] = useState<RelayEvent | null>(null)
+  const [copied, setCopied] = useState(false)
   const wsRef = useRef<WebSocket | null>(null)
+
+  const isDemo = flow.state.identityMode === 'demo'
 
   useEffect(() => {
     const ws = new WebSocket(RELAY)
@@ -507,7 +582,7 @@ export function Network({ flow: _flow }: Props) {
     ws.onopen = () => {
       setStatus('Fetching recent events…')
       ws.send(JSON.stringify(['REQ', 'recap', {
-        kinds: [31000, 30382, 30078],
+        kinds: [31000, 30382, 31871],
         limit: 50,
         since: Math.floor(Date.now() / 1000) - 600,
       }]))
@@ -539,8 +614,13 @@ export function Network({ flow: _flow }: Props) {
   return (
     <div>
       <p style={{ color: '#c0c0c0', fontSize: '1.1rem', marginBottom: '0.5rem', lineHeight: 1.7 }}>
-        <strong style={{ color: '#e0e0e0' }}>What just happened, on-chain.</strong>{' '}
-        Real Nostr events fetched live from <span style={{ color: '#7b68ee' }}>{RELAY}</span>, each signed by the Heartwood ESP32.
+        <strong style={{ color: '#e0e0e0' }}>
+          {isDemo ? 'What you just created.' : 'What just happened, on-chain.'}
+        </strong>{' '}
+        {isDemo
+          ? <>Real signed Nostr events generated during this demo session. Every signature, ring proof, and attestation below is cryptographically valid.</>
+          : <>Real Nostr events fetched live from <span style={{ color: '#7b68ee' }}>{RELAY}</span>, each signed by the Heartwood ESP32.</>
+        }
       </p>
       <p style={{ color: '#9ca3af', fontSize: '0.95rem', marginBottom: '1.5rem', lineHeight: 1.6 }}>
         Click any event to inspect its structure, tags, ring signatures, and embedded proofs.
@@ -559,7 +639,41 @@ export function Network({ flow: _flow }: Props) {
           background: events.length > 0 ? '#4ade80' : '#facc15',
           flexShrink: 0,
         }} />
-        <span style={{ fontSize: '0.82rem', color: '#6b7280' }}>{status}</span>
+        <span style={{ fontSize: '0.82rem', color: '#6b7280', flex: 1 }}>{status}</span>
+        {events.length > 0 && (
+          <button
+            onClick={() => {
+              const dump = events.map(ev => {
+                const meta = KIND_META[ev.kind]
+                return {
+                  kind: ev.kind,
+                  label: meta ? (isDisclosure(ev) ? 'Identity Disclosure' : meta.label) : `kind ${ev.kind}`,
+                  id: ev.id,
+                  pubkey: ev.pubkey,
+                  npub: toNpub(ev.pubkey),
+                  created_at: ev.created_at,
+                  tags: ev.tags,
+                  content: ev.content,
+                  sig: ev.sig,
+                }
+              })
+              navigator.clipboard.writeText(JSON.stringify(dump, null, 2))
+              setCopied(true)
+              setTimeout(() => setCopied(false), 1500)
+            }}
+            style={{
+              background: copied ? 'rgba(74, 222, 128, 0.1)' : 'none',
+              border: copied ? '1px solid rgba(74, 222, 128, 0.3)' : '1px solid #374151',
+              color: copied ? '#4ade80' : '#6b7280',
+              padding: '0.2rem 0.6rem', cursor: 'pointer', fontSize: '0.7rem',
+              fontFamily: "'JetBrains Mono', monospace", letterSpacing: '0.05em',
+              flexShrink: 0,
+              transition: 'all 0.15s',
+            }}
+          >
+            {copied ? 'COPIED' : 'COPY ALL'}
+          </button>
+        )}
       </div>
 
       {/* Identity strip — appears once we have events */}
@@ -597,7 +711,7 @@ export function Network({ flow: _flow }: Props) {
                       {ev.kind}
                     </span>
                     <span style={{ fontSize: '0.85rem', color: '#d0d0d0', fontWeight: 500 }}>
-                      {meta.label}
+                      {isDisclosure(ev) ? 'Identity Disclosure' : meta.label}
                     </span>
                     {rankTag && (
                       <span style={{ fontSize: '0.75rem', color: '#4ade80', fontWeight: 600 }}>
@@ -614,7 +728,7 @@ export function Network({ flow: _flow }: Props) {
                       border: `1px solid ${meta.colour}25`, color: `${meta.colour}80`,
                       letterSpacing: '0.07em',
                     }}>
-                      {meta.badge}
+                      {isDisclosure(ev) ? 'VOLUNTARY' : meta.badge}
                     </span>
                   </div>
                   <span style={{ fontSize: '0.68rem', color: '#374151', flexShrink: 0, marginLeft: '0.5rem' }}>
@@ -630,7 +744,7 @@ export function Network({ flow: _flow }: Props) {
 
           {events.length === 0 && status.includes('No recent') && (
             <div style={{ padding: '2rem', textAlign: 'center', color: '#6b7280', fontSize: '0.9rem' }}>
-              No events found. Complete the demo flow with Bark connected.
+              No events found. Complete the demo flow first.
             </div>
           )}
         </div>
@@ -640,6 +754,8 @@ export function Network({ flow: _flow }: Props) {
           <DetailPanel ev={selected} onClose={() => setSelected(null)} />
         )}
       </div>
+
+      {events.length > 0 && <NakVerify events={events} />}
     </div>
   )
 }

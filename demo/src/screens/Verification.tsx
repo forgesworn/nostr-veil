@@ -1,5 +1,10 @@
 import { useEffect, useState, useRef } from 'react'
 import { verifyProof } from 'nostr-veil/proof'
+import { signEvent } from '../../../src/signing.js'
+import { publishToRelay } from '../publish.js'
+import { hexToBytes, bytesToHex } from '@noble/hashes/utils.js'
+import { fromNsec, derive } from 'nsec-tree/core'
+import { journalists } from '../data/journalists.js'
 import { Tip } from '../components/Tooltip.js'
 import { useRelay } from '../components/RelayProvider.js'
 import type { ProofVerification } from 'nostr-veil/proof'
@@ -27,6 +32,9 @@ export function Verification({ flow }: Props) {
   const [result, setResult] = useState<ProofVerification | null>(null)
   const [publishState, setPublishState] = useState<'idle' | 'signing' | 'publishing' | 'done' | 'error' | 'no-signer'>('idle')
   const [publishInfo, setPublishInfo] = useState<string | null>(null)
+  const [publishedEvent, setPublishedEvent] = useState<Record<string, unknown> | null>(null)
+  const [attestState, setAttestState] = useState<'idle' | 'signing' | 'publishing' | 'done' | 'error'>('idle')
+  const [attestInfo, setAttestInfo] = useState<string | null>(null)
   const didRun = useRef(false)
 
   useEffect(() => {
@@ -61,6 +69,36 @@ export function Verification({ flow }: Props) {
         timestamp: Math.floor(Date.now() / 1000),
         description: `Verification complete: ${verification.valid ? 'VALID' : 'INVALID'}. ${verification.distinctSigners} distinct signers in a circle of ${verification.circleSize}. ${verification.errors.length === 0 ? 'No errors.' : verification.errors.join(', ')}`,
       })
+
+      // In demo mode, auto-create a kind 31871 verifier attestation
+      if (flow.state.identityMode === 'demo' && verification.valid) {
+        const selected = flow.state.selectedJournalistIndex ?? 0
+        const keyBytes = hexToBytes(journalists[selected].privateKey)
+        const root = fromNsec(keyBytes)
+        const verifier = derive(root, 'nostr:persona:verifier', 0)
+        const verifierPrivHex = bytesToHex(verifier.privateKey)
+
+        const signerPubkey = journalists[selected].publicKey
+        const dTag = event.tags.find((t: string[]) => t[0] === 'd')?.[1] ?? ''
+        const aTagValue = `30382:${signerPubkey}:${dTag}`
+
+        const attestTemplate = {
+          kind: 31871,
+          tags: [
+            ['d', `veil-attest:${dTag}`],
+            ['a', aTagValue],
+            ['s', 'valid'],
+            ['proof-type', 'lsag-ring-signature'],
+          ],
+          content: `Independent verification: all LSAG ring signatures validated against the veil-ring member set. ${verification.distinctSigners} distinct signers in a circle of ${verification.circleSize}.`,
+          created_at: Math.floor(Date.now() / 1000),
+        }
+
+        const signed = signEvent(attestTemplate, verifierPrivHex)
+        flow.addGeneratedEvent(signed)
+        publishToRelay(signed)
+        root.destroy()
+      }
     }
 
     run()
@@ -137,7 +175,7 @@ export function Verification({ flow }: Props) {
                 CONTINUE
               </button>
 
-              {publishState === 'idle' && (
+              {publishState === 'idle' && flow.state.identityMode === 'heartwood' && (
                 <button
                   onClick={async () => {
                     const nostr = (window as unknown as { nostr?: { signEvent: (event: Record<string, unknown>) => Promise<Record<string, unknown>> } }).nostr
@@ -234,6 +272,7 @@ export function Verification({ flow }: Props) {
                       console.log('Publish results:', results)
 
                       setPublishState('done')
+                      setPublishedEvent(signed)
                       setPublishInfo(`Published to ${accepted}/${PUBLISH_RELAYS.length} relays. Event ID: ${String(signed.id ?? '').slice(0, 16)}...`)
                       addLogEntry({
                         kind: 30382, subject: '', anonymous: false,
@@ -287,6 +326,108 @@ export function Verification({ flow }: Props) {
                 </span>
               )}
             </div>
+          )}
+
+          {/* Kind 31871 independent verifier attestation */}
+          {publishState === 'done' && attestState === 'idle' && (
+            <div style={{ marginTop: '1.2rem' }}>
+              <button
+                onClick={async () => {
+                  setAttestState('signing')
+                  try {
+                    const selected = flow.state.selectedJournalistIndex ?? 0
+                    const keyBytes = hexToBytes(journalists[selected].privateKey)
+                    const root = fromNsec(keyBytes)
+                    const verifier = derive(root, 'nostr:persona:verifier', 0)
+                    const verifierPrivHex = bytesToHex(verifier.privateKey)
+                    const verifierPubHex = bytesToHex(verifier.publicKey)
+
+                    const pub = publishedEvent!
+                    const dTag = (pub.tags as string[][]).find((t: string[]) => t[0] === 'd')?.[1] ?? ''
+                    const aTagValue = `30382:${String(pub.pubkey)}:${dTag}`
+
+                    const template = {
+                      kind: 31871,
+                      tags: [
+                        ['d', `veil-attest:${dTag}`],
+                        ['a', aTagValue],
+                        ['s', 'valid'],
+                        ['proof-type', 'lsag-ring-signature'],
+                      ],
+                      content: `Independent verification: all LSAG ring signatures validated against the veil-ring member set. ${result!.distinctSigners} distinct signers in a circle of ${result!.circleSize}.`,
+                      created_at: Math.floor(Date.now() / 1000),
+                    }
+
+                    const signed = signEvent(template, verifierPrivHex)
+                    root.destroy()
+
+                    setAttestState('publishing')
+
+                    await new Promise<void>((resolve) => {
+                      const ws = new WebSocket(PUBLISH_RELAYS[0])
+                      const timeout = setTimeout(() => { ws.close(); resolve() }, 8000)
+                      ws.onopen = () => ws.send(JSON.stringify(['EVENT', signed]))
+                      ws.onmessage = (msg) => {
+                        try {
+                          const data = JSON.parse(String(msg.data))
+                          if (data[0] === 'OK') { clearTimeout(timeout); ws.close(); resolve() }
+                        } catch { /* ignore */ }
+                      }
+                      ws.onerror = () => { clearTimeout(timeout); resolve() }
+                    })
+
+                    setAttestState('done')
+                    setAttestInfo(`Verifier ${verifierPubHex.slice(0, 12)}… published kind 31871 attestation. Event: ${signed.id.slice(0, 16)}…`)
+                    addLogEntry({
+                      kind: 31871,
+                      subject: dTag,
+                      anonymous: false,
+                      timestamp: Math.floor(Date.now() / 1000),
+                      description: `Independent verifier published kind 31871 attestation. Status: valid. Verifier: ${verifierPubHex.slice(0, 12)}…`,
+                    })
+                  } catch (err) {
+                    setAttestState('error')
+                    setAttestInfo(String((err as Error).message))
+                  }
+                }}
+                style={{
+                  padding: '0.7rem 2rem',
+                  background: 'rgba(6, 182, 212, 0.1)',
+                  border: '1px solid rgba(6, 182, 212, 0.3)',
+                  color: '#06b6d4',
+                  fontFamily: 'inherit',
+                  fontSize: '0.8rem',
+                  fontWeight: 500,
+                  cursor: 'pointer',
+                  letterSpacing: '0.08em',
+                }}
+              >
+                PUBLISH VERIFIER ATTESTATION (31871)
+              </button>
+              <div style={{ fontSize: '0.72rem', color: '#4b5563', marginTop: '0.4rem', maxWidth: 400 }}>
+                An independent verifier persona (derived via nsec-tree) attests to the validity of the ring-signed assertion using Nathan Day's attestation spec (kind 31871).
+              </div>
+            </div>
+          )}
+          {attestState === 'signing' && (
+            <span style={{ fontSize: '0.85rem', color: '#06b6d4', letterSpacing: '0.05em', marginTop: '0.8rem', display: 'block' }}>
+              Deriving verifier persona…
+            </span>
+          )}
+          {attestState === 'publishing' && (
+            <span style={{ fontSize: '0.85rem', color: '#06b6d4', letterSpacing: '0.05em', marginTop: '0.8rem', display: 'block' }}>
+              Publishing to relay…
+            </span>
+          )}
+          {attestState === 'done' && (
+            <span style={{ fontSize: '0.85rem', color: '#10b981', letterSpacing: '0.05em', marginTop: '0.8rem', display: 'block' }}>
+              {attestInfo}
+            </span>
+          )}
+          {attestState === 'error' && (
+            <span style={{ fontSize: '0.85rem', color: '#f87171', letterSpacing: '0.05em', marginTop: '0.8rem', display: 'block' }}>
+              {attestInfo}
+            </span>
           )}
         </div>
 

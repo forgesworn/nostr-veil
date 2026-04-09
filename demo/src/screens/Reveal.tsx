@@ -4,6 +4,8 @@ import { hexToBytes, bytesToHex } from '@noble/hashes/utils.js'
 import { schnorr } from '@noble/curves/secp256k1.js'
 import { fromNsec, derive } from 'nsec-tree/core'
 import { createBlindProof, createFullProof, verifyProof as verifyLinkageProof } from 'nsec-tree/proof'
+import { signEvent } from '../../../src/signing.js'
+import { publishToRelay } from '../publish.js'
 import { Tip } from '../components/Tooltip.js'
 import { useRelay } from '../components/RelayProvider.js'
 import type { useVeilFlow } from '../hooks/useVeilFlow.js'
@@ -30,18 +32,19 @@ export function Reveal({ flow }: Props) {
   const journalist = journalists[selected]
   const { addLogEntry } = useRelay()
 
+  const isHardware = flow.state.identityMode === 'heartwood'
   const [revealed, setRevealed] = useState(false)
   const [signing, setSigning] = useState(false)
   const [signingStage, setSigningStage] = useState('')
   const [realNpub, setRealNpub] = useState<string | null>(null)
   const [proofMode, setProofMode] = useState<'blind' | 'full'>('blind')
 
-  // Fetch the real master npub from Bark (Heartwood hardware signer)
+  // Fetch the real master npub from Bark (Heartwood hardware signer, hardware mode only)
   useEffect(() => {
-    if (window.nostr) {
+    if (isHardware && window.nostr) {
       window.nostr.getPublicKey().then(pk => setRealNpub(pk)).catch(() => {})
     }
-  }, [])
+  }, [isHardware])
 
   // The veil-demo-journalist persona was derived from the Heartwood master
   // via `npx nostr-bray persona "veil-demo-journalist"` (nsec-tree)
@@ -88,15 +91,47 @@ export function Reveal({ flow }: Props) {
     flow.setDisclosureProofs([proofA, proofB])
 
     addLogEntry({
-      kind: 30078,
+      kind: 31000,
       subject: proofA.masterPubkey,
       anonymous: false,
       timestamp: Math.floor(Date.now() / 1000),
       description: `nostr-veil disclosure proof generated (${proofMode}). ${journalist.name} proved common ownership of anonymous and public identities. Both proofs ${validA && validB ? 'verified' : 'FAILED'}.`,
     })
 
+    // In demo mode, create a kind 31000 disclosure event with embedded kind 1 ownership proof
+    if (flow.state.identityMode === 'demo') {
+      const masterPubHex = journalist.publicKey
+      const personaPubHex = bytesToHex(pub.publicKey)
+      const now = Math.floor(Date.now() / 1000)
+
+      // Inner kind 1: master claims ownership of derived persona
+      const innerSigned = signEvent({
+        kind: 1,
+        tags: [['child', personaPubHex]],
+        content: `nsec-tree:own|${masterPubHex}|${personaPubHex}`,
+        created_at: now,
+      }, journalist.privateKey)
+
+      // Outer kind 31000: disclosure wrapper
+      const outerSigned = signEvent({
+        kind: 31000,
+        tags: [
+          ['d', 'veil-disclosure:master'],
+          ['type', 'ownership-claim'],
+          ['proof-type', 'heartwood-attestation'],
+          ['master-pubkey', masterPubHex],
+          ['persona-pubkey', personaPubHex],
+        ],
+        content: JSON.stringify(innerSigned),
+        created_at: now,
+      }, journalist.privateKey)
+
+      flow.addGeneratedEvent(outerSigned)
+      publishToRelay(outerSigned)
+    }
+
     root.destroy()
-  }, [journalist.privateKey, journalist.name, proofMode, flow, addLogEntry])
+  }, [journalist.privateKey, journalist.publicKey, journalist.name, proofMode, flow, addLogEntry])
 
   // Step 2: Sign and publish via Bark (separate action)
   const doPublish = useCallback(async () => {
@@ -134,12 +169,13 @@ export function Reveal({ flow }: Props) {
       await nostr.heartwood.switch('persona/veil-demo-journalist')
       personaPubkey = await nostr.getPublicKey()
 
-      // Sign outer kind 30078 as persona
+      // Sign outer kind 31000 as persona (NIP-VA ownership-claim)
       setSigningStage('publishing...')
       const outer = {
-        kind: 30078,
+        kind: 31000,
         tags: [
           ['d', 'veil-disclosure:master'],
+          ['type', 'ownership-claim'],
           ['proof-type', 'heartwood-attestation'],
           ['master-pubkey', String(attestationEvent.pubkey ?? '')],
           ['persona-pubkey', personaPubkey],
@@ -154,11 +190,11 @@ export function Reveal({ flow }: Props) {
         const ws = new WebSocket('wss://relay.trotters.cc')
         await new Promise<void>((resolve) => {
           const timeout = setTimeout(() => {
-            console.warn('[reveal] relay publish timeout — no OK for kind 30078')
+            console.warn('[reveal] relay publish timeout — no OK for kind 31000')
             ws.close(); resolve()
           }, 8000)
           ws.onopen = () => {
-            console.log('[reveal] relay connected, sending kind 30078', signed.id)
+            console.log('[reveal] relay connected, sending kind 31000', signed.id)
             ws.send(JSON.stringify(['EVENT', signed]))
           }
           ws.onmessage = (msg) => {
@@ -178,11 +214,11 @@ export function Reveal({ flow }: Props) {
       }
 
       addLogEntry({
-        kind: 30078,
+        kind: 31000,
         subject: String(attestationEvent.pubkey ?? ''),
         anonymous: false,
         timestamp: Math.floor(Date.now() / 1000),
-        description: `Heartwood attestation signed and published (kind 30078). Event ID: ${String(signed.id ?? '').slice(0, 12)}...`,
+        description: `Heartwood disclosure signed and published (kind 31000, type: ownership-claim). Event ID: ${String(signed.id ?? '').slice(0, 12)}...`,
       })
     } catch (err) {
       console.error('[reveal] Bark sign failed:', err)
@@ -504,20 +540,22 @@ export function Reveal({ flow }: Props) {
               Both proofs verified. {journalist.name} was in the circle.
             </span>
             <div style={{ display: 'flex', gap: '0.6rem', flexShrink: 0, marginLeft: '1rem' }}>
-              <button
-                onClick={doPublish}
-                disabled={signing}
-                style={{
-                  padding: '0.5rem 1.5rem',
-                  background: signing ? 'transparent' : '#7b68ee',
-                  border: '1px solid #7b68ee',
-                  color: signing ? '#7b68ee' : '#08080d',
-                  fontFamily: 'inherit', fontSize: '0.8rem', fontWeight: 500,
-                  cursor: signing ? 'not-allowed' : 'pointer', letterSpacing: '0.06em',
-                }}
-              >
-                {signing ? signingStage.toUpperCase() : 'PUBLISH VIA BARK'}
-              </button>
+              {isHardware && (
+                <button
+                  onClick={doPublish}
+                  disabled={signing}
+                  style={{
+                    padding: '0.5rem 1.5rem',
+                    background: signing ? 'transparent' : '#7b68ee',
+                    border: '1px solid #7b68ee',
+                    color: signing ? '#7b68ee' : '#08080d',
+                    fontFamily: 'inherit', fontSize: '0.8rem', fontWeight: 500,
+                    cursor: signing ? 'not-allowed' : 'pointer', letterSpacing: '0.06em',
+                  }}
+                >
+                  {signing ? signingStage.toUpperCase() : 'PUBLISH VIA BARK'}
+                </button>
+              )}
               <button
                 onClick={() => {
                   addLogEntry({ kind: 0, subject: '', anonymous: false, timestamp: Math.floor(Date.now() / 1000), separator: 'RECAP' })

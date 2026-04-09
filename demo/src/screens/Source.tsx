@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { journalists, DERIVED_PUBKEY } from '../data/journalists.js'
+import { journalists } from '../data/journalists.js'
 import { source } from '../data/source.js'
+import { signEvent } from '../../../src/signing.js'
+import { publishToRelay } from '../publish.js'
 import { Tip } from '../components/Tooltip.js'
 import { useRelay } from '../components/RelayProvider.js'
 import type { useVeilFlow } from '../hooks/useVeilFlow.js'
@@ -32,14 +34,15 @@ export function Source({ flow }: Props) {
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const { addLogEntry } = useRelay()
 
+  const isHardware = flow.state.identityMode === 'heartwood'
   const [signingStage, setSigningStage] = useState<SigningStage>(null)
   const [activeKey, setActiveKey] = useState<string | null>(null)
   const [keyMismatch, setKeyMismatch] = useState(false)
 
   const handleSubmit = useCallback(async () => {
-    // Sign a real kind 31000 attestation via Bark, using the derived persona
+    // Sign a real kind 31000 attestation via Bark (hardware mode only)
     const nostr = (window as unknown as { nostr?: { signEvent: (e: Record<string, unknown>) => Promise<Record<string, unknown>>; getPublicKey: () => Promise<string>; heartwood?: { switch: (target: string) => Promise<{ npub?: string }>; derivePersona: (name: string, index?: number) => Promise<{ npub?: string }> } } }).nostr
-    if (nostr && userScore !== null) {
+    if (isHardware && nostr && userScore !== null) {
       setSigningStage('switching')
       setActiveKey(null)
       setKeyMismatch(false)
@@ -61,11 +64,10 @@ export function Source({ flow }: Props) {
         try {
           pubkey = await nostr.getPublicKey()
           setActiveKey(pubkey)
-          // Sanity check: compare against DERIVED_PUBKEY and also warn if getPublicKey
-          // doesn't agree with what the switch reported (npub decodes to the same key)
-          if (pubkey !== DERIVED_PUBKEY) {
+          // Sanity check: active key must match journalists[0].publicKey; warn if not
+          if (pubkey !== journalists[0].publicKey) {
             setKeyMismatch(true)
-            console.warn('[source] persona switch key mismatch — active:', pubkey, 'expected:', DERIVED_PUBKEY, 'switch reported npub:', switchedNpub)
+            console.warn('[source] persona switch key mismatch — active:', pubkey, 'expected:', journalists[0].publicKey, 'switch reported npub:', switchedNpub)
           }
         } catch { /* reconnect fires */ }
         await new Promise(r => setTimeout(r, 600))
@@ -137,6 +139,29 @@ export function Source({ flow }: Props) {
       } finally {
         setSigningStage(null)
       }
+    } else if (userScore !== null) {
+      // Sign a real kind 31000 attestation with software keys
+      const signed = signEvent({
+        kind: 31000,
+        tags: [
+          ['d', source.publicKey],
+          ['p', source.publicKey],
+          ['rank', String(userScore)],
+          ['type', 'vouch'],
+        ],
+        content: '',
+        created_at: Math.floor(Date.now() / 1000),
+      }, journalists[selected].privateKey)
+      flow.addGeneratedEvent(signed)
+      publishToRelay(signed)
+
+      addLogEntry({
+        kind: 31000,
+        subject: source.publicKey,
+        anonymous: false,
+        timestamp: Math.floor(Date.now() / 1000),
+        description: `${journalists[selected].name} submitted score ${userScore}. NIP-VA attestation (kind 31000). Event ID: ${signed.id.slice(0, 12)}...`,
+      })
     }
 
     addLogEntry({
@@ -148,7 +173,7 @@ export function Source({ flow }: Props) {
     })
     addLogEntry({ kind: 0, subject: '', anonymous: false, timestamp: Math.floor(Date.now() / 1000), separator: 'THE VEIL' })
     flow.next()
-  }, [addLogEntry, flow, userScore, selected])
+  }, [addLogEntry, flow, userScore, selected, isHardware])
 
   // Drip-feed NPC attestations — only the other ring contributors
   const contributorIndices = flow.state.contributorIndices

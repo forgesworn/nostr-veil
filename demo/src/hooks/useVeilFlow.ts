@@ -1,14 +1,27 @@
 import { useState, useCallback } from 'react'
 
-export type Screen = 'circle' | 'source' | 'veil' | 'verification' | 'reveal' | 'network'
+export type Screen = 'welcome' | 'circle' | 'source' | 'veil' | 'verification' | 'reveal' | 'network'
 
-const SCREEN_ORDER: Screen[] = ['circle', 'source', 'veil', 'verification', 'reveal', 'network']
+export type IdentityMode = 'demo' | 'heartwood' | null
+
+const SCREEN_ORDER: Screen[] = ['welcome', 'circle', 'source', 'veil', 'verification', 'reveal', 'network']
 
 /** Total ring signature contributors (user + NPCs). */
 export const CONTRIBUTOR_COUNT = 3
 
+export interface GeneratedEvent {
+  id: string
+  pubkey: string
+  created_at: number
+  kind: number
+  tags: string[][]
+  content: string
+  sig: string
+}
+
 export interface VeilFlowState {
   screen: Screen
+  identityMode: IdentityMode
   selectedJournalistIndex: number | null
   /** Indices of the journalists who contribute to the ring signature. */
   contributorIndices: Set<number>
@@ -16,17 +29,21 @@ export interface VeilFlowState {
   aggregatedEvent: unknown | null
   proofResult: unknown | null
   disclosureProofs: unknown | null
+  /** Signed Nostr events collected during the demo flow for display on the recap screen. */
+  generatedEvents: GeneratedEvent[]
 }
 
 export function useVeilFlow(ringSize: number) {
   const [state, setState] = useState<VeilFlowState>({
-    screen: 'circle',
+    screen: 'welcome',
+    identityMode: null,
     selectedJournalistIndex: null,
     contributorIndices: new Set(),
     scores: new Map(),
     aggregatedEvent: null,
     proofResult: null,
     disclosureProofs: null,
+    generatedEvents: [],
   })
 
   const goTo = useCallback((screen: Screen) => {
@@ -77,5 +94,13 @@ export function useVeilFlow(ringSize: number) {
     setState(s => ({ ...s, disclosureProofs: proofs }))
   }, [])
 
-  return { state, goTo, next, selectJournalist, setScore, setAggregatedEvent, setProofResult, setDisclosureProofs }
+  const setIdentityMode = useCallback((mode: IdentityMode) => {
+    setState(s => ({ ...s, identityMode: mode }))
+  }, [])
+
+  const addGeneratedEvent = useCallback((event: GeneratedEvent) => {
+    setState(s => ({ ...s, generatedEvents: [...s.generatedEvents, event] }))
+  }, [])
+
+  return { state, goTo, next, selectJournalist, setScore, setAggregatedEvent, setProofResult, setDisclosureProofs, setIdentityMode, addGeneratedEvent }
 }
