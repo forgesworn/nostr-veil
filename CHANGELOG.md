@@ -1,3 +1,10 @@
+## [0.8.4](https://github.com/forgesworn/nostr-veil/compare/v0.8.3...v0.8.4) (2026-04-09)
+
+
+### Bug Fixes
+
+* abort on persona switch failure instead of signing with wrong key ([68fe14f](https://github.com/forgesworn/nostr-veil/commit/68fe14ffc1cc55b0d296f2b1a8fc946e7e4a7104))
+
 ## [0.8.3](https://github.com/forgesworn/nostr-veil/compare/v0.8.2...v0.8.3) (2026-04-09)
 
 
