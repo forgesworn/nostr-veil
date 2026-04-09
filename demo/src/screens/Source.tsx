@@ -71,6 +71,8 @@ export function Source({ flow }: Props) {
           if (pubkey !== journalists[0].publicKey) {
             setKeyMismatch(true)
             console.warn('[source] persona switch key mismatch — active:', pubkey, 'expected:', journalists[0].publicKey, 'switch reported npub:', switchedNpub)
+            setSigningStage(null)
+            return
           }
         } catch { /* reconnect fires */ }
         await new Promise(r => setTimeout(r, 600))

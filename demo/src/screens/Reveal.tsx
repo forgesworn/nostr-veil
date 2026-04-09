@@ -154,7 +154,8 @@ export function Reveal({ flow }: Props) {
       // Switch to master
       setSigningStage('switching to master...')
       await withTimeout(nostr.heartwood.switch('master'))
-      const masterPubkey = await nostr.getPublicKey()
+      const masterPubkey = await withTimeout(nostr.getPublicKey(), 5000)
+      if (!masterPubkey) throw new Error('getPublicKey timed out after switch to master')
 
       // Sign attestation event as master
       setSigningStage('signing attestation...')
@@ -169,7 +170,9 @@ export function Reveal({ flow }: Props) {
       // Switch back to persona
       setSigningStage('switching to persona...')
       await withTimeout(nostr.heartwood.switch('persona/veil-demo-journalist'))
-      personaPubkey = await nostr.getPublicKey()
+      const switchedBack = await withTimeout(nostr.getPublicKey(), 5000)
+      if (!switchedBack) throw new Error('getPublicKey timed out after switch to persona')
+      personaPubkey = switchedBack
 
       // Sign outer kind 31000 as persona (NIP-VA ownership-claim)
       setSigningStage('publishing...')
