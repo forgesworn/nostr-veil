@@ -1,3 +1,10 @@
+# [0.6.0](https://github.com/forgesworn/nostr-veil/compare/v0.5.0...v0.6.0) (2026-04-09)
+
+
+### Features
+
+* derive persona before switch, pre-compute contributor set, recap screen refactor ([4fb8cc3](https://github.com/forgesworn/nostr-veil/commit/4fb8cc3525d06bebbe1f073991f5c65ce137a008))
+
 # [0.5.0](https://github.com/forgesworn/nostr-veil/compare/v0.4.1...v0.5.0) (2026-04-09)
 
 
