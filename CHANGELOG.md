@@ -1,3 +1,10 @@
+# [0.5.0](https://github.com/forgesworn/nostr-veil/compare/v0.4.1...v0.5.0) (2026-04-09)
+
+
+### Features
+
+* replace seed-based 30078 disclosure with Heartwood nested attestation ([bd4a168](https://github.com/forgesworn/nostr-veil/commit/bd4a168ce07406633fd68f9093db32bacaf82081))
+
 ## [0.4.1](https://github.com/forgesworn/nostr-veil/compare/v0.4.0...v0.4.1) (2026-04-08)
 
 

@@ -1,6 +1,6 @@
 {
   "name": "nostr-veil",
-  "version": "0.4.1",
+  "version": "0.5.0",
   "description": "Anonymous trust assertions for Nostr. LSAG ring-signature-backed NIP-85 endorsements where contributors are verifiable but unidentifiable.",
   "type": "module",
   "main": "./dist/index.js",
