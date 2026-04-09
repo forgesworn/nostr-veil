@@ -54,7 +54,7 @@ export function Source({ flow }: Props) {
           await nostr.heartwood.derivePersona('veil-demo-journalist', 0)
         }
         if (nostr.heartwood?.switch) {
-          const result = await nostr.heartwood.switch('veil-demo-journalist')
+          const result = await nostr.heartwood.switch('persona/veil-demo-journalist')
           switchedNpub = result?.npub
         }
 
