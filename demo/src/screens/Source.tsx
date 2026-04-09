@@ -48,13 +48,16 @@ export function Source({ flow }: Props) {
       setKeyMismatch(false)
       try {
         // Ensure the persona exists on the device (its RAM cache clears on restart),
-        // then switch to it.
+        // then switch to it. Both calls get a 5s timeout — Bark's background
+        // script can hang if the bunker connection is stale.
         let switchedNpub: string | undefined
+        const withTimeout = <T,>(p: Promise<T>, ms = 5000): Promise<T | undefined> =>
+          Promise.race([p, new Promise<undefined>(r => setTimeout(r, ms))])
         if (nostr.heartwood?.derivePersona) {
-          await nostr.heartwood.derivePersona('veil-demo-journalist', 0)
+          await withTimeout(nostr.heartwood.derivePersona('veil-demo-journalist', 0))
         }
         if (nostr.heartwood?.switch) {
-          const result = await nostr.heartwood.switch('persona/veil-demo-journalist')
+          const result = await withTimeout(nostr.heartwood.switch('persona/veil-demo-journalist'))
           switchedNpub = result?.npub
         }
 

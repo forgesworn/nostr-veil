@@ -143,6 +143,8 @@ export function Reveal({ flow }: Props) {
     }
 
     setSigning(true)
+    const withTimeout = <T,>(p: Promise<T>, ms = 5000): Promise<T | undefined> =>
+      Promise.race([p, new Promise<undefined>(r => setTimeout(r, ms))])
     try {
       // Warm up Bark and capture persona pubkey (current key before any switch)
       let personaPubkey = ''
@@ -151,7 +153,7 @@ export function Reveal({ flow }: Props) {
 
       // Switch to master
       setSigningStage('switching to master...')
-      await nostr.heartwood.switch('master')
+      await withTimeout(nostr.heartwood.switch('master'))
       const masterPubkey = await nostr.getPublicKey()
 
       // Sign attestation event as master
@@ -166,7 +168,7 @@ export function Reveal({ flow }: Props) {
 
       // Switch back to persona
       setSigningStage('switching to persona...')
-      await nostr.heartwood.switch('persona/veil-demo-journalist')
+      await withTimeout(nostr.heartwood.switch('persona/veil-demo-journalist'))
       personaPubkey = await nostr.getPublicKey()
 
       // Sign outer kind 31000 as persona (NIP-VA ownership-claim)
