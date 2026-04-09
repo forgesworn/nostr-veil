@@ -1,11 +1,22 @@
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useEffect } from 'react'
 import { journalists } from '../data/journalists.js'
 import { hexToBytes, bytesToHex } from '@noble/hashes/utils.js'
+import { schnorr } from '@noble/curves/secp256k1.js'
 import { fromNsec, derive } from 'nsec-tree/core'
 import { createBlindProof, createFullProof, verifyProof as verifyLinkageProof } from 'nsec-tree/proof'
 import { Tip } from '../components/Tooltip.js'
 import { useRelay } from '../components/RelayProvider.js'
 import type { useVeilFlow } from '../hooks/useVeilFlow.js'
+
+declare global {
+  interface Window {
+    nostr?: {
+      signEvent: (e: Record<string, unknown>) => Promise<Record<string, unknown>>
+      getPublicKey: () => Promise<string>
+      heartwood?: { switch: (target: string) => Promise<{ npub?: string }> }
+    }
+  }
+}
 
 interface Props { flow: ReturnType<typeof useVeilFlow> }
 
@@ -20,7 +31,21 @@ export function Reveal({ flow }: Props) {
   const { addLogEntry } = useRelay()
 
   const [revealed, setRevealed] = useState(false)
+  const [signing, setSigning] = useState(false)
+  const [signingStage, setSigningStage] = useState('')
+  const [realNpub, setRealNpub] = useState<string | null>(null)
   const [proofMode, setProofMode] = useState<'blind' | 'full'>('blind')
+
+  // Fetch the real master npub from Bark (Heartwood hardware signer)
+  useEffect(() => {
+    if (window.nostr) {
+      window.nostr.getPublicKey().then(pk => setRealNpub(pk)).catch(() => {})
+    }
+  }, [])
+
+  // The veil-demo-journalist persona was derived from the Heartwood master
+  // via `npx nostr-bray persona "veil-demo-journalist"` (nsec-tree)
+  const DEMO_PERSONA_NPUB = 'npub1lq3h6096ssgxhmn5ckplqae2rwzj6vmq7qvxatj7uq59ejj03a4s2r7gmv'
   const [proofValid, setProofValid] = useState<boolean | null>(null)
   const [proofData, setProofData] = useState<{ masterPubkey: string; childA: string; childB: string; attestationA: string; attestationB: string; sigA: string; sigB: string } | null>(null)
 
@@ -35,6 +60,7 @@ export function Reveal({ flow }: Props) {
     return { anon, pub, masterPub }
   }, [journalist.privateKey])
 
+  // Step 1: Generate the proof locally (no signing)
   const doReveal = useCallback(() => {
     const keyBytes = hexToBytes(journalist.privateKey)
     const root = fromNsec(keyBytes)
@@ -59,7 +85,6 @@ export function Reveal({ flow }: Props) {
       sigB: proofB.signature,
     })
     setRevealed(true)
-
     flow.setDisclosureProofs([proofA, proofB])
 
     addLogEntry({
@@ -67,11 +92,105 @@ export function Reveal({ flow }: Props) {
       subject: proofA.masterPubkey,
       anonymous: false,
       timestamp: Math.floor(Date.now() / 1000),
-      description: `nostr-veil disclosure (kind 30078). ${journalist.name} proved common ownership of their anonymous and public identities using a ${proofMode} nsec-tree linkage proof. Both proofs ${validA && validB ? 'verified' : 'FAILED'}.`,
+      description: `nostr-veil disclosure proof generated (${proofMode}). ${journalist.name} proved common ownership of anonymous and public identities. Both proofs ${validA && validB ? 'verified' : 'FAILED'}.`,
     })
 
     root.destroy()
-  }, [journalist.privateKey, proofMode, flow, addLogEntry])
+  }, [journalist.privateKey, journalist.name, proofMode, flow, addLogEntry])
+
+  // Step 2: Sign and publish via Bark (separate action)
+  const doPublish = useCallback(async () => {
+    const nostr = window.nostr
+    if (!nostr) return
+    if (!nostr.heartwood) {
+      console.error('[reveal] nostr.heartwood is absent — cannot publish attestation')
+      return
+    }
+
+    setSigning(true)
+    try {
+      // Warm up Bark and capture persona pubkey (current key before any switch)
+      let personaPubkey = ''
+      try { personaPubkey = await nostr.getPublicKey() } catch { /* warm up */ }
+      await new Promise(r => setTimeout(r, 600))
+
+      // Switch to master
+      setSigningStage('switching to master...')
+      await nostr.heartwood.switch('master')
+      const masterPubkey = await nostr.getPublicKey()
+
+      // Sign attestation event as master
+      setSigningStage('signing attestation...')
+      const attestationUnsigned = {
+        kind: 1,
+        tags: [['child', personaPubkey]],
+        content: `nsec-tree:own|${masterPubkey}|${personaPubkey}`,
+        created_at: Math.floor(Date.now() / 1000),
+      }
+      const attestationEvent = await nostr.signEvent(attestationUnsigned)
+
+      // Switch back to persona
+      setSigningStage('switching to persona...')
+      await nostr.heartwood.switch('persona/veil-demo-journalist')
+      personaPubkey = await nostr.getPublicKey()
+
+      // Sign outer kind 30078 as persona
+      setSigningStage('publishing...')
+      const outer = {
+        kind: 30078,
+        tags: [
+          ['d', 'veil-disclosure:master'],
+          ['proof-type', 'heartwood-attestation'],
+          ['master-pubkey', String(attestationEvent.pubkey ?? '')],
+          ['persona-pubkey', personaPubkey],
+        ],
+        content: JSON.stringify(attestationEvent),
+        created_at: Math.floor(Date.now() / 1000),
+      }
+      const signed = await nostr.signEvent(outer)
+
+      // Publish to relay
+      try {
+        const ws = new WebSocket('wss://relay.trotters.cc')
+        await new Promise<void>((resolve) => {
+          const timeout = setTimeout(() => {
+            console.warn('[reveal] relay publish timeout — no OK for kind 30078')
+            ws.close(); resolve()
+          }, 8000)
+          ws.onopen = () => {
+            console.log('[reveal] relay connected, sending kind 30078', signed.id)
+            ws.send(JSON.stringify(['EVENT', signed]))
+          }
+          ws.onmessage = (msg) => {
+            try {
+              const data = JSON.parse(String(msg.data))
+              console.log('[reveal] relay message:', data)
+              if (data[0] === 'OK') { clearTimeout(timeout); ws.close(); resolve() }
+            } catch { /* ignore */ }
+          }
+          ws.onerror = (e) => {
+            console.error('[reveal] relay WebSocket error:', e)
+            clearTimeout(timeout); resolve()
+          }
+        })
+      } catch (pubErr) {
+        console.error('[reveal] relay publish failed:', pubErr)
+      }
+
+      addLogEntry({
+        kind: 30078,
+        subject: String(attestationEvent.pubkey ?? ''),
+        anonymous: false,
+        timestamp: Math.floor(Date.now() / 1000),
+        description: `Heartwood attestation signed and published (kind 30078). Event ID: ${String(signed.id ?? '').slice(0, 12)}...`,
+      })
+    } catch (err) {
+      console.error('[reveal] Bark sign failed:', err)
+    } finally {
+      setSigning(false)
+      setSigningStage('')
+    }
+  }, [addLogEntry])
 
   const switchMode = useCallback((mode: 'blind' | 'full') => {
     setProofMode(mode)
@@ -145,6 +264,43 @@ export function Reveal({ flow }: Props) {
         ))}
       </div>
 
+      {/* Heartwood master -> persona lineage */}
+      {realNpub && (
+        <div style={{
+          padding: '1rem 1.2rem',
+          marginBottom: '1rem',
+          background: '#0a0a12',
+          border: '1px solid rgba(123, 104, 238, 0.2)',
+        }}>
+          <div style={{ fontSize: '0.7rem', color: '#7b68ee', letterSpacing: '0.1em', marginBottom: '0.6rem' }}>
+            NSEC-TREE DERIVATION (REAL)
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', flexWrap: 'wrap' }}>
+            <div style={{ flex: 1, minWidth: 200 }}>
+              <div style={{ fontSize: '0.75rem', color: '#6b7280', marginBottom: '0.2rem' }}>Heartwood Master</div>
+              <div style={{ fontSize: '0.8rem', color: '#e0e0e0', wordBreak: 'break-all' }}>
+                {realNpub.slice(0, 20)}...{realNpub.slice(-8)}
+              </div>
+            </div>
+            <div style={{ color: '#7b68ee', fontSize: '1.2rem', flexShrink: 0 }}>&#x2192;</div>
+            <div style={{ flex: 1, minWidth: 200 }}>
+              <div style={{ fontSize: '0.75rem', color: '#6b7280', marginBottom: '0.2rem' }}>
+                nostr:persona:veil-demo-journalist
+              </div>
+              <div style={{ fontSize: '0.8rem', color: '#7b68ee', wordBreak: 'break-all' }}>
+                {DEMO_PERSONA_NPUB.slice(0, 20)}...{DEMO_PERSONA_NPUB.slice(-8)}
+              </div>
+            </div>
+          </div>
+          <div style={{ fontSize: '0.8rem', color: '#9ca3af', marginTop: '0.6rem', lineHeight: 1.5 }}>
+            This journalist persona was derived on-device from the Heartwood ESP32 master key
+            using <strong style={{ color: '#c0c0c0' }}>nsec-tree</strong>. The master key never
+            leaves the hardware. Below, the linkage proof demonstrates that both identities
+            share the same root.
+          </div>
+        </div>
+      )}
+
       {/* Identity cards */}
       <div style={{ display: 'flex', gap: '1rem', alignItems: 'stretch', flexWrap: 'wrap', marginBottom: '1.5rem' }}>
         {/* Anonymous persona card */}
@@ -217,19 +373,20 @@ export function Reveal({ flow }: Props) {
       {!revealed && (
         <button
           onClick={doReveal}
+          disabled={signing}
           style={{
             padding: '0.8rem 2.5rem',
-            background: '#7b68ee',
+            background: signing ? 'transparent' : '#7b68ee',
             border: '1px solid #7b68ee',
-            color: '#08080d',
+            color: signing ? '#7b68ee' : '#08080d',
             fontFamily: 'inherit',
             fontSize: '0.85rem',
             fontWeight: 600,
-            cursor: 'pointer',
+            cursor: signing ? 'not-allowed' : 'pointer',
             letterSpacing: '0.1em',
           }}
         >
-          REVEAL IDENTITY
+          {signing ? 'SIGNING...' : 'REVEAL IDENTITY'}
         </button>
       )}
 
@@ -277,6 +434,66 @@ export function Reveal({ flow }: Props) {
             </div>
           </div>
 
+          {/* BIP-340 live verification */}
+          <div style={{
+            marginTop: '1rem', padding: '0.8rem',
+            background: '#08080d', border: '1px solid #1a1a2e',
+          }}>
+            <div style={{ fontSize: '0.7rem', color: '#4ade80', letterSpacing: '0.1em', marginBottom: '0.6rem' }}>
+              BIP-340 SCHNORR VERIFICATION (LIVE)
+            </div>
+            {(() => {
+              // Run BIP-340 verification step by step
+              const attestA = proofMode === 'blind'
+                ? `nsec-tree:own|${proofData.masterPubkey}|${proofData.childA}`
+                : `nsec-tree:link|${proofData.masterPubkey}|${proofData.childA}|nostr:persona:anonymous|0`
+              const attestB = proofMode === 'blind'
+                ? `nsec-tree:own|${proofData.masterPubkey}|${proofData.childB}`
+                : `nsec-tree:link|${proofData.masterPubkey}|${proofData.childB}|nostr:persona:public|0`
+
+              let verifyA = false, verifyB = false
+              try {
+                verifyA = schnorr.verify(
+                  hexToBytes(proofData.sigA),
+                  new TextEncoder().encode(attestA),
+                  hexToBytes(proofData.masterPubkey),
+                )
+              } catch { /* */ }
+              try {
+                verifyB = schnorr.verify(
+                  hexToBytes(proofData.sigB),
+                  new TextEncoder().encode(attestB),
+                  hexToBytes(proofData.masterPubkey),
+                )
+              } catch { /* */ }
+
+              const codeStyle = { fontFamily: "'JetBrains Mono', monospace", fontSize: '0.75rem' }
+              const line = (colour: string, text: string) => (
+                <div style={{ ...codeStyle, color: colour, padding: '0.15rem 0' }}>{text}</div>
+              )
+
+              return (
+                <div style={{ overflowX: 'auto' }}>
+                  {line('#6b7280', '// Proof A: Anonymous persona')}
+                  {line('#88a0d0', `attestation = "${attestA.length > 80 ? attestA.slice(0, 40) + '...' + attestA.slice(-20) : attestA}"`)}
+                  {line('#88a0d0', `signature   = ${proofData.sigA.slice(0, 32)}...`)}
+                  {line('#88a0d0', `masterPub   = ${proofData.masterPubkey.slice(0, 32)}...`)}
+                  {line('#9ca3af', 'schnorr.verify(sig, attestation, masterPub)')}
+                  {line(verifyA ? '#4ade80' : '#f87171', verifyA ? '  => true  (BIP-340 valid)' : '  => false (INVALID)')}
+                  <div style={{ height: '0.4rem' }} />
+                  {line('#6b7280', '// Proof B: Public identity')}
+                  {line('#88a0d0', `attestation = "${attestB.length > 80 ? attestB.slice(0, 40) + '...' + attestB.slice(-20) : attestB}"`)}
+                  {line('#88a0d0', `signature   = ${proofData.sigB.slice(0, 32)}...`)}
+                  {line('#9ca3af', 'schnorr.verify(sig, attestation, masterPub)')}
+                  {line(verifyB ? '#4ade80' : '#f87171', verifyB ? '  => true  (BIP-340 valid)' : '  => false (INVALID)')}
+                  <div style={{ height: '0.4rem' }} />
+                  {line('#6b7280', '// Same master pubkey signs both attestations')}
+                  {line('#6b7280', '// => both personas belong to the same Heartwood identity')}
+                </div>
+              )
+            })()}
+          </div>
+
           <div style={{
             marginTop: '0.8rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
             padding: '0.6rem 0.8rem',
@@ -286,23 +503,38 @@ export function Reveal({ flow }: Props) {
             <span style={{ fontSize: '0.95rem', color: proofValid ? '#4ade80' : '#f87171' }}>
               Both proofs verified. {journalist.name} was in the circle.
             </span>
-            <button
-              onClick={() => {
-                addLogEntry({ kind: 0, subject: '', anonymous: false, timestamp: Math.floor(Date.now() / 1000), separator: 'THE NETWORK' })
-                flow.next()
-              }}
-              style={{
-                padding: '0.5rem 1.5rem',
-                background: '#7b68ee',
-                border: '1px solid #7b68ee',
-                color: '#08080d',
-                fontFamily: 'inherit', fontSize: '0.9rem', fontWeight: 600,
-                cursor: 'pointer', letterSpacing: '0.06em',
-                flexShrink: 0, marginLeft: '1rem',
-              }}
-            >
-              VIEW NETWORK
-            </button>
+            <div style={{ display: 'flex', gap: '0.6rem', flexShrink: 0, marginLeft: '1rem' }}>
+              <button
+                onClick={doPublish}
+                disabled={signing}
+                style={{
+                  padding: '0.5rem 1.5rem',
+                  background: signing ? 'transparent' : '#7b68ee',
+                  border: '1px solid #7b68ee',
+                  color: signing ? '#7b68ee' : '#08080d',
+                  fontFamily: 'inherit', fontSize: '0.8rem', fontWeight: 500,
+                  cursor: signing ? 'not-allowed' : 'pointer', letterSpacing: '0.06em',
+                }}
+              >
+                {signing ? signingStage.toUpperCase() : 'PUBLISH VIA BARK'}
+              </button>
+              <button
+                onClick={() => {
+                  addLogEntry({ kind: 0, subject: '', anonymous: false, timestamp: Math.floor(Date.now() / 1000), separator: 'RECAP' })
+                  flow.next()
+                }}
+                style={{
+                  padding: '0.5rem 1.5rem',
+                  background: 'transparent',
+                  border: '1px solid #374151',
+                  color: '#9ca3af',
+                  fontFamily: 'inherit', fontSize: '0.8rem', fontWeight: 500,
+                  cursor: 'pointer', letterSpacing: '0.06em',
+                }}
+              >
+                RECAP
+              </button>
+            </div>
           </div>
         </div>
       )}

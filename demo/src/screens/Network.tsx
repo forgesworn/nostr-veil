@@ -1,228 +1,360 @@
-import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
-import { TrustGraphView, type GraphNode, type GraphEdge, type RingEvent } from '../components/TrustGraphView.js'
-import { NodePanel } from '../components/NodePanel.js'
-import { Tip } from '../components/Tooltip.js'
-import { useRelay } from '../components/RelayProvider.js'
-import type { TrustNode } from '../graph.js'
+import { useState, useEffect, useRef } from 'react'
+import { nip19 } from 'nostr-tools'
 import type { useVeilFlow } from '../hooks/useVeilFlow.js'
 
 interface Props { flow: ReturnType<typeof useVeilFlow> }
 
+const RELAY = 'wss://relay.trotters.cc'
+
+interface RelayEvent {
+  id: string
+  pubkey: string
+  kind: number
+  created_at: number
+  tags: string[][]
+  content: string
+  sig: string
+}
+
+interface KindMeta {
+  label: string
+  colour: string
+  nip: string
+  summary: string
+  explain: (ev: RelayEvent) => string
+}
+
+const KIND_META: Record<number, KindMeta> = {
+  31000: {
+    label: 'NIP-VA Attestation',
+    colour: '#4ade80',
+    nip: 'NIP-VA (nostr-attestations)',
+    summary: 'Individual credibility score signed by your hardware key via Bark.',
+    explain: (ev) => {
+      const rank = ev.tags.find(t => t[0] === 'rank')?.[1] ?? '?'
+      const subject = ev.tags.find(t => t[0] === 'p')?.[1] ?? ''
+      return `This is a personal credibility attestation. The journalist scored the source (${subject.slice(0, 12)}...) at rank ${rank}/100. It was signed on an ESP32 hardware signer via NIP-46 and published to the relay. This event is publicly attributable to the signer's npub. In the next step, this score is hidden inside an anonymous ring signature so no one can tell who gave which score.`
+    },
+  },
+  30382: {
+    label: 'Ring-endorsed Assertion (NIP-85)',
+    colour: '#d97706',
+    nip: 'NIP-85',
+    summary: 'Anonymous LSAG ring signatures aggregated into a single trust assertion.',
+    explain: (ev) => {
+      const veilSigs = ev.tags.filter(t => t[0] === 'veil-sig')
+      const ring = ev.tags.find(t => t[0] === 'veil-ring')
+      const ringSize = ring ? ring.length - 1 : '?'
+      const rank = ev.tags.find(t => t[0] === 'rank')?.[1] ?? '?'
+      return `This is the core NIP-85 event. ${veilSigs.length} journalists from a ring of ${ringSize} members each contributed an anonymous score via LSAG ring signatures. The median rank is ${rank}/100. Each veil-sig tag contains a ring signature with a unique key image that prevents double-scoring. No one, not even the relay operator, can determine which journalist gave which score. The veil-ring tag lists all circle members' public keys. Any Nostr client implementing NIP-85 can verify the ring signatures and display the aggregated trust score.`
+    },
+  },
+  30078: {
+    label: 'Identity Disclosure',
+    colour: '#7b68ee',
+    nip: 'NIP-78 (app-specific data)',
+    summary: 'Voluntary proof linking anonymous and public identities via nsec-tree.',
+    explain: (ev) => {
+      const masterPk = ev.tags.find(t => t[0] === 'master-pubkey')?.[1] ?? ''
+      return `The journalist signed a kind 1 attestation event with their Heartwood master key, proving they control the persona key in the persona-pubkey tag. That event is embedded verbatim in this event's content. Anyone can verify: parse the content JSON, then call schnorr.verify(attestation.sig, hexToBytes(attestation.id), hexToBytes(attestation.pubkey)). The master-pubkey tag (${masterPk.slice(0, 12)}...) matches the nested event's author; its child tag matches this event's author — proving both keys share the same Heartwood root.`
+    },
+  },
+  24133: {
+    label: 'NIP-46 Envelope',
+    colour: '#6b7280',
+    nip: 'NIP-46',
+    summary: 'Encrypted NIP-46 remote signing envelope.',
+    explain: () => 'NIP-46 transport envelope. Contains an encrypted request or response between the signing client (Bark) and the hardware signer (Heartwood ESP32) via relay.',
+  },
+}
+
+function truncate(hex: string, n = 8): string {
+  if (hex.length <= n * 2 + 3) return hex
+  return hex.slice(0, n) + '...' + hex.slice(-6)
+}
+
+function timeAgo(ts: number): string {
+  const diff = Math.floor(Date.now() / 1000) - ts
+  if (diff < 60) return `${diff}s ago`
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`
+  return `${Math.floor(diff / 3600)}h ago`
+}
+
+function formatTime(ts: number): string {
+  return new Date(ts * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+}
+
 export function Network({ flow: _flow }: Props) {
-  const { graph, loading, addLogEntry } = useRelay()
-  const [selectedNode, setSelectedNode] = useState<TrustNode | null>(null)
-  const [ringEvent, setRingEvent] = useState<RingEvent | null>(null)
-  const [duressNode, setDuressNode] = useState<{ pubkey: string; id: number } | null>(null)
-  const duressCounter = useRef(0)
-  const [statusMsg, setStatusMsg] = useState<{ text: string; colour: string } | null>(null)
-  const containerRef = useRef<HTMLDivElement>(null)
-  const [dims, setDims] = useState({ w: 900, h: 600 })
+  const [events, setEvents] = useState<RelayEvent[]>([])
+  const [status, setStatus] = useState('Connecting to relay...')
+  const [selected, setSelected] = useState<RelayEvent | null>(null)
+  const wsRef = useRef<WebSocket | null>(null)
 
-  // Fill the available space — measure the container
   useEffect(() => {
-    const measure = () => {
-      const el = containerRef.current
-      if (!el) return
-      const rect = el.getBoundingClientRect()
-      // Available height = viewport bottom minus the container top minus ticker (44px) minus margin
-      const availH = Math.floor(window.innerHeight - rect.top - 52)
-      setDims({ w: Math.floor(rect.width), h: Math.max(400, availH) })
+    const ws = new WebSocket(RELAY)
+    wsRef.current = ws
+    const collected: RelayEvent[] = []
+
+    ws.onopen = () => {
+      setStatus('Fetching recent events...')
+      const filter = {
+        kinds: [31000, 30382, 30078, 24133],
+        limit: 50,
+        since: Math.floor(Date.now() / 1000) - 300,
+      }
+      ws.send(JSON.stringify(['REQ', 'recap', filter]))
     }
-    measure()
-    const obs = new ResizeObserver(measure)
-    if (containerRef.current) obs.observe(containerRef.current)
-    window.addEventListener('resize', measure)
-    return () => { obs.disconnect(); window.removeEventListener('resize', measure) }
+
+    ws.onmessage = (msg) => {
+      try {
+        const data = JSON.parse(msg.data)
+        if (data[0] === 'EVENT' && data[2]) {
+          const ev = data[2] as RelayEvent
+          if (KIND_META[ev.kind]) {
+            collected.push(ev)
+            collected.sort((a, b) => a.created_at - b.created_at)
+            setEvents([...collected])
+          }
+        } else if (data[0] === 'EOSE') {
+          setStatus(collected.length > 0
+            ? `${collected.length} events from ${RELAY}`
+            : 'No recent events found. Run the demo flow first.')
+        }
+      } catch { /* ignore */ }
+    }
+
+    ws.onerror = () => setStatus('Failed to connect to relay')
+    ws.onclose = () => {}
+    return () => { ws.close() }
   }, [])
-
-  const graphNodes: GraphNode[] = useMemo(() => {
-    const result: GraphNode[] = []
-    for (const [pubkey, node] of graph.nodes) {
-      result.push({
-        pubkey,
-        endorsements: node.endorsements,
-        ringEndorsements: node.ringEndorsements,
-      })
-    }
-    return result
-  }, [graph])
-
-  const graphEdges: GraphEdge[] = useMemo(() => {
-    return graph.edges.map(e => ({
-      from: e.from,
-      to: e.to,
-      anonymous: e.anonymous,
-    }))
-  }, [graph])
-
-  const pubkeys = useMemo(() => graphNodes.map(n => n.pubkey), [graphNodes])
-
-  const handleNodeClick = (pubkey: string) => {
-    const node = graph.nodes.get(pubkey) ?? null
-    setSelectedNode(prev => prev?.pubkey === pubkey ? null : node)
-  }
-
-  const handleRingEndorse = useCallback(() => {
-    if (pubkeys.length < 3) return
-    const shuffled = [...pubkeys].sort(() => Math.random() - 0.5)
-    const committeeSize = Math.min(3 + Math.floor(Math.random() * 3), shuffled.length - 1)
-    const members = shuffled.slice(0, committeeSize)
-    const subject = shuffled[committeeSize]
-    setRingEvent({ members, subject })
-    addLogEntry({
-      kind: 30382,
-      subject,
-      anonymous: true,
-      timestamp: Math.floor(Date.now() / 1000),
-      description: `Ring endorsement: ${committeeSize} circle members anonymously scored ${subject.slice(0, 8)}... via LSAG. Published as NIP-85 kind 30382 with veil-ring and veil-sig tags.`,
-    })
-    setStatusMsg({
-      text: `Ring endorsement: ${committeeSize} circle members anonymously scored ${subject.slice(0, 8)}... The golden arc shows the LSAG signature flowing through the ring to produce a single NIP-85 trust assertion. No one can tell which member gave which score.`,
-      colour: '#d97706',
-    })
-    setTimeout(() => setStatusMsg(null), 10000)
-  }, [pubkeys, addLogEntry])
-
-  const handleDuress = useCallback(() => {
-    if (pubkeys.length === 0) return
-    const idx = Math.floor(Math.random() * pubkeys.length)
-    const pk = pubkeys[idx]
-    duressCounter.current++
-    setDuressNode({ pubkey: pk, id: duressCounter.current })
-    addLogEntry({
-      kind: 20078,
-      subject: pk,
-      anonymous: false,
-      timestamp: Math.floor(Date.now() / 1000),
-      description: `Duress alert: ${pk.slice(0, 8)}... missed heartbeat (canary-kit kind 20078). Network isolates the node; edges severed, adjacent members warned. Not NIP-85. This is the coercion protection layer.`,
-    })
-    setStatusMsg({
-      text: `Duress detected: ${pk.slice(0, 8)}... stopped sending heartbeats. The network isolates the compromised node (red ripple); their edges go dashed, adjacent nodes dim. This prevents a coerced member from being forced to manipulate trust scores.`,
-      colour: '#dc2626',
-    })
-    setTimeout(() => setStatusMsg(null), 10000)
-  }, [pubkeys, addLogEntry])
 
   return (
     <div>
-      <p style={{ color: '#c0c0c0', fontSize: '1.05rem', marginBottom: '0.5rem', lineHeight: 1.6, margin: '0 0 0.5rem 0' }}>
-        <strong style={{ color: '#e0e0e0' }}>The full picture.</strong> Every <Tip term="NIP-85" /> assertion,
-        ring endorsement, and <Tip term="duress">canary heartbeat</Tip>, visualised as a live trust graph.
+      <p style={{ color: '#c0c0c0', fontSize: '1.15rem', marginBottom: '0.5rem', lineHeight: 1.7 }}>
+        <strong style={{ color: '#e0e0e0' }}>What just happened, on-chain.</strong> Real Nostr events
+        fetched live from <span style={{ color: '#7b68ee' }}>{RELAY}</span>. Each was signed by
+        a Heartwood ESP32 hardware signer and published during this demo.
       </p>
-      <p style={{ color: '#9ca3af', fontSize: '0.9rem', marginBottom: '0.8rem', lineHeight: 1.5 }}>
-        <strong style={{ color: '#d97706' }}>Ring Endorse</strong> creates anonymous NIP-85 scores
-        via LSAG. <strong style={{ color: '#dc2626' }}>Duress</strong> simulates a compromised member. canary-kit
-        detects the missing heartbeat and isolates the node, preventing coerced scores from corrupting
-        the trust graph. Ring signatures alone aren't enough; you need liveness too.
+      <p style={{ color: '#9ca3af', fontSize: '1rem', marginBottom: '1.5rem', lineHeight: 1.6 }}>
+        Click any event to see what it means in plain English. The NIP-85 ring-endorsed event
+        is the centrepiece: anonymous trust scores from a journalist circle, verifiable by any
+        Nostr client.
       </p>
 
-      {/* Legend + actions */}
-      <div style={{ display: 'flex', gap: '0.8rem', marginBottom: '0.6rem', flexWrap: 'wrap' }}>
-        {/* Legend */}
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: '0.6rem',
+        marginBottom: '1rem',
+        padding: '0.6rem 0.8rem',
+        background: '#0d0d14',
+        border: '1px solid #1a1a2e',
+      }}>
         <div style={{
-          flex: 1, minWidth: 200,
-          padding: '0.6rem 0.8rem',
-          background: '#0d0d14', border: '1px solid #1a1a2e',
-          display: 'flex', gap: '1.2rem', alignItems: 'center', flexWrap: 'wrap',
-          fontSize: '0.85rem',
-        }}>
-          <span style={{ color: '#9ca3af' }}>Click a node to inspect</span>
-          <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-            <span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 2, border: '2px solid #0d9488' }} />
-            <span style={{ color: '#b0b0b0' }}>endorsed</span>
-          </span>
-          <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-            <span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 2, border: '2px solid #d97706', boxShadow: '0 0 4px #d97706' }} />
-            <span style={{ color: '#b0b0b0' }}>ring-endorsed</span>
-          </span>
-          <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-            <span style={{ display: 'inline-block', width: 20, height: 2, background: '#2d5a5a' }} />
-            <span style={{ color: '#b0b0b0' }}>assertion</span>
-          </span>
-          <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-            <span style={{ display: 'inline-block', width: 20, height: 2, background: '#d97706' }} />
-            <span style={{ color: '#b0b0b0' }}>anonymous</span>
-          </span>
-        </div>
-
-        {/* Ring Endorse action */}
-        <button
-          onClick={handleRingEndorse}
-          style={{
-            padding: '0.5rem 1rem',
-            background: 'rgba(217, 119, 6, 0.08)',
-            border: '1px solid rgba(217, 119, 6, 0.3)',
-            color: '#d97706',
-            fontFamily: "'JetBrains Mono', monospace",
-            fontSize: '0.8rem', fontWeight: 600,
-            cursor: 'pointer', textAlign: 'left',
-            maxWidth: 220,
-          }}
-        >
-          <div>RING ENDORSE</div>
-          <div style={{ fontSize: '0.7rem', color: '#b0b0b0', fontWeight: 400, fontFamily: 'inherit', marginTop: 2 }}>
-            Circle anonymously scores a member's <Tip term="NIP-85">NIP-85</Tip> trust
-          </div>
-        </button>
-
-        {/* Duress action */}
-        <button
-          onClick={handleDuress}
-          style={{
-            padding: '0.5rem 1rem',
-            background: 'rgba(220, 38, 38, 0.08)',
-            border: '1px solid rgba(220, 38, 38, 0.3)',
-            color: '#dc2626',
-            fontFamily: "'JetBrains Mono', monospace",
-            fontSize: '0.8rem', fontWeight: 600,
-            cursor: 'pointer', textAlign: 'left',
-            maxWidth: 220,
-          }}
-        >
-          <div>DURESS</div>
-          <div style={{ fontSize: '0.7rem', color: '#b0b0b0', fontWeight: 400, fontFamily: 'inherit', marginTop: 2 }}>
-            Member compromised. Heartbeat stops, node isolated
-          </div>
-        </button>
+          width: 8, height: 8, borderRadius: '50%',
+          background: events.length > 0 ? '#4ade80' : '#facc15',
+        }} />
+        <span style={{ fontSize: '0.85rem', color: '#9ca3af' }}>{status}</span>
       </div>
 
-      {/* Status message — explains what just happened */}
-      {statusMsg && (
-        <div style={{
-          padding: '0.5rem 0.8rem',
-          marginBottom: '0.5rem',
-          background: `${statusMsg.colour}08`,
-          borderLeft: `3px solid ${statusMsg.colour}`,
-          fontSize: '0.85rem',
-          color: '#c0c0c0',
-          lineHeight: 1.5,
-        }}>
-          {statusMsg.text}
-        </div>
-      )}
+      <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
+        {/* Event list */}
+        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+          {events.map(ev => {
+            const meta = KIND_META[ev.kind]
+            if (!meta) return null
+            const isSelected = selected?.id === ev.id
+            const rankTag = ev.tags.find(t => t[0] === 'rank')
+            const veilSigs = ev.tags.filter(t => t[0] === 'veil-sig')
 
-      {loading && (
-        <div style={{ fontSize: '1rem', color: '#b0b0b0', marginBottom: '0.5rem' }}>
-          Loading trust graph...
-        </div>
-      )}
+            return (
+              <div
+                key={ev.id}
+                onClick={() => setSelected(isSelected ? null : ev)}
+                style={{
+                  padding: '0.7rem 1rem',
+                  background: isSelected ? `${meta.colour}10` : '#0a0a12',
+                  border: isSelected ? `1px solid ${meta.colour}60` : '1px solid #1a1a2e',
+                  borderLeft: `3px solid ${meta.colour}`,
+                  cursor: 'pointer',
+                  transition: 'background 0.15s',
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <span style={{
+                      fontSize: '0.7rem',
+                      padding: '0.1rem 0.4rem',
+                      background: `${meta.colour}15`,
+                      border: `1px solid ${meta.colour}40`,
+                      color: meta.colour,
+                      letterSpacing: '0.05em',
+                    }}>
+                      {ev.kind}
+                    </span>
+                    <span style={{ fontSize: '0.85rem', color: '#e0e0e0', fontWeight: 500 }}>
+                      {meta.label}
+                    </span>
+                    {rankTag && (
+                      <span style={{ fontSize: '0.8rem', color: '#4ade80', fontWeight: 600 }}>
+                        rank {rankTag[1]}
+                      </span>
+                    )}
+                    {veilSigs.length > 0 && (
+                      <span style={{ fontSize: '0.8rem', color: '#d97706' }}>
+                        {veilSigs.length} sigs
+                      </span>
+                    )}
+                  </div>
+                  <span style={{ fontSize: '0.7rem', color: '#6b7280' }}>
+                    {formatTime(ev.created_at)}
+                  </span>
+                </div>
+                <div style={{ fontSize: '0.8rem', color: '#6b7280', marginTop: '0.2rem' }}>
+                  {truncate(ev.id, 12)}
+                </div>
+              </div>
+            )
+          })}
 
-      {/* Graph fills all remaining viewport space */}
-      <div ref={containerRef} style={{ position: 'relative', width: '100%' }}>
-        <TrustGraphView
-          nodes={graphNodes}
-          edges={graphEdges}
-          onNodeClick={handleNodeClick}
-          width={dims.w}
-          height={dims.h}
-          ringEvent={ringEvent}
-          duressNode={duressNode}
-        />
-        <NodePanel
-          node={selectedNode}
-          onClose={() => setSelectedNode(null)}
-        />
+          {events.length === 0 && status.includes('No recent') && (
+            <div style={{ padding: '2rem', textAlign: 'center', color: '#6b7280', fontSize: '0.9rem' }}>
+              No events found. Complete the demo flow with Bark connected to see events here.
+            </div>
+          )}
+        </div>
+
+        {/* Detail panel */}
+        {selected && (() => {
+          const meta = KIND_META[selected.kind]
+          if (!meta) return null
+          const rankTag = selected.tags.find(t => t[0] === 'rank')
+          const veilRing = selected.tags.find(t => t[0] === 'veil-ring')
+          const veilSigs = selected.tags.filter(t => t[0] === 'veil-sig')
+          const pTags = selected.tags.filter(t => t[0] === 'p')
+
+          return (
+            <div style={{
+              flex: 1, minWidth: 300, maxWidth: 500,
+              padding: '1.2rem',
+              background: '#0a0a12',
+              border: `1px solid ${meta.colour}40`,
+              borderTop: `3px solid ${meta.colour}`,
+              alignSelf: 'flex-start',
+              position: 'sticky',
+              top: '1rem',
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                <div>
+                  <div style={{ fontSize: '0.7rem', color: meta.colour, letterSpacing: '0.1em', marginBottom: '0.2rem' }}>
+                    {meta.nip}
+                  </div>
+                  <div style={{ fontSize: '1.1rem', color: '#e0e0e0', fontWeight: 600 }}>
+                    {meta.label}
+                  </div>
+                </div>
+                <button
+                  onClick={() => setSelected(null)}
+                  style={{
+                    background: 'none', border: '1px solid #374151', color: '#9ca3af',
+                    padding: '0.2rem 0.6rem', cursor: 'pointer', fontSize: '0.8rem',
+                  }}
+                >
+                  close
+                </button>
+              </div>
+
+              {/* Human-friendly explanation */}
+              <div style={{
+                padding: '0.8rem',
+                background: `${meta.colour}08`,
+                borderLeft: `2px solid ${meta.colour}`,
+                marginBottom: '1rem',
+                fontSize: '0.85rem',
+                color: '#c0c0c0',
+                lineHeight: 1.6,
+              }}>
+                {meta.explain(selected)}
+              </div>
+
+              {/* Event metadata */}
+              <div style={{ fontSize: '0.8rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                <DetailRow label="Event ID" value={selected.id} colour={meta.colour} />
+                <DetailRow label="Author" value={selected.pubkey} />
+                <DetailRow label="npub" value={nip19.npubEncode(selected.pubkey)} colour="#7b68ee" />
+                <DetailRow label="Created" value={`${formatTime(selected.created_at)} (${timeAgo(selected.created_at)})`} />
+                <DetailRow label="Kind" value={`${selected.kind} (${meta.nip})`} colour={meta.colour} />
+                <DetailRow label="Signature" value={truncate(selected.sig, 16)} />
+
+                {rankTag && <DetailRow label="Rank" value={`${rankTag[1]} / 100`} colour="#4ade80" />}
+
+                {veilRing && (
+                  <div style={{ marginTop: '0.5rem' }}>
+                    <div style={{ color: '#d97706', fontSize: '0.75rem', letterSpacing: '0.08em', marginBottom: '0.3rem' }}>
+                      RING MEMBERS ({veilRing.length - 1})
+                    </div>
+                    {veilRing.slice(1).map((pk, i) => (
+                      <div key={i} style={{ fontSize: '0.75rem', color: '#6b7280', padding: '0.1rem 0' }}>
+                        {i + 1}. {truncate(pk, 10)}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {veilSigs.length > 0 && (
+                  <div style={{ marginTop: '0.5rem' }}>
+                    <div style={{ color: '#d97706', fontSize: '0.75rem', letterSpacing: '0.08em', marginBottom: '0.3rem' }}>
+                      RING SIGNATURES ({veilSigs.length})
+                    </div>
+                    {veilSigs.map((sig, i) => (
+                      <div key={i} style={{ fontSize: '0.75rem', color: '#6b7280', padding: '0.1rem 0' }}>
+                        sig {i + 1}: {truncate(sig[1] ?? '', 16)}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {pTags.length > 0 && (
+                  <div style={{ marginTop: '0.5rem' }}>
+                    <div style={{ color: '#9ca3af', fontSize: '0.75rem', letterSpacing: '0.08em', marginBottom: '0.3rem' }}>
+                      REFERENCED PUBKEYS
+                    </div>
+                    {pTags.map((t, i) => (
+                      <div key={i} style={{ fontSize: '0.75rem', color: '#6b7280', padding: '0.1rem 0' }}>
+                        {truncate(t[1] ?? '', 10)}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {selected.content && selected.kind !== 24133 && (
+                  <div style={{ marginTop: '0.5rem' }}>
+                    <div style={{ color: '#9ca3af', fontSize: '0.75rem', letterSpacing: '0.08em', marginBottom: '0.3rem' }}>
+                      CONTENT
+                    </div>
+                    <pre style={{
+                      fontSize: '0.75rem', color: '#6b7280',
+                      whiteSpace: 'pre-wrap', wordBreak: 'break-all',
+                      maxHeight: 150, overflowY: 'auto',
+                      background: '#08080d', padding: '0.5rem',
+                      border: '1px solid #1a1a2e',
+                    }}>
+                      {selected.content.length > 500 ? selected.content.slice(0, 500) + '...' : selected.content}
+                    </pre>
+                  </div>
+                )}
+              </div>
+            </div>
+          )
+        })()}
       </div>
+    </div>
+  )
+}
+
+function DetailRow({ label, value, colour }: { label: string; value: string; colour?: string }) {
+  return (
+    <div style={{ display: 'flex', gap: '0.8rem', padding: '0.2rem 0', borderBottom: '1px solid #1a1a2e' }}>
+      <span style={{ color: '#6b7280', minWidth: 80, flexShrink: 0 }}>{label}</span>
+      <span style={{ color: colour ?? '#b0b0b0', wordBreak: 'break-all', flex: 1 }}>{value}</span>
     </div>
   )
 }
