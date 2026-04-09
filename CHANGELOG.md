@@ -1,3 +1,10 @@
+# [0.7.0](https://github.com/forgesworn/nostr-veil/compare/v0.6.0...v0.7.0) (2026-04-09)
+
+
+### Features
+
+* recap screen — identity strip, tags table, nested kind 1 card, collapsible sigs and JSON ([ff0a2f0](https://github.com/forgesworn/nostr-veil/commit/ff0a2f08077dd6b62916cafe545e327d35c7707a))
+
 # [0.6.0](https://github.com/forgesworn/nostr-veil/compare/v0.5.0...v0.6.0) (2026-04-09)
 
 
