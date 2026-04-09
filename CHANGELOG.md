@@ -1,3 +1,10 @@
+## [0.8.3](https://github.com/forgesworn/nostr-veil/compare/v0.8.2...v0.8.3) (2026-04-09)
+
+
+### Bug Fixes
+
+* use --key flag in demo bray commands, fix whoami label ([784ab07](https://github.com/forgesworn/nostr-veil/commit/784ab07b5561797b1b9c681023b6ef8772ec5392))
+
 ## [0.8.2](https://github.com/forgesworn/nostr-veil/compare/v0.8.1...v0.8.2) (2026-04-09)
 
 
