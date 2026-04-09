@@ -197,21 +197,12 @@ function IdentityPanel({ identity, onContinue, onSwitch }: {
               NOSTR-BRAY
             </div>
 
-            <div style={{ color: '#6b7280' }}># Load the demo key</div>
-            <Cmd>export NOSTR_SECRET_KEY={DEMO.nsec}</Cmd>
+            <div style={{ color: '#6b7280' }}># Show raw Nostr identity (schnorr pubkey from the nsec)</div>
+            <Cmd>npx nostr-bray --key {DEMO.nsec} whoami</Cmd>
             <Spacer />
 
-            <div style={{ color: '#6b7280' }}># Show master identity</div>
-            <Cmd>npx nostr-bray whoami</Cmd>
-            <Spacer />
-
-            <div style={{ color: '#6b7280' }}># Derive the journalist persona</div>
-            <Cmd>npx nostr-bray persona "veil-demo-journalist"</Cmd>
-            <Spacer />
-
-            <div style={{ color: '#6b7280' }}># Switch to it and verify</div>
-            <Cmd>npx nostr-bray switch veil-demo-journalist</Cmd>
-            <Cmd>npx nostr-bray whoami</Cmd>
+            <div style={{ color: '#6b7280' }}># Derive the journalist persona (nsec-tree derivation)</div>
+            <Cmd>npx nostr-bray --key {DEMO.nsec} persona "veil-demo-journalist"</Cmd>
           </div>
 
           {/* nak verification commands */}
