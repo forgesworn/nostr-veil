@@ -9,7 +9,7 @@ Licence:  MIT
 Demo:     https://forgesworn.github.io/nostr-veil/
 
 Runtime dependencies:
-  - @forgesworn/ring-sig  — LSAG ring signatures on secp256k1
+  - @forgesworn/ring-sig  — Ring signature engine (core cryptography)
   - @noble/curves         — Elliptic curve primitives
   - @noble/hashes         — SHA-256, HMAC
 
@@ -17,38 +17,44 @@ Runtime dependencies:
 The Problem
 -----------
 
-NIP-85 got the hard part right: a standard format for verifiable trust
-assertions on Nostr. That foundation is what makes everything below
-possible.
+Nostr has a standard for publishing trust scores -- NIP-85 (Trusted
+Assertions). A provider can publish reputation data about a user
+(follower count, rank, engagement metrics) in a format any Nostr app
+can read. That foundation is what makes everything below possible.
 
 The open question is what happens when contributor privacy matters.
 Abuse reporting, whistleblowing, anonymous peer review. In those
-contexts, the person scoring needs to stay hidden. Not because NIP-85
-is wrong, but because the threat model is different.
+contexts, the person giving the score needs to stay hidden. Not
+because NIP-85 is wrong, but because the threat model is different.
 
 
 What nostr-veil Does
 --------------------
 
-nostr-veil is a privacy extension for NIP-85. It layers ring signature
-anonymity onto standard NIP-85 events.
+nostr-veil is a privacy extension for NIP-85. It layers ring-signature
+anonymity onto standard trust score events.
 
-A trust circle of N members can collectively score a subject. Each member
-contributes anonymously via LSAG (Linkable Spontaneous Anonymous Group)
-signatures. The result is a standard kind 30382 event that any existing
-Nostr client reads unchanged. Three extra tags carry the proof:
+A ring signature is a cryptographic technique where someone signs a
+message on behalf of a group. A verifier can confirm "someone in this
+group signed this" but cannot tell who. Think of it like a sealed
+ballot -- you can count the votes but not trace them.
 
-  veil-ring       Sorted public keys of circle members
-  veil-threshold  How many signed / circle size (e.g. "5", "8")
-  veil-sig        One per signer: LSAG signature + key image
+A trust circle of N members can collectively score a subject. Each
+member contributes anonymously using ring signatures. The result
+is a standard NIP-85 event that any existing Nostr app reads unchanged.
+Three extra tags carry the proof:
 
-Key images prevent double-signing. If the same person tries to contribute
-twice, the duplicate key image is detected. You get anonymity AND ballot
-integrity.
+  veil-ring       The group of members who could have contributed
+  veil-threshold  How many contributed / circle size (e.g. "5", "8")
+  veil-sig        One per contributor: ring signature + duplicate token
 
-NIP-85 is permissive about tags. Clients that don't recognise the veil
-tags simply ignore them and display the metrics as normal. No fork, no new
-event kind, no breaking change. Backwards compatible by design.
+The duplicate token (called a "key image") prevents double-signing. If
+the same person tries to contribute twice, the duplicate is detected.
+You get anonymity AND ballot integrity.
+
+NIP-85 is permissive about tags. Apps that don't recognise the veil
+tags simply ignore them and display the scores as normal. No fork, no
+new event kind, no breaking change. Backwards compatible by design.
 
 
 The Trust Trilemma
@@ -57,28 +63,29 @@ The Trust Trilemma
 NIP-85 nails verifiability and portability. nostr-veil adds the third
 leg: contributor privacy, without sacrificing either of the first two.
 
-  Property     NIP-85       NIP-85 + nostr-veil
-  ----------   ------       -------------------
-  Verifiable    Yes             Yes
-  Private        —              Yes
-  Portable      Yes             Yes
+  Property     Standard NIP-85    With nostr-veil
+  ----------   ---------------    ---------------
+  Verifiable    Yes                Yes
+  Private        —                 Yes
+  Portable      Yes                Yes
 
-The assertions remain standard NIP-85 events any client can consume.
-Veil-aware clients can additionally verify the ring proofs.
+The scores remain standard NIP-85 events any Nostr app can display.
+Privacy-aware apps can additionally verify the cryptographic proofs.
 
 
 What Makes This Different
 -------------------------
 
-LSAG ring signatures are battle-tested in Monero since 2014, but there
-was no JavaScript implementation targeting the Nostr ecosystem.
-@forgesworn/ring-sig implements the maths from scratch on secp256k1.
+Ring signatures are battle-tested in production (Monero has used them
+since 2014), but there was no JavaScript implementation targeting the
+Nostr ecosystem. @forgesworn/ring-sig implements the cryptography from
+scratch on the same elliptic curve Bitcoin and Nostr use (secp256k1).
 
 This is not hackathon code. The cryptographic primitives are independently
 published npm packages with their own test suites and release cycles.
 nostr-veil is a thin integration layer over:
 
-  @forgesworn/ring-sig   SAG + LSAG on secp256k1, independently published
+  @forgesworn/ring-sig   Ring signature library, independently published
   @noble/curves          Audited elliptic curve library by Paul Miller
   @noble/hashes          Audited hash primitives
 
@@ -97,7 +104,7 @@ Two subpath exports, each usable independently:
                      Standalone -- no dependency on the proof layer.
 
   nostr-veil/proof   Ring-signature proof layer. Trust circles, anonymous
-                     contributions via LSAG, aggregation (default: median),
+                     anonymous contributions, aggregation (default: median),
                      and verification. Depends on nip85 for event types.
 
 Supporting:
@@ -124,21 +131,21 @@ base event structure is unchanged.
 How It Works
 ------------
 
-1. Create a trust circle from a set of member pubkeys.
-2. Each member calls contributeAssertion() independently. Under the hood,
-   this calls lsagSign from @forgesworn/ring-sig, producing an LSAG
-   signature over a canonical message { circleId, subject, metrics }.
-3. aggregateContributions() collects the signed contributions, validates
-   every LSAG signature, computes the median of each metric, and outputs
-   a standard NIP-85 kind 30382 event with the three veil tags.
-4. verifyProof() takes the published event and:
-   - Reconstructs each LSAG signature against the ring
-   - Confirms each signature is valid
-   - Checks key images are distinct (no double-signing)
-   - Confirms the count of valid signers meets the threshold
+1. Create a trust circle from a set of member public keys.
+2. Each member submits their scores independently. Under the hood,
+   each submission is wrapped in a ring signature -- proving group
+   membership without revealing identity.
+3. The contributions are collected, every signature is validated, and
+   the median of each metric is computed. The output is a standard
+   NIP-85 trust score event with three extra tags carrying the proofs.
+4. Verification checks:
+   - Each ring signature is valid (a real member signed it)
+   - Duplicate-detection tokens are all different (nobody voted twice)
+   - Enough members contributed to meet the threshold
 
-At no point does verification require knowing which member produced which
-signature. The ring is public. The identities of the actual signers are not.
+At no point does verification require knowing which member produced
+which score. The group membership is public. The identities of the
+actual contributors are not.
 
 
 Selective Disclosure (via nsec-tree)
@@ -149,12 +156,12 @@ provides optional selective disclosure on top. Together they enable a
 circle member to prove they contributed without revealing anything about
 the other signers.
 
-nsec-tree derives anonymous and public personas from a single master key.
-A linkage proof connects them cryptographically. Two modes:
+nsec-tree generates separate anonymous identities from a single master
+key. A linkage proof connects them cryptographically. Two modes:
 
-  Blind proof   "I was in the circle" -- no derivation path revealed.
-  Full proof    Reveals the derivation path -- for legal proceedings or
-                formal attribution.
+  Blind proof   "I was in the circle" -- no further details revealed.
+  Full proof    Reveals the full identity chain -- for legal proceedings
+                or formal attribution.
 
 This is demonstrated in the interactive demo but is not part of the
 nostr-veil library itself.
@@ -165,11 +172,10 @@ Companion Libraries
 
 These complement nostr-veil but are independently maintained:
 
-  nsec-tree      Deterministic sub-identity derivation for compartmentalised
-                 trust circle personas
-  canary-kit     Coercion-resistant verification and duress detection
+  nsec-tree      Generate separate anonymous identities from one master key
+  canary-kit     Detect when someone is being coerced (duress signals)
   signet         Decentralised identity verification for Nostr
-  dominion       Epoch-based encrypted content access control
+  dominion       Time-limited encrypted content access control
 
 
 Interactive Demo
@@ -180,7 +186,7 @@ Seven-screen whistleblower scenario demonstrating the full flow:
   0. Setup          Identity derivation via nsec-tree
   1. The Circle     Form a trust circle of 8 journalists
   2. The Source     Score an anonymous whistleblower's credibility
-  3. The Veil       Watch LSAG ring signatures being constructed
+  3. The Veil       Watch ring signatures being constructed
   4. Verification   5-step verification pipeline (real cryptography)
   5. The Reveal     Optional selective disclosure
   6. The Recap      Trust graph with ring endorsement + duress animations
@@ -202,7 +208,7 @@ Abuse reporters can vouch without exposure. Journalists can verify sources
 without creating a traceable graph. Trust circles can form, contribute, and
 dissolve without any single member's participation being attributable.
 
-The people who need Web of Trust most can finally use it.
+The people who need reputation systems most can finally use them safely.
 
 
 Links

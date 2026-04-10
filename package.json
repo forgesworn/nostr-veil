@@ -1,7 +1,7 @@
 {
   "name": "nostr-veil",
-  "version": "0.8.4",
-  "description": "Anonymous trust assertions for Nostr. LSAG ring-signature-backed NIP-85 endorsements where contributors are verifiable but unidentifiable.",
+  "version": "0.8.3",
+  "description": "Privacy layer for Nostr reputation systems. Groups collectively score trustworthiness using ring signatures -- scores are verifiable but contributors are unidentifiable.",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

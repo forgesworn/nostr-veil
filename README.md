@@ -6,25 +6,37 @@
 
 **Trust scores you can verify without seeing who contributed them.**
 
-Anonymous trust assertions for Nostr. LSAG ring signatures over NIP-85 events so endorsements are verifiable but contributors are unidentifiable.
-
-**Who is this for?** Nostr client developers building trust systems where contributor privacy matters -- abuse reporting, whistleblowing, journalism, anonymous peer review. If your users can't afford to be identified when vouching for someone, this is the library.
+A privacy layer for Nostr reputation systems. A group of people can collectively score someone's trustworthiness, and anyone can verify the result -- but nobody can tell which group members actually contributed. Built for abuse reporting, whistleblowing, journalism, and anonymous peer review.
 
 ---
 
-## The Trust Trilemma
+## Key concepts
 
-Today's NIP-85 trust scores ask you to pick two:
+If you're new to this space, here's what the jargon means:
 
-| Property    | NIP-85 today | nostr-veil |
+| Term | Plain English |
+|------|--------------|
+| **Web of Trust (WoT)** | Instead of a central authority deciding who's trustworthy, people vouch for each other. Your reputation is built from the opinions of people who know you. |
+| **NIP-85** | A [Nostr standard](https://github.com/nostr-protocol/nips/blob/master/85.md) for publishing trust scores (e.g. "this person has 800 followers and a rank of 74"). Think of it as a shared format for reputation data. |
+| **Ring signature** | A cryptographic technique where someone signs a message on behalf of a group. A verifier can confirm "someone in this group signed this" but cannot tell who. Like a sealed ballot -- you can count the votes but not trace them. |
+| **LSAG** | Linkable Spontaneous Anonymous Group signature -- a specific type of ring signature that also detects duplicates. If the same person tries to vote twice, the system catches it, without revealing who they are. |
+| **Trust circle** | The group of people who collectively produce a trust score. Each member contributes anonymously; the results are combined (median by default). |
+
+---
+
+## The trust trilemma
+
+Today's Nostr trust scores (NIP-85) ask you to pick two:
+
+| Property    | Standard NIP-85 | With nostr-veil |
 |-------------|:---:|:---:|
 | Verifiable  | ✓   | ✓  |
 | Private     | ✗   | ✓  |
 | Portable    | ✓   | ✓  |
 
-Anyone who can see the assertions can see exactly who judged you. That works fine for benign social signals. It fails completely the moment the subject matter is sensitive -- abuse reporting, whistleblowing, political dissent. The people who need Web of Trust most are the ones who cannot afford to be identified.
+Anyone who can see the scores can see exactly who gave them. That works fine for benign social signals. It fails completely the moment the subject matter is sensitive -- abuse reporting, whistleblowing, political dissent. The people who need reputation systems most are the ones who cannot afford to be identified.
 
-nostr-veil solves all three. Assertions are standard NIP-85 events that any existing client can consume. Veil-aware clients can go further and verify the cryptographic proofs that back them.
+nostr-veil solves all three. The output is a standard NIP-85 event that any existing Nostr app can display. Apps that understand nostr-veil can go further and verify the cryptographic proofs that back the scores.
 
 ---
 
@@ -38,13 +50,13 @@ graph TB
   end
 
   subgraph Veil["nostr-veil"]
-    proof["nostr-veil/proof<br/>LSAG ring signatures<br/>anonymous contributions<br/>threshold aggregation"]
-    nip85["nostr-veil/nip85<br/>Kind 30382–30385 assertions<br/>Kind 10040 providers<br/>builders · parsers · filters"]
+    proof["nostr-veil/proof<br/>Ring signatures<br/>Anonymous contributions<br/>Threshold aggregation"]
+    nip85["nostr-veil/nip85<br/>Trust score events<br/>Provider declarations<br/>Builders · Parsers · Filters"]
   end
 
   subgraph Crypto["Cryptographic Primitives"]
-    ringsig["@forgesworn/ring-sig<br/>SAG / LSAG on secp256k1"]
-    noble["@noble/curves + hashes<br/>Schnorr · SHA-256"]
+    ringsig["@forgesworn/ring-sig<br/>Ring signature engine"]
+    noble["@noble/curves + hashes<br/>Cryptographic primitives"]
   end
 
   subgraph Companions["Companion Libraries"]
@@ -127,9 +139,9 @@ The resulting `assertion` is a plain `EventTemplate` you sign and publish like a
 | Export | Description |
 |--------|-------------|
 | `createTrustCircle(memberPubkeys)` | Create a trust circle from an array of pubkeys |
-| `contributeAssertion(circle, subject, metrics, privateKey, memberIndex)` | Produce an anonymous `Contribution` using LSAG |
+| `contributeAssertion(circle, subject, metrics, privateKey, memberIndex)` | Produce an anonymous ring-signed `Contribution` |
 | `aggregateContributions(circle, subject, contributions, options?)` | Aggregate contributions into a NIP-85 event with veil tags (default aggregation: median) |
-| `verifyProof(event)` | Verify all LSAG signatures and return a `ProofVerification` |
+| `verifyProof(event)` | Verify all ring signatures and return a `ProofVerification` |
 | `canonicalMessage(circleId, subject, metrics)` | Compute the canonical message signed by contributors |
 | `computeCircleId(sortedPubkeys)` | Compute the deterministic circle ID (SHA-256 of colon-joined pubkeys) |
 
@@ -144,22 +156,21 @@ The resulting `assertion` is a plain `EventTemplate` you sign and publish like a
 
 ## How it works
 
-Each member of a trust circle calls `contributeAssertion` independently. Under the hood this calls `lsagSign` from `@forgesworn/ring-sig`, which produces a Linkable Spontaneous Anonymous Group signature over the canonical message `{ circleId, subject, metrics }`.
+Each member of a trust circle independently submits their scores. Under the hood, each submission is wrapped in a ring signature -- a cryptographic envelope that proves "a member of this group signed this" without revealing which member.
 
-The published NIP-85 event carries three extra tags:
+The published event carries three extra tags on top of the standard NIP-85 format:
 
-- `veil-ring` -- the full set of member pubkeys (the ring)
-- `veil-threshold` -- how many contributions were aggregated out of how many members
-- `veil-sig` (one per contribution) -- the serialised LSAG signature and key image
+- `veil-ring` -- the full list of circle members (the group who could have contributed)
+- `veil-threshold` -- how many members actually contributed vs. total circle size
+- `veil-sig` (one per contributor) -- the ring signature and a duplicate-detection token
 
 A verifier calls `verifyProof`, which:
 
-1. Reconstructs each LSAG signature against the ring
-2. Confirms each signature is valid
-3. Checks key images are distinct -- proving each signer contributed at most once (LSAG linkability property)
-4. Confirms the number of valid, distinct signatures meets the threshold
+1. Checks each ring signature is valid (a real member signed it)
+2. Checks the duplicate-detection tokens are all different (nobody voted twice)
+3. Confirms enough members contributed to meet the threshold
 
-At no point does verification require knowing which member produced which signature. The ring is public. The identities of the actual signers are not.
+At no point does verification require knowing which member produced which signature. The group membership is public. The identities of the actual contributors are not.
 
 ---
 
@@ -167,9 +178,9 @@ At no point does verification require knowing which member produced which signat
 
 nostr-veil is one layer of a broader identity and trust stack:
 
-- [@forgesworn/ring-sig](https://github.com/forgesworn/ring-sig) -- LSAG ring signatures on secp256k1 (the cryptographic primitive)
-- [nsec-tree](https://github.com/forgesworn/nsec-tree) -- Deterministic sub-identity derivation (compartmentalised personas for trust circles)
-- [canary-kit](https://github.com/forgesworn/canary-kit) -- Coercion-resistant verification and duress detection
+- [@forgesworn/ring-sig](https://github.com/forgesworn/ring-sig) -- The ring signature engine (the core cryptography)
+- [nsec-tree](https://github.com/forgesworn/nsec-tree) -- Generate separate anonymous identities from a single master key
+- [canary-kit](https://github.com/forgesworn/canary-kit) -- Detect when someone is being coerced (duress signals)
 - [signet](https://github.com/forgesworn/signet) -- Decentralised identity verification for Nostr
 - [dominion](https://github.com/forgesworn/dominion) -- Epoch-based encrypted content access control
 
@@ -192,7 +203,7 @@ Each project is independently maintained and published. nostr-veil focuses solel
 | Library | What it does |
 |---------|-------------|
 | [nsec-tree](https://github.com/forgesworn/nsec-tree) | Deterministic sub-identity derivation |
-| [ring-sig](https://github.com/forgesworn/ring-sig) | SAG/LSAG ring signatures on secp256k1 |
+| [ring-sig](https://github.com/forgesworn/ring-sig) | Ring signature engine (core cryptography) |
 | [range-proof](https://github.com/forgesworn/range-proof) | Pedersen commitment range proofs |
 | [canary-kit](https://github.com/forgesworn/canary-kit) | Coercion-resistant spoken verification |
 | [spoken-token](https://github.com/forgesworn/spoken-token) | Human-speakable verification tokens |

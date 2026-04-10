@@ -1,16 +1,17 @@
 # nostr-veil
 
-> Nostr's NIP-85 Web of Trust scores reveal who contributed them, making trust
-> unusable for sensitive contexts like whistleblowing, abuse reporting, or
-> political dissent. nostr-veil adds LSAG ring-signature privacy to NIP-85
-> assertions so trust scores are verifiable without exposing contributors.
+> Nostr has a standard for publishing trust scores (NIP-85), but those scores
+> reveal who contributed them -- making reputation systems unusable for sensitive
+> contexts like whistleblowing, abuse reporting, or political dissent.
+> nostr-veil adds ring-signature privacy so scores are verifiable without
+> exposing contributors.
 
 nostr-veil is a TypeScript library for anonymous trust assertions on Nostr. It
-layers LSAG ring-signature anonymity (on secp256k1) onto standard NIP-85
-assertion events. The output is a standard kind 30382 event that any NIP-85
-client reads unchanged -- veil-aware clients can additionally verify the
-cryptographic proofs via three extra tags: `veil-ring`, `veil-threshold`, and
-`veil-sig`.
+wraps standard NIP-85 trust score events in ring signatures -- a cryptographic
+technique where a verifier can confirm "someone in this group signed" without
+knowing who. The output is a standard NIP-85 event that any Nostr app reads
+unchanged -- privacy-aware apps can additionally verify the cryptographic
+proofs via three extra tags: `veil-ring`, `veil-threshold`, and `veil-sig`.
 
 ## Getting Started
 
@@ -38,12 +39,12 @@ const result = verifyProof(assertion)
 
 ## Key Concepts
 
-- **Trust circle**: A fixed group of pubkeys that can contribute assertions anonymously. Created with `createTrustCircle()`. Minimum 2 members, maximum 1000.
-- **Contribution**: A single member's anonymous vote, signed with an LSAG ring signature. The key image prevents double-signing without revealing the signer.
+- **Trust circle**: A fixed group of public keys that can contribute scores anonymously. Created with `createTrustCircle()`. Minimum 2 members, maximum 1000.
+- **Contribution**: A single member's anonymous vote, wrapped in a ring signature. A duplicate-detection token (key image) prevents double-voting without revealing the voter.
 - **Aggregation**: Contributions are combined (median by default) into a standard NIP-85 event with `veil-ring`, `veil-threshold`, and `veil-sig` tags.
-- **Verification**: `verifyProof()` confirms each LSAG signature is valid, key images are distinct, election IDs match, and the threshold is met -- all without learning who signed.
+- **Verification**: `verifyProof()` confirms each ring signature is valid, duplicate-detection tokens are distinct, election IDs match, and the threshold is met -- all without learning who signed.
 - **Election ID**: Format `veil:v1:<circleId>:<subject>`. Binds signatures to a specific circle and subject, preventing transplant attacks.
-- **Signing**: `signEvent(template, privateKey)` is exported from the root package. It computes the NIP-01 event ID (SHA-256 of canonical serialisation), signs with BIP-340 Schnorr, and returns a complete `SignedEvent`.
+- **Signing**: `signEvent(template, privateKey)` is exported from the root package. It computes the event ID, signs with Schnorr, and returns a complete `SignedEvent`.
 
 ## API Surface
 
@@ -59,8 +60,8 @@ Two subpath exports, plus a root that re-exports everything:
 
 These are not dependencies but complement nostr-veil:
 
-- [nsec-tree](https://github.com/forgesworn/nsec-tree) -- Deterministic sub-identity derivation for compartmentalised trust circle personas
-- [canary-kit](https://github.com/forgesworn/canary-kit) -- Coercion-resistant verification and duress detection
+- [nsec-tree](https://github.com/forgesworn/nsec-tree) -- Generate separate anonymous identities from a single master key
+- [canary-kit](https://github.com/forgesworn/canary-kit) -- Detect when someone is being coerced (duress signals)
 - [signet](https://github.com/forgesworn/signet) -- Decentralised identity verification for Nostr
 - [dominion](https://github.com/forgesworn/dominion) -- Epoch-based encrypted content access control
 
@@ -68,4 +69,4 @@ These are not dependencies but complement nostr-veil:
 
 - [README](https://github.com/forgesworn/nostr-veil/blob/main/README.md): Full documentation with architecture diagram
 - [IMPACT.md](https://github.com/forgesworn/nostr-veil/blob/main/IMPACT.md): Problem statement and ecosystem impact
-- [@forgesworn/ring-sig](https://github.com/forgesworn/ring-sig): Underlying LSAG ring signature library
+- [@forgesworn/ring-sig](https://github.com/forgesworn/ring-sig): Underlying ring signature library

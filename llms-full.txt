@@ -1,16 +1,17 @@
 # nostr-veil
 
-> Nostr's NIP-85 Web of Trust scores reveal who contributed them, making trust
-> unusable for sensitive contexts like whistleblowing, abuse reporting, or
-> political dissent. nostr-veil adds LSAG ring-signature privacy to NIP-85
-> assertions so trust scores are verifiable without exposing contributors.
+> Nostr has a standard for publishing trust scores (NIP-85), but those scores
+> reveal who contributed them -- making reputation systems unusable for sensitive
+> contexts like whistleblowing, abuse reporting, or political dissent.
+> nostr-veil adds ring-signature privacy so scores are verifiable without
+> exposing contributors.
 
 nostr-veil is a TypeScript library for anonymous trust assertions on Nostr. It
-layers LSAG ring-signature anonymity (on secp256k1) onto standard NIP-85
-assertion events. The output is a standard kind 30382 event that any NIP-85
-client reads unchanged -- veil-aware clients can additionally verify the
-cryptographic proofs via three extra tags: `veil-ring`, `veil-threshold`, and
-`veil-sig`.
+wraps standard NIP-85 trust score events in ring signatures -- a cryptographic
+technique where a verifier can confirm "someone in this group signed" without
+knowing who. The output is a standard NIP-85 event that any Nostr app reads
+unchanged -- privacy-aware apps can additionally verify the cryptographic
+proofs via three extra tags: `veil-ring`, `veil-threshold`, and `veil-sig`.
 
 ## Installation
 
@@ -22,23 +23,26 @@ npm install nostr-veil
 
 ### The NIP-85 problem
 
-NIP-85 trust assertion events (kinds 30382–30385) are signed by the asserting
-provider. Any client can see exactly which provider contributed which score, for
-which subject. In sensitive contexts this surveillance risk makes honest
-participation irrational.
+NIP-85 is Nostr's standard for publishing trust scores (kinds 30382-30385).
+Each score is signed by the provider who gave it. Any app can see exactly
+which provider contributed which score, for which subject. In sensitive
+contexts this transparency makes honest participation irrational.
 
-### The LSAG solution
+### The ring-signature solution
 
-nostr-veil replaces the single-provider signature with an LSAG ring signature
-over a deterministic canonical message. LSAG (Linkable Spontaneous Anonymous
-Group) signatures have two key properties:
+nostr-veil replaces the single-provider signature with a ring signature over a
+deterministic canonical message. A ring signature is a cryptographic technique
+where a verifier can confirm "someone in this group signed" without knowing who.
+The specific variant used is LSAG (Linkable Spontaneous Anonymous Group), which
+adds duplicate detection:
 
-1. **Anonymity within the ring** — a verifier can confirm the signature was
-   produced by *some* member of the ring (the trust circle), but cannot
-   determine *which* member.
-2. **Linkability via key image** — each private key produces a unique, stable
-   key image. If the same key signs twice in the same ring, the duplicate key
-   image is detectable. This prevents double-voting without revealing identity.
+1. **Anonymity within the group** -- a verifier can confirm the signature was
+   produced by *some* member of the trust circle, but cannot determine *which*
+   member.
+2. **Duplicate detection via key image** -- each private key produces a unique,
+   stable token (called a key image). If the same person signs twice in the
+   same circle, the duplicate token is detectable. This prevents double-voting
+   without revealing identity.
 
 ### Threshold mechanics
 
@@ -46,9 +50,9 @@ A trust circle has N members. The `aggregateContributions` function accepts M
 contributions (M ≤ N) and embeds them as `veil-sig` tags. The `veil-threshold`
 tag records `(M, N)`. `verifyProof` confirms:
 
-- Every `veil-sig` is a valid LSAG over the `veil-ring`
-- All key images are distinct (no double-signing)
-- The number of valid distinct signers ≥ threshold
+- Every `veil-sig` is a valid ring signature over the `veil-ring`
+- All duplicate-detection tokens (key images) are distinct (no double-signing)
+- The number of valid distinct signers >= threshold
 
 The metric values (rank, followers, etc.) in the final event are the median of
 all contributing members' values by default. A custom aggregation function can
@@ -61,9 +65,9 @@ NIP-85 event:
 
 | Tag | Format | Purpose |
 |-----|--------|---------|
-| `veil-ring` | `['veil-ring', pubkey, pubkey, …]` | Ordered list of all ring member pubkeys |
+| `veil-ring` | `['veil-ring', pubkey, pubkey, ...]` | Ordered list of all circle member public keys |
 | `veil-threshold` | `['veil-threshold', sigCount, circleSize]` | How many signed out of how many eligible |
-| `veil-sig` | `['veil-sig', serialisedSigJSON, keyImageHex]` | One LSAG signature per contributor |
+| `veil-sig` | `['veil-sig', serialisedSigJSON, keyImageHex]` | One ring signature per anonymous contributor |
 
 The `veil-sig` JSON excludes `ring` and `keyImage` (which live in the other
 tags). It contains `c0`, `electionId`, `message`, `responses`, and optionally
@@ -421,15 +425,15 @@ const circle = createTrustCircle([alicePubkey, bobPubkey, carolPubkey])
 
 #### `contributeAssertion(circle, subject, metrics, privateKey, memberIndex) → Contribution`
 
-Produce an anonymous LSAG-signed contribution to a trust circle assertion.
+Produce an anonymous ring-signed contribution to a trust circle assertion.
 
 - **`circle`** `TrustCircle` — Created via `createTrustCircle`
 - **`subject`** `string` — The d-tag value the assertion is about
 - **`metrics`** `Record<string, number>` — Metric key-value pairs
 - **`privateKey`** `string` — 32-byte hex private key of the contributing member
 - **`memberIndex`** `number` — 0-based index in `circle.members` (sorted order)
-- **Returns** `Contribution` with LSAG signature, key image, and metrics
-- **Throws** if `memberIndex` is out of range or the private key doesn't match the expected pubkey
+- **Returns** `Contribution` with ring signature, duplicate-detection token, and metrics
+- **Throws** if `memberIndex` is out of range or the private key doesn't match the expected public key
 
 ```ts
 const contrib = contributeAssertion(circle, subjectPubkey, { rank: 85 }, alicePrivkey, 0)
@@ -441,14 +445,14 @@ const contrib = contributeAssertion(circle, subjectPubkey, { rank: 85 }, alicePr
 
 Aggregate multiple contributions into a single NIP-85 event with proof tags.
 
-Validates all LSAG signatures and checks key image uniqueness before aggregating.
+Validates all ring signatures and checks for duplicate contributors before aggregating.
 
 - **`circle`** `TrustCircle` — The trust circle the contributions belong to
 - **`subject`** `string` — The d-tag value (must match what contributors signed)
 - **`contributions`** `Contribution[]` — Array of contributions from circle members
 - **`options`** `AggregateFn | { aggregateFn?: AggregateFn; kind?: number }` — Pass a function for custom aggregation (default: median), or an options object to also specify the NIP-85 assertion kind (default: 30382 USER). Supports kinds 30382, 30383, 30384, 30385.
 - **Returns** `EventTemplate` with `veil-ring`, `veil-threshold`, and `veil-sig` tags
-- **Throws** if any LSAG signature is invalid or duplicate key images are detected
+- **Throws** if any ring signature is invalid or duplicate contributors are detected
 
 ```ts
 const tmpl = aggregateContributions(circle, subjectPubkey, [aliceContrib, bobContrib])
@@ -460,7 +464,7 @@ await relay.publish(event)
 
 #### `verifyProof(event) → ProofVerification`
 
-Verify all LSAG ring signatures in a veil-enhanced NIP-85 event.
+Verify all ring signatures in a veil-enhanced NIP-85 event.
 
 - **`event`** `{ kind, tags, content }` — A Nostr event containing proof tags
 - **Returns** `ProofVerification` with `valid`, `circleSize`, `threshold`, `distinctSigners`, `errors`
@@ -487,7 +491,7 @@ const id = computeCircleId([alicePubkey, bobPubkey].sort())
 
 #### `canonicalMessage(circleId, subject, metrics) → string`
 
-Produce the deterministic JSON string that contributors sign with LSAG.
+Produce the deterministic JSON string that contributors sign with ring signatures.
 
 All keys are sorted; metric values must be finite numbers.
 
@@ -507,7 +511,7 @@ const msg = canonicalMessage(circle.circleId, subjectPubkey, { rank: 85 })
 
 #### `computeEventId(event) → string`
 
-Compute the NIP-01 event ID (SHA-256 of the canonical `[0, pubkey, …]` array).
+Compute the Nostr event ID (SHA-256 of the canonical serialisation).
 
 - **`event`** `{ pubkey, created_at, kind, tags, content }` — Fields used in NIP-01 serialisation
 - **Returns** 64-char hex SHA-256 event ID
@@ -520,7 +524,7 @@ const id = computeEventId({ pubkey, created_at, kind: 1, tags: [], content: 'hel
 
 #### `signEvent(template, privateKey) → SignedEvent`
 
-Sign an unsigned event template with a BIP-340 Schnorr private key.
+Sign an unsigned event template with a Schnorr private key (BIP-340).
 
 - **`template`** `UnsignedEvent` — `kind`, `tags`, `content`, optional `created_at`
 - **`privateKey`** `string` — 32-byte hex Schnorr private key (64 chars)
@@ -561,8 +565,8 @@ const result = verifyProof(event)
 
 These are not dependencies but complement nostr-veil:
 
-- [nsec-tree](https://github.com/forgesworn/nsec-tree) -- Sub-identity derivation for compartmentalised trust circle personas
-- [canary-kit](https://github.com/forgesworn/canary-kit) -- Coercion-resistant verification and duress detection
+- [nsec-tree](https://github.com/forgesworn/nsec-tree) -- Generate separate anonymous identities from a single master key
+- [canary-kit](https://github.com/forgesworn/canary-kit) -- Detect when someone is being coerced (duress signals)
 - [signet](https://github.com/forgesworn/signet) -- Decentralised identity verification for Nostr
 - [dominion](https://github.com/forgesworn/dominion) -- Epoch-based encrypted content access control
 
@@ -570,4 +574,4 @@ These are not dependencies but complement nostr-veil:
 
 - [README](https://github.com/forgesworn/nostr-veil/blob/main/README.md): Full documentation with architecture diagram
 - [IMPACT.md](https://github.com/forgesworn/nostr-veil/blob/main/IMPACT.md): Problem statement and ecosystem impact
-- [@forgesworn/ring-sig](https://github.com/forgesworn/ring-sig): Underlying LSAG ring signature library
+- [@forgesworn/ring-sig](https://github.com/forgesworn/ring-sig): Underlying ring signature library
