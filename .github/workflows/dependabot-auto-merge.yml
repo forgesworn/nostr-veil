@@ -1,0 +1,29 @@
+name: Dependabot auto-merge
+
+# Auto-merges dependabot PRs for patch/minor bumps once required checks pass.
+# Majors are never auto-merged -- they open a normal PR for deliberate review.
+# Security advisories always open their own PR and follow the same gate.
+#
+# Synced from forgesworn/.github/templates/dependabot/dependabot-auto-merge.yml.
+
+on: pull_request
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  auto-merge:
+    if: github.event.pull_request.user.login == 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fetch dependabot metadata
+        id: meta
+        uses: dependabot/fetch-metadata@d7267f607e9d3fb96fc2fbe83e0af444713e90b7 # v2.3.0
+
+      - name: Enable auto-merge for patch/minor
+        if: steps.meta.outputs.update-type == 'version-update:semver-patch' || steps.meta.outputs.update-type == 'version-update:semver-minor'
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh pr merge --auto --squash --delete-branch "$PR_URL"
