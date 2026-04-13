@@ -344,26 +344,27 @@ function ModeSelect({ barkDetected, onHeartwood, onDemo }: {
             while remaining verifiable. Key images prevent one member signing twice.
           </p>
           <p style={{ marginBottom: '0.8rem', color: '#9ca3af' }}>
-            The adjacent problems are handled by sibling libraries already published in
-            the ForgeSworn stack:
+            The scope is deliberately narrow. Adjacent problems are out of band by design:
           </p>
           <p style={{ marginBottom: '0.8rem' }}>
-            <strong style={{ color: '#7b68ee' }}>Member vetting</strong> uses NIP-85
-            reputation scores and the social ritual that fits the context (legal aid
-            onboarding, newsroom security ceremony). The same scores that feed Veil feed
-            the vetting.
+            <strong style={{ color: '#7b68ee' }}>Member vetting</strong> happens out of
+            band through the social process that fits the context (legal aid onboarding,
+            newsroom security ceremony). Existing NIP-85 reputation from third parties
+            can inform that decision where useful, but Veil doesn't automate or enforce
+            vetting.
           </p>
           <p style={{ marginBottom: '0.8rem' }}>
             <strong style={{ color: '#7b68ee' }}>Sybil resistance</strong> at membership
-            time comes from the Web of Trust layer underneath. Veil assumes membership is
-            vetted; NIP-85 follower graphs, nsec-tree identity derivation, and signet
-            handle the vetting.
+            time is not a cryptographic property of ring signatures, and Veil doesn't
+            claim to solve it. Defences are operational: the circle membership process
+            is the Sybil barrier, the same position any trust-circle cryptosystem takes,
+            Monero included.
           </p>
           <p>
             <strong style={{ color: '#7b68ee' }}>Backward compatibility</strong> is a
-            design feature, not a limitation. Unaware clients display Veil events as
-            standard NIP-85 and ignore the ring proof, so the extension rolls out without
-            ecosystem coordination.
+            design feature. Unaware clients display Veil events as standard NIP-85 and
+            ignore the ring proof; privacy-aware clients implement ring verification.
+            Phased rollout, no flag day.
           </p>
         </div>
       </details>
