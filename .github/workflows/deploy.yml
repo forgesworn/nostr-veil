@@ -39,6 +39,6 @@ jobs:
           echo "$HETZNER_SSH_KEY" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
           ssh-keyscan -H 95.217.39.110 >> ~/.ssh/known_hosts
-          rsync -avz --delete \
+          rsync -avz --delete --exclude='*.mp4' --exclude='*.webm' \
             -e "ssh -i ~/.ssh/deploy_key" \
             demo/dist/ deploy@95.217.39.110:/opt/nostr-veil-demo/

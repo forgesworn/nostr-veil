@@ -286,10 +286,87 @@ function ModeSelect({ barkDetected, onHeartwood, onDemo }: {
         anonymous trust scoring on Nostr using LSAG ring signatures
         and <strong style={{ color: '#e0e0e0' }}>nsec-tree</strong> identity derivation.
       </p>
-      <p style={{ color: '#9ca3af', fontSize: '1rem', marginBottom: '2.5rem', lineHeight: 1.6 }}>
+      <p style={{ color: '#9ca3af', fontSize: '1rem', marginBottom: '2rem', lineHeight: 1.6 }}>
         You'll form a trust circle, score a source, watch scores aggregate anonymously
         via ring signatures, verify the proof, and optionally disclose your identity.
       </p>
+
+      {/* Trust Trilemma: three properties, clearest framing */}
+      <div style={{
+        marginBottom: '1.2rem', padding: '1rem 1.2rem',
+        background: '#0a0a12', border: '1px solid #1a1a2e',
+      }}>
+        <div style={{ fontSize: '0.68rem', color: '#7b68ee', letterSpacing: '0.15em', marginBottom: '0.8rem', fontWeight: 500 }}>
+          THE TRUST TRILEMMA
+        </div>
+        <div style={{
+          display: 'grid', gridTemplateColumns: '1fr auto auto',
+          gap: '0.4rem 1.2rem', fontSize: '0.8rem', alignItems: 'center',
+        }}>
+          <span style={{ color: '#6b7280', fontSize: '0.7rem', letterSpacing: '0.08em' }}></span>
+          <span style={{ color: '#6b7280', fontSize: '0.7rem', letterSpacing: '0.08em', textAlign: 'center' }}>NIP-85</span>
+          <span style={{ color: '#6b7280', fontSize: '0.7rem', letterSpacing: '0.08em', textAlign: 'center' }}>+ VEIL</span>
+
+          <span style={{ color: '#c0c0c0' }}>Verifiable</span>
+          <span style={{ color: '#4ade80', textAlign: 'center' }}>✓</span>
+          <span style={{ color: '#4ade80', textAlign: 'center' }}>✓</span>
+
+          <span style={{ color: '#c0c0c0' }}>Portable</span>
+          <span style={{ color: '#4ade80', textAlign: 'center' }}>✓</span>
+          <span style={{ color: '#4ade80', textAlign: 'center' }}>✓</span>
+
+          <span style={{ color: '#c0c0c0' }}>Private contributor</span>
+          <span style={{ color: '#6b7280', textAlign: 'center' }}>·</span>
+          <span style={{ color: '#4ade80', textAlign: 'center' }}>✓</span>
+        </div>
+        <p style={{ marginTop: '0.8rem', fontSize: '0.78rem', color: '#9ca3af', lineHeight: 1.5 }}>
+          Veil events are standard NIP-85. Any Nostr client reads them today. Privacy-aware
+          clients additionally verify the ring proof.
+        </p>
+      </div>
+
+      {/* How Veil fits in the stack: scope is deliberate, adjacent tools handle the rest */}
+      <details style={{
+        marginBottom: '2rem', padding: '0.6rem 1rem',
+        background: '#0a0a12', border: '1px solid #1a1a2e',
+      }}>
+        <summary style={{
+          cursor: 'pointer', color: '#9ca3af',
+          fontSize: '0.68rem', letterSpacing: '0.15em', fontWeight: 500,
+          padding: '0.4rem 0',
+        }}>
+          HOW VEIL FITS IN THE STACK
+        </summary>
+        <div style={{ marginTop: '0.8rem', fontSize: '0.82rem', color: '#c0c0c0', lineHeight: 1.7 }}>
+          <p style={{ marginBottom: '0.8rem' }}>
+            Veil does one thing cleanly: hides which member of a known circle contributed
+            a given score. LSAG signatures make the contribution unlinkable to the signer
+            while remaining verifiable. Key images prevent one member signing twice.
+          </p>
+          <p style={{ marginBottom: '0.8rem', color: '#9ca3af' }}>
+            The adjacent problems are handled by sibling libraries already published in
+            the ForgeSworn stack:
+          </p>
+          <p style={{ marginBottom: '0.8rem' }}>
+            <strong style={{ color: '#7b68ee' }}>Member vetting</strong> uses NIP-85
+            reputation scores and the social ritual that fits the context (legal aid
+            onboarding, newsroom security ceremony). The same scores that feed Veil feed
+            the vetting.
+          </p>
+          <p style={{ marginBottom: '0.8rem' }}>
+            <strong style={{ color: '#7b68ee' }}>Sybil resistance</strong> at membership
+            time comes from the Web of Trust layer underneath. Veil assumes membership is
+            vetted; NIP-85 follower graphs, nsec-tree identity derivation, and signet
+            handle the vetting.
+          </p>
+          <p>
+            <strong style={{ color: '#7b68ee' }}>Backward compatibility</strong> is a
+            design feature, not a limitation. Unaware clients display Veil events as
+            standard NIP-85 and ignore the ring proof, so the extension rolls out without
+            ecosystem coordination.
+          </p>
+        </div>
+      </details>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
         {barkDetected && (

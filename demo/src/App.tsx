@@ -60,18 +60,28 @@ function AppInner() {
       }}>
         <h1 style={{ fontSize: 'clamp(1.4rem, 4vw, 2rem)', letterSpacing: '0.2em', fontWeight: 300, color: '#7b68ee' }}>VEIL</h1>
         <span style={{ fontSize: 'clamp(0.7rem, 2vw, 0.9rem)', color: '#b0b0b0', letterSpacing: '0.1em' }}>ANONYMOUS GROUP TRUST FOR NOSTR</span>
-        <div style={{ marginLeft: 'auto', display: 'flex', gap: '0.3rem' }}>
-          {[1, 2, 3, 4, 5, 6].map(n => (
-            <div
-              key={n}
-              style={{
-                width: 'clamp(16px, 3vw, 24px)',
-                height: 3,
-                background: n <= screenNum ? '#7b68ee' : '#1a1a2e',
-                transition: 'background 0.3s',
-              }}
-            />
-          ))}
+        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 'clamp(0.6rem, 2vw, 1.2rem)' }}>
+          <nav style={{ display: 'flex', gap: 'clamp(0.5rem, 1.5vw, 1rem)', fontSize: 'clamp(0.65rem, 1.6vw, 0.75rem)', letterSpacing: '0.1em' }}>
+            <a href="https://github.com/forgesworn/nostr-veil" target="_blank" rel="noreferrer"
+              style={{ color: '#9ca3af', textDecoration: 'none' }}>GITHUB</a>
+            <a href="https://veil.forgesworn.dev/demo.mp4" target="_blank" rel="noreferrer"
+              style={{ color: '#9ca3af', textDecoration: 'none' }}>VIDEO</a>
+            <a href="https://github.com/nostr-protocol/nips/blob/master/85.md" target="_blank" rel="noreferrer"
+              style={{ color: '#9ca3af', textDecoration: 'none' }}>NIP-85</a>
+          </nav>
+          <div style={{ display: 'flex', gap: '0.3rem' }}>
+            {[1, 2, 3, 4, 5, 6].map(n => (
+              <div
+                key={n}
+                style={{
+                  width: 'clamp(16px, 3vw, 24px)',
+                  height: 3,
+                  background: n <= screenNum ? '#7b68ee' : '#1a1a2e',
+                  transition: 'background 0.3s',
+                }}
+              />
+            ))}
+          </div>
         </div>
       </header>
 
