@@ -137,11 +137,6 @@ export function Reveal({ flow }: Props) {
   const doPublish = useCallback(async () => {
     const nostr = window.nostr
     if (!nostr) return
-    if (!nostr.heartwood) {
-      console.error('[reveal] nostr.heartwood is absent — cannot publish attestation')
-      return
-    }
-
     setSigning(true)
     const withTimeout = <T,>(p: Promise<T>, ms = 5000): Promise<T | undefined> =>
       Promise.race([p, new Promise<undefined>(r => setTimeout(r, ms))])
@@ -151,20 +146,21 @@ export function Reveal({ flow }: Props) {
       try { personaPubkey = await nostr.getPublicKey() } catch { /* warm up */ }
       await new Promise(r => setTimeout(r, 600))
 
-      // In bunker mode, heartwood.switch exists but throws.
-      // Try the master/persona dance; if switching fails, sign both events
-      // with the active key and note the limitation.
+      // If heartwood.switch is unavailable (plain NIP-07 signer / bunker mode),
+      // sign both events with the active key and note the limitation.
       let masterPubkey: string | undefined
-      let canSwitch = true
+      let canSwitch = !!nostr.heartwood
 
-      // Switch to master
+      // Switch to master (skip if no heartwood support)
       setSigningStage('switching to master...')
-      try {
-        await withTimeout(nostr.heartwood.switch('master'))
-        masterPubkey = await withTimeout(nostr.getPublicKey(), 5000)
-      } catch (e) {
-        console.warn('[reveal] switch to master failed (bunker mode?):', e)
-        canSwitch = false
+      if (canSwitch) {
+        try {
+          await withTimeout(nostr.heartwood!.switch('master'))
+          masterPubkey = await withTimeout(nostr.getPublicKey(), 5000)
+        } catch (e) {
+          console.warn('[reveal] switch to master failed (bunker mode?):', e)
+          canSwitch = false
+        }
       }
       if (!masterPubkey) {
         // Bunker mode or switch failed — use the only key we have
@@ -185,7 +181,7 @@ export function Reveal({ flow }: Props) {
       if (canSwitch) {
         setSigningStage('switching to persona...')
         try {
-          await withTimeout(nostr.heartwood.switch('persona/veil-demo-journalist'))
+          await withTimeout(nostr.heartwood!.switch('persona/veil-demo-journalist'))
           const switchedBack = await withTimeout(nostr.getPublicKey(), 5000)
           if (switchedBack) personaPubkey = switchedBack
         } catch (e) {
