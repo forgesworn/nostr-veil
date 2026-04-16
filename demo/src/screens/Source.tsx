@@ -80,12 +80,12 @@ export function Source({ flow }: Props) {
         try {
           pubkey = await nostr.getPublicKey()
           setActiveKey(pubkey)
-          // Log if the active key differs from the hardcoded journalist key.
-          // In heartwood mode this is expected — the persona is derived from
-          // the user's real nsec, not the demo seed.
-          if (pubkey !== journalists[0].publicKey) {
+          // In heartwood mode the persona is derived from the user's real
+          // nsec, so it won't match the hardcoded demo journalist key.
+          // Only flag a mismatch in demo mode where keys should match.
+          if (!isHardware && pubkey !== journalists[0].publicKey) {
             setKeyMismatch(true)
-            console.warn('[source] active key differs from demo journalist — active:', pubkey, 'expected:', journalists[0].publicKey, 'switch reported npub:', switchedNpub)
+            console.warn('[source] persona key mismatch — active:', pubkey, 'expected:', journalists[0].publicKey)
           }
         } catch { /* reconnect fires */ }
         await new Promise(r => setTimeout(r, 600))
