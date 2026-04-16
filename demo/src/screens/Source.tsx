@@ -80,13 +80,12 @@ export function Source({ flow }: Props) {
         try {
           pubkey = await nostr.getPublicKey()
           setActiveKey(pubkey)
-          // When persona derivation worked, verify the active key matches.
-          // In bunker mode the active key is the master — skip mismatch check.
-          if (personaAvailable && pubkey !== journalists[0].publicKey) {
+          // Log if the active key differs from the hardcoded journalist key.
+          // In heartwood mode this is expected — the persona is derived from
+          // the user's real nsec, not the demo seed.
+          if (pubkey !== journalists[0].publicKey) {
             setKeyMismatch(true)
-            console.warn('[source] persona switch key mismatch — active:', pubkey, 'expected:', journalists[0].publicKey, 'switch reported npub:', switchedNpub)
-            setSigningStage(null)
-            return
+            console.warn('[source] active key differs from demo journalist — active:', pubkey, 'expected:', journalists[0].publicKey, 'switch reported npub:', switchedNpub)
           }
         } catch { /* reconnect fires */ }
         await new Promise(r => setTimeout(r, 600))
