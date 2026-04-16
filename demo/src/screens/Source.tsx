@@ -50,15 +50,28 @@ export function Source({ flow }: Props) {
         // Ensure the persona exists on the device (its RAM cache clears on restart),
         // then switch to it. Both calls get a 5s timeout — Bark's background
         // script can hang if the bunker connection is stale.
+        // In bunker mode, heartwood methods exist but throw — catch individually
+        // so we can still sign with whatever key is active.
         let switchedNpub: string | undefined
+        let personaAvailable = true
         const withTimeout = <T,>(p: Promise<T>, ms = 5000): Promise<T | undefined> =>
           Promise.race([p, new Promise<undefined>(r => setTimeout(r, ms))])
         if (nostr.heartwood?.derivePersona) {
-          await withTimeout(nostr.heartwood.derivePersona('veil-demo-journalist', 0))
+          try {
+            await withTimeout(nostr.heartwood.derivePersona('veil-demo-journalist', 0))
+          } catch (e) {
+            console.warn('[source] persona derivation unavailable (bunker mode?):', e)
+            personaAvailable = false
+          }
         }
-        if (nostr.heartwood?.switch) {
-          const result = await withTimeout(nostr.heartwood.switch('persona/veil-demo-journalist'))
-          switchedNpub = result?.npub
+        if (personaAvailable && nostr.heartwood?.switch) {
+          try {
+            const result = await withTimeout(nostr.heartwood.switch('persona/veil-demo-journalist'))
+            switchedNpub = result?.npub
+          } catch (e) {
+            console.warn('[source] persona switch failed:', e)
+            personaAvailable = false
+          }
         }
 
         // Verify which key is now active
@@ -67,8 +80,9 @@ export function Source({ flow }: Props) {
         try {
           pubkey = await nostr.getPublicKey()
           setActiveKey(pubkey)
-          // Sanity check: active key must match journalists[0].publicKey; warn if not
-          if (pubkey !== journalists[0].publicKey) {
+          // When persona derivation worked, verify the active key matches.
+          // In bunker mode the active key is the master — skip mismatch check.
+          if (personaAvailable && pubkey !== journalists[0].publicKey) {
             setKeyMismatch(true)
             console.warn('[source] persona switch key mismatch — active:', pubkey, 'expected:', journalists[0].publicKey, 'switch reported npub:', switchedNpub)
             setSigningStage(null)

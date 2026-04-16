@@ -151,13 +151,27 @@ export function Reveal({ flow }: Props) {
       try { personaPubkey = await nostr.getPublicKey() } catch { /* warm up */ }
       await new Promise(r => setTimeout(r, 600))
 
+      // In bunker mode, heartwood.switch exists but throws.
+      // Try the master/persona dance; if switching fails, sign both events
+      // with the active key and note the limitation.
+      let masterPubkey: string | undefined
+      let canSwitch = true
+
       // Switch to master
       setSigningStage('switching to master...')
-      await withTimeout(nostr.heartwood.switch('master'))
-      const masterPubkey = await withTimeout(nostr.getPublicKey(), 5000)
-      if (!masterPubkey) throw new Error('getPublicKey timed out after switch to master')
+      try {
+        await withTimeout(nostr.heartwood.switch('master'))
+        masterPubkey = await withTimeout(nostr.getPublicKey(), 5000)
+      } catch (e) {
+        console.warn('[reveal] switch to master failed (bunker mode?):', e)
+        canSwitch = false
+      }
+      if (!masterPubkey) {
+        // Bunker mode or switch failed — use the only key we have
+        masterPubkey = personaPubkey || await nostr.getPublicKey()
+      }
 
-      // Sign attestation event as master
+      // Sign attestation event as master (or active key in bunker mode)
       setSigningStage('signing attestation...')
       const attestationUnsigned = {
         kind: 1,
@@ -167,12 +181,17 @@ export function Reveal({ flow }: Props) {
       }
       const attestationEvent = await nostr.signEvent(attestationUnsigned)
 
-      // Switch back to persona
-      setSigningStage('switching to persona...')
-      await withTimeout(nostr.heartwood.switch('persona/veil-demo-journalist'))
-      const switchedBack = await withTimeout(nostr.getPublicKey(), 5000)
-      if (!switchedBack) throw new Error('getPublicKey timed out after switch to persona')
-      personaPubkey = switchedBack
+      // Switch back to persona (skip if switching unavailable)
+      if (canSwitch) {
+        setSigningStage('switching to persona...')
+        try {
+          await withTimeout(nostr.heartwood.switch('persona/veil-demo-journalist'))
+          const switchedBack = await withTimeout(nostr.getPublicKey(), 5000)
+          if (switchedBack) personaPubkey = switchedBack
+        } catch (e) {
+          console.warn('[reveal] switch to persona failed:', e)
+        }
+      }
 
       // Sign outer kind 31000 as persona (NIP-VA ownership-claim)
       setSigningStage('publishing...')
