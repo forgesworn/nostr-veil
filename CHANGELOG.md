@@ -1,3 +1,20 @@
+# [0.9.0](https://github.com/forgesworn/nostr-veil/compare/v0.8.4...v0.9.0) (2026-04-16)
+
+
+### Bug Fixes
+
+* downgrade key mismatch to warning in heartwood mode ([cf7882b](https://github.com/forgesworn/nostr-veil/commit/cf7882b7f0e3894b6cd2d886c9193a8bc7ca8355))
+* drop npm publish from CI release job ([33aaa79](https://github.com/forgesworn/nostr-veil/commit/33aaa7920b4bb0e1f42590cf532e9c52a91cddb7))
+* handle bunker mode gracefully in demo hardware path ([9d6b329](https://github.com/forgesworn/nostr-veil/commit/9d6b329c4c5bd9644fab977d86e1e1a4b211a7a2))
+* only software-publish ring assertion in demo mode ([50d3810](https://github.com/forgesworn/nostr-veil/commit/50d38100564c1020f3500a03f3c86544df406c73))
+* suppress key mismatch warning in heartwood mode ([b27ced6](https://github.com/forgesworn/nostr-veil/commit/b27ced688af7e049d998cb3e25aeaff869cf1ed5))
+* use persistent SimplePool for demo relay connections ([adca304](https://github.com/forgesworn/nostr-veil/commit/adca304cebc533d5cd79a92282d50b8a2f0daede))
+
+
+### Features
+
+* **demo:** surface repo/video/NIP links, add trust trilemma, reframe scope ([5f9a116](https://github.com/forgesworn/nostr-veil/commit/5f9a116fe3fb9eb3932265e9fa9b60e4fe6ebbcb))
+
 ## [0.8.4](https://github.com/forgesworn/nostr-veil/compare/v0.8.3...v0.8.4) (2026-04-09)
 
 
