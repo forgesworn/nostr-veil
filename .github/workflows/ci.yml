@@ -34,7 +34,6 @@ jobs:
       contents: write
       issues: write
       pull-requests: write
-      id-token: write
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
@@ -43,10 +42,8 @@ jobs:
         with:
           node-version: 24
           cache: npm
-          registry-url: 'https://registry.npmjs.org'
       - run: npm ci
       - run: npm run build
       - run: npx semantic-release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NPM_CONFIG_PROVENANCE: true
