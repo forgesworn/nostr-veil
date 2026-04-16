@@ -1,10 +1,9 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { nip19 } from 'nostr-tools'
+import { queryRelay, DEMO_RELAY } from '../publish.js'
 import type { useVeilFlow } from '../hooks/useVeilFlow.js'
 
 interface Props { flow: ReturnType<typeof useVeilFlow> }
-
-const RELAY = 'wss://relay.trotters.cc'
 
 interface RelayEvent {
   id: string
@@ -511,10 +510,10 @@ function NakVerify({ events }: { events: RelayEvent[] }) {
   const subject = events.find(e => e.kind === 31000)?.tags.find(t => t[0] === 'd')?.[1] ?? '<subject-pubkey>'
 
   const cmds = [
-    { label: 'NIP-VA attestation (kind 31000)', cmd: `nak req -k 31000 -a ${persona} -d ${subject} -l 1 ${RELAY} | nak verify` },
-    { label: 'ring assertion (kind 30382)',      cmd: `nak req -k 30382 -a ${persona} -d ${subject} -l 1 ${RELAY} | nak verify` },
-    { label: 'identity disclosure (kind 31000, type: ownership-claim)', cmd: `nak req -k 31000 -a ${persona} -d veil-disclosure:master -l 1 ${RELAY} | nak verify` },
-    { label: 'verifier attestation (kind 31871)', cmd: `nak req -k 31871 -l 5 ${RELAY} | nak verify` },
+    { label: 'NIP-VA attestation (kind 31000)', cmd: `nak req -k 31000 -a ${persona} -d ${subject} -l 1 ${DEMO_RELAY} | nak verify` },
+    { label: 'ring assertion (kind 30382)',      cmd: `nak req -k 30382 -a ${persona} -d ${subject} -l 1 ${DEMO_RELAY} | nak verify` },
+    { label: 'identity disclosure (kind 31000, type: ownership-claim)', cmd: `nak req -k 31000 -a ${persona} -d veil-disclosure:master -l 1 ${DEMO_RELAY} | nak verify` },
+    { label: 'verifier attestation (kind 31871)', cmd: `nak req -k 31871 -l 5 ${DEMO_RELAY} | nak verify` },
   ]
 
   return (
@@ -570,45 +569,31 @@ export function Network({ flow }: Props) {
   const [status, setStatus] = useState('Connecting to relay...')
   const [selected, setSelected] = useState<RelayEvent | null>(null)
   const [copied, setCopied] = useState(false)
-  const wsRef = useRef<WebSocket | null>(null)
 
   const isDemo = flow.state.identityMode === 'demo'
 
   useEffect(() => {
-    const ws = new WebSocket(RELAY)
-    wsRef.current = ws
-    const collected: RelayEvent[] = []
+    let cancelled = false
+    setStatus('Fetching recent events…')
 
-    ws.onopen = () => {
-      setStatus('Fetching recent events…')
-      ws.send(JSON.stringify(['REQ', 'recap', {
-        kinds: [31000, 30382, 31871],
-        limit: 50,
-        since: Math.floor(Date.now() / 1000) - 600,
-      }]))
-    }
+    queryRelay({
+      kinds: [31000, 30382, 31871],
+      limit: 50,
+      since: Math.floor(Date.now() / 1000) - 600,
+    }).then(results => {
+      if (cancelled) return
+      const filtered = results
+        .filter(ev => KIND_META[ev.kind])
+        .sort((a, b) => a.created_at - b.created_at) as unknown as RelayEvent[]
+      setEvents(filtered)
+      setStatus(filtered.length > 0
+        ? `${filtered.length} events · ${DEMO_RELAY}`
+        : 'No recent events. Complete the demo flow first.')
+    }).catch(() => {
+      if (!cancelled) setStatus('Failed to connect to relay')
+    })
 
-    ws.onmessage = (msg) => {
-      try {
-        const data = JSON.parse(msg.data as string)
-        if (data[0] === 'EVENT' && data[2]) {
-          const ev = data[2] as RelayEvent
-          if (KIND_META[ev.kind]) {
-            collected.push(ev)
-            collected.sort((a, b) => a.created_at - b.created_at)
-            setEvents([...collected])
-          }
-        } else if (data[0] === 'EOSE') {
-          setStatus(collected.length > 0
-            ? `${collected.length} events · ${RELAY}`
-            : 'No recent events. Complete the demo flow first.')
-        }
-      } catch { /* ignore */ }
-    }
-
-    ws.onerror = () => setStatus('Failed to connect to relay')
-    ws.onclose = () => {}
-    return () => { ws.close() }
+    return () => { cancelled = true }
   }, [])
 
   return (
@@ -619,7 +604,7 @@ export function Network({ flow }: Props) {
         </strong>{' '}
         {isDemo
           ? <>Real signed Nostr events generated during this demo session. Every signature, ring proof, and attestation below is cryptographically valid.</>
-          : <>Real Nostr events fetched live from <span style={{ color: '#7b68ee' }}>{RELAY}</span>, each signed by the Heartwood ESP32.</>
+          : <>Real Nostr events fetched live from <span style={{ color: '#7b68ee' }}>{DEMO_RELAY}</span>, each signed by the Heartwood ESP32.</>
         }
       </p>
       <p style={{ color: '#9ca3af', fontSize: '0.95rem', marginBottom: '1.5rem', lineHeight: 1.6 }}>

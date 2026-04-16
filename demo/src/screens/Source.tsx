@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { journalists } from '../data/journalists.js'
 import { source } from '../data/source.js'
 import { signEvent } from '../../../src/signing.js'
-import { publishToRelay } from '../publish.js'
+import { publishToRelay, publishToRelays, DEMO_RELAY } from '../publish.js'
 import { Tip } from '../components/Tooltip.js'
 import { useRelay } from '../components/RelayProvider.js'
 import type { useVeilFlow } from '../hooks/useVeilFlow.js'
@@ -102,36 +102,10 @@ export function Source({ flow }: Props) {
         }
         const signed = await nostr.signEvent(unsigned)
 
-        // Publish to relay
+        // Publish to relay (via persistent pool -- survives demo pauses)
         try {
-          const ws = new WebSocket('wss://relay.trotters.cc')
-          await new Promise<void>((resolve) => {
-            const timeout = setTimeout(() => {
-              console.warn('[source] relay publish timeout — no OK received for kind 31000')
-              ws.close()
-              resolve()
-            }, 8000)
-            ws.onopen = () => {
-              console.log('[source] relay connected, sending kind 31000 event', signed.id)
-              ws.send(JSON.stringify(['EVENT', signed]))
-            }
-            ws.onmessage = (msg) => {
-              try {
-                const data = JSON.parse(String(msg.data))
-                console.log('[source] relay message:', data)
-                if (data[0] === 'OK') {
-                  clearTimeout(timeout)
-                  ws.close()
-                  resolve()
-                }
-              } catch { /* ignore */ }
-            }
-            ws.onerror = (e) => {
-              console.error('[source] relay WebSocket error for kind 31000:', e)
-              clearTimeout(timeout)
-              resolve()
-            }
-          })
+          const accepted = await publishToRelays([DEMO_RELAY], signed)
+          console.log(`[source] kind 31000 published, ${accepted} relay(s) accepted`)
         } catch (pubErr) {
           console.error('[source] relay publish failed:', pubErr)
         }

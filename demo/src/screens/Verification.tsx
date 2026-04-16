@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { verifyProof } from 'nostr-veil/proof'
 import { signEvent } from '../../../src/signing.js'
-import { publishToRelay } from '../publish.js'
+import { publishToRelay, publishToRelays } from '../publish.js'
 import { hexToBytes, bytesToHex } from '@noble/hashes/utils.js'
 import { fromNsec, derive } from 'nsec-tree/core'
 import { journalists } from '../data/journalists.js'
@@ -227,49 +227,9 @@ export function Verification({ flow }: Props) {
                         description: `Event signed via Bark. ID: ${String(signed.id ?? '').slice(0, 12)}... Publishing to ${PUBLISH_RELAYS.length} relays.`,
                       })
 
-                      // Publish to relays
-                      let accepted = 0
-                      const results = await Promise.allSettled(PUBLISH_RELAYS.map(url =>
-                        new Promise<boolean>((resolve) => {
-                          try {
-                            const ws = new WebSocket(url)
-                            const timeout = setTimeout(() => {
-                              console.log(`[${url}] timeout`)
-                              ws.close()
-                              resolve(false)
-                            }, 8000)
-                            ws.onopen = () => {
-                              console.log(`[${url}] connected, sending event`)
-                              ws.send(JSON.stringify(['EVENT', signed]))
-                            }
-                            ws.onmessage = (msg) => {
-                              console.log(`[${url}] message:`, msg.data)
-                              try {
-                                const data = JSON.parse(String(msg.data))
-                                if (data[0] === 'OK') {
-                                  if (data[2] === true) accepted++
-                                  clearTimeout(timeout)
-                                  ws.close()
-                                  resolve(data[2] === true)
-                                  return
-                                }
-                              } catch { /* ignore non-JSON */ }
-                            }
-                            ws.onerror = (err) => {
-                              console.log(`[${url}] error:`, err)
-                              clearTimeout(timeout)
-                              resolve(false)
-                            }
-                            ws.onclose = () => {
-                              clearTimeout(timeout)
-                            }
-                          } catch (err) {
-                            console.log(`[${url}] exception:`, err)
-                            resolve(false)
-                          }
-                        })
-                      ))
-                      console.log('Publish results:', results)
+                      // Publish to relays (via persistent pool -- survives demo pauses)
+                      const accepted = await publishToRelays(PUBLISH_RELAYS, signed)
+                      console.log(`[verification] kind 30382 published, ${accepted}/${PUBLISH_RELAYS.length} accepted`)
 
                       setPublishState('done')
                       setPublishedEvent(signed)
@@ -363,18 +323,7 @@ export function Verification({ flow }: Props) {
 
                     setAttestState('publishing')
 
-                    await new Promise<void>((resolve) => {
-                      const ws = new WebSocket(PUBLISH_RELAYS[0])
-                      const timeout = setTimeout(() => { ws.close(); resolve() }, 8000)
-                      ws.onopen = () => ws.send(JSON.stringify(['EVENT', signed]))
-                      ws.onmessage = (msg) => {
-                        try {
-                          const data = JSON.parse(String(msg.data))
-                          if (data[0] === 'OK') { clearTimeout(timeout); ws.close(); resolve() }
-                        } catch { /* ignore */ }
-                      }
-                      ws.onerror = () => { clearTimeout(timeout); resolve() }
-                    })
+                    await publishToRelays(PUBLISH_RELAYS, signed)
 
                     setAttestState('done')
                     setAttestInfo(`Verifier ${verifierPubHex.slice(0, 12)}… published kind 31871 attestation. Event: ${signed.id.slice(0, 16)}…`)

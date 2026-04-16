@@ -5,7 +5,7 @@ import { schnorr } from '@noble/curves/secp256k1.js'
 import { fromNsec, derive } from 'nsec-tree/core'
 import { createBlindProof, createFullProof, verifyProof as verifyLinkageProof } from 'nsec-tree/proof'
 import { signEvent } from '../../../src/signing.js'
-import { publishToRelay } from '../publish.js'
+import { publishToRelay, publishToRelays, DEMO_RELAY } from '../publish.js'
 import { Tip } from '../components/Tooltip.js'
 import { useRelay } from '../components/RelayProvider.js'
 import type { useVeilFlow } from '../hooks/useVeilFlow.js'
@@ -209,30 +209,10 @@ export function Reveal({ flow }: Props) {
       }
       const signed = await nostr.signEvent(outer)
 
-      // Publish to relay
+      // Publish to relay (via persistent pool -- survives demo pauses)
       try {
-        const ws = new WebSocket('wss://relay.trotters.cc')
-        await new Promise<void>((resolve) => {
-          const timeout = setTimeout(() => {
-            console.warn('[reveal] relay publish timeout — no OK for kind 31000')
-            ws.close(); resolve()
-          }, 8000)
-          ws.onopen = () => {
-            console.log('[reveal] relay connected, sending kind 31000', signed.id)
-            ws.send(JSON.stringify(['EVENT', signed]))
-          }
-          ws.onmessage = (msg) => {
-            try {
-              const data = JSON.parse(String(msg.data))
-              console.log('[reveal] relay message:', data)
-              if (data[0] === 'OK') { clearTimeout(timeout); ws.close(); resolve() }
-            } catch { /* ignore */ }
-          }
-          ws.onerror = (e) => {
-            console.error('[reveal] relay WebSocket error:', e)
-            clearTimeout(timeout); resolve()
-          }
-        })
+        const accepted = await publishToRelays([DEMO_RELAY], signed)
+        console.log(`[reveal] kind 31000 published, ${accepted} relay(s) accepted`)
       } catch (pubErr) {
         console.error('[reveal] relay publish failed:', pubErr)
       }
