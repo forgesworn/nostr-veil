@@ -52,7 +52,6 @@ export function Source({ flow }: Props) {
         // script can hang if the bunker connection is stale.
         // In bunker mode, heartwood methods exist but throw — catch individually
         // so we can still sign with whatever key is active.
-        let switchedNpub: string | undefined
         let personaAvailable = true
         const withTimeout = <T,>(p: Promise<T>, ms = 5000): Promise<T | undefined> =>
           Promise.race([p, new Promise<undefined>(r => setTimeout(r, ms))])
@@ -66,8 +65,7 @@ export function Source({ flow }: Props) {
         }
         if (personaAvailable && nostr.heartwood?.switch) {
           try {
-            const result = await withTimeout(nostr.heartwood.switch('persona/veil-demo-journalist'))
-            switchedNpub = result?.npub
+            await withTimeout(nostr.heartwood.switch('persona/veil-demo-journalist'))
           } catch (e) {
             console.warn('[source] persona switch failed:', e)
             personaAvailable = false
