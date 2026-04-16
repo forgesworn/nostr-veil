@@ -117,14 +117,17 @@ export function Veil({ flow }: Props) {
       setEvent(fullEvent as Record<string, unknown>)
       flow.setAggregatedEvent(template)
 
-      // Sign the ring assertion so we have a complete event to display on the recap screen
-      const selected = flow.state.selectedJournalistIndex ?? 0
-      const signed = signEvent(
-        { ...template, created_at: fullEvent.created_at },
-        journalists[selected].privateKey,
-      )
-      flow.addGeneratedEvent(signed)
-      publishToRelay(signed)
+      // In demo mode, sign and publish with the software key immediately.
+      // In heartwood mode, the Verification step handles hardware signing.
+      if (flow.state.identityMode === 'demo') {
+        const selected = flow.state.selectedJournalistIndex ?? 0
+        const signed = signEvent(
+          { ...template, created_at: fullEvent.created_at },
+          journalists[selected].privateKey,
+        )
+        flow.addGeneratedEvent(signed)
+        publishToRelay(signed)
+      }
 
       setStatus('Aggregation complete')
     }
