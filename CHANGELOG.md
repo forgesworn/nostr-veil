@@ -1,3 +1,10 @@
+## [0.9.1](https://github.com/forgesworn/nostr-veil/compare/v0.9.0...v0.9.1) (2026-04-16)
+
+
+### Bug Fixes
+
+* allow reveal attestation without heartwood signer ([0739c8f](https://github.com/forgesworn/nostr-veil/commit/0739c8f1c748b4fcc9998e730b564bbafb36c9b0))
+
 # [0.9.0](https://github.com/forgesworn/nostr-veil/compare/v0.8.4...v0.9.0) (2026-04-16)
 
 
