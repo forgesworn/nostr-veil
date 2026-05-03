@@ -120,4 +120,44 @@ describe('verifyProof', () => {
     expect(result.valid).toBe(false)
     expect(result.errors[0]).toMatch(/not in sorted order/)
   })
+
+  it('rejects metric tags that differ from the signed contribution messages', () => {
+    const event = makeEvent()
+    const rankIdx = event.tags.findIndex(t => t[0] === 'rank')
+    event.tags[rankIdx] = ['rank', '100']
+    const result = verifyProof(event)
+    expect(result.valid).toBe(false)
+    expect(result.errors.some(e => /metric "rank"/i.test(e))).toBe(true)
+  })
+
+  it('rejects a veil-threshold circle size that differs from the ring size', () => {
+    const event = makeEvent()
+    const threshIdx = event.tags.findIndex(t => t[0] === 'veil-threshold')
+    event.tags[threshIdx] = ['veil-threshold', '3', '999999']
+    const result = verifyProof(event)
+    expect(result.valid).toBe(false)
+    expect(result.circleSize).toBe(3)
+    expect(result.errors.some(e => /circle size/i.test(e))).toBe(true)
+  })
+
+  it('rejects a veil-threshold signer count that differs from valid signatures', () => {
+    const event = makeEvent()
+    const threshIdx = event.tags.findIndex(t => t[0] === 'veil-threshold')
+    event.tags[threshIdx] = ['veil-threshold', '1', '3']
+    const result = verifyProof(event)
+    expect(result.valid).toBe(false)
+    expect(result.distinctSigners).toBe(3)
+    expect(result.errors.some(e => /signer count/i.test(e))).toBe(true)
+  })
+
+  it('verifies custom aggregation when the same aggregate function is supplied', () => {
+    const contributions = privKeys.map((pk, i) => {
+      const memberIndex = circle.members.indexOf(pubKeys[i])
+      return contributeAssertion(circle, subject, { rank: i === 0 ? 100 : 0 }, pk, memberIndex)
+    })
+    const max = (values: number[]) => Math.max(...values)
+    const event = aggregateContributions(circle, subject, contributions, max)
+    expect(verifyProof(event).valid).toBe(false)
+    expect(verifyProof(event, max).valid).toBe(true)
+  })
 })

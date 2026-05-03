@@ -70,6 +70,18 @@ describe('aggregateContributions', () => {
     expect(() => aggregateContributions(circle, subject, contributions)).toThrow(/invalid/i)
   })
 
+  it('rejects contributions whose metrics differ from the signed message', () => {
+    const contributions = makeContributions([80, 85, 90])
+    contributions[0].metrics.rank = 100
+    expect(() => aggregateContributions(circle, subject, contributions)).toThrow(/signed message/i)
+  })
+
+  it('rejects contributions whose detached key image differs from the signature', () => {
+    const contributions = makeContributions([80, 85, 90])
+    contributions[0] = { ...contributions[0], keyImage: contributions[1].keyImage }
+    expect(() => aggregateContributions(circle, subject, contributions)).toThrow(/key image/i)
+  })
+
   it('handles even number of contributions for median', () => {
     const twoContributions = [0, 1].map(i => {
       const memberIndex = circle.members.indexOf(pubKeys[i])

@@ -2,6 +2,7 @@ import { lsagVerify, hasDuplicateKeyImage } from '@forgesworn/ring-sig'
 import type { EventTemplate } from '../nip85/types.js'
 import { NIP85_KINDS } from '../nip85/types.js'
 import type { TrustCircle, Contribution, AggregateFn } from './types.js'
+import { canonicalMessage, computeCircleId } from './circle.js'
 
 function median(values: number[]): number {
   const sorted = [...values].sort((a, b) => a - b)
@@ -35,6 +36,10 @@ function serialiseSig(sig: Contribution['signature']): string {
   })
 }
 
+function sameStringArray(a: string[], b: string[]): boolean {
+  return a.length === b.length && a.every((value, index) => value === b[index])
+}
+
 /**
  * Aggregate multiple anonymous contributions into a single NIP-85 event.
  *
@@ -63,9 +68,31 @@ export function aggregateContributions(
   const kind = typeof options === 'object' && options !== null && 'kind' in options
     ? options.kind ?? NIP85_KINDS.USER
     : NIP85_KINDS.USER
+  if (circle.size !== circle.members.length) {
+    throw new Error(`Trust circle size mismatch: size=${circle.size}, members=${circle.members.length}`)
+  }
+  if (circle.circleId !== computeCircleId(circle.members)) {
+    throw new Error('Trust circle circleId does not match its members')
+  }
+
+  const expectedElectionId = `veil:v1:${circle.circleId}:${subject}`
+
   // Validate all signatures
   for (let i = 0; i < contributions.length; i++) {
-    if (!lsagVerify(contributions[i].signature)) {
+    const contribution = contributions[i]
+    if (contribution.keyImage !== contribution.signature.keyImage) {
+      throw new Error(`Detached key image does not match signature at contribution index ${i}`)
+    }
+    if (!sameStringArray(contribution.signature.ring, circle.members)) {
+      throw new Error(`Signature ring does not match trust circle at contribution index ${i}`)
+    }
+    if (contribution.signature.electionId !== expectedElectionId) {
+      throw new Error(`Signature electionId does not match trust circle subject at contribution index ${i}`)
+    }
+    if (contribution.signature.message !== canonicalMessage(circle.circleId, subject, contribution.metrics)) {
+      throw new Error(`Signature signed message does not match contribution metrics at contribution index ${i}`)
+    }
+    if (!lsagVerify(contribution.signature)) {
       throw new Error(`Invalid LSAG signature at contribution index ${i}`)
     }
   }

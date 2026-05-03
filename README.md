@@ -142,7 +142,7 @@ The resulting `assertion` is a plain `EventTemplate` you sign and publish like a
 | `createTrustCircle(memberPubkeys)` | Create a trust circle from an array of pubkeys |
 | `contributeAssertion(circle, subject, metrics, privateKey, memberIndex)` | Produce an anonymous ring-signed `Contribution` |
 | `aggregateContributions(circle, subject, contributions, options?)` | Aggregate contributions into a NIP-85 event with veil tags (default aggregation: median) |
-| `verifyProof(event)` | Verify all ring signatures and return a `ProofVerification` |
+| `verifyProof(event, options?)` | Verify ring signatures, threshold metadata, and signed metric aggregation |
 | `canonicalMessage(circleId, subject, metrics)` | Compute the canonical message signed by contributors |
 | `computeCircleId(sortedPubkeys)` | Compute the deterministic circle ID (SHA-256 of colon-joined pubkeys) |
 
@@ -169,9 +169,12 @@ A verifier calls `verifyProof`, which:
 
 1. Checks each ring signature is valid (a real member signed it)
 2. Checks the duplicate-detection tokens are all different (nobody voted twice)
-3. Confirms enough members contributed to meet the threshold
+3. Confirms the threshold metadata matches the ring and distinct signatures
+4. Confirms the published metric tags match the aggregate of the signed contributions
 
 At no point does verification require knowing which member produced which signature. The group membership is public. The identities of the actual contributors are not.
+
+By default, verification expects the same median aggregation used by `aggregateContributions`. If you pass a custom `aggregateFn` to `aggregateContributions`, pass the same function to `verifyProof`.
 
 ---
 
