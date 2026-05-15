@@ -1,3 +1,11 @@
+# [0.10.0](https://github.com/forgesworn/nostr-veil/compare/v0.9.1...v0.10.0) (2026-05-15)
+
+
+### Features
+
+* add named aggregate functions and the veil-agg tag ([f615bcb](https://github.com/forgesworn/nostr-veil/commit/f615bcbdb12bb4f493b3b2a935efd6b380e3dcb1))
+* verify the whole assertion, not just the ring signatures ([4d71d0e](https://github.com/forgesworn/nostr-veil/commit/4d71d0e181f74b1bb607324493d8b9dde610814f))
+
 ## [0.9.1](https://github.com/forgesworn/nostr-veil/compare/v0.9.0...v0.9.1) (2026-04-16)
 
 
