@@ -31,6 +31,6 @@ export function contributeAssertion(
   return {
     signature,
     keyImage: signature.keyImage,
-    metrics,
+    metrics: { ...metrics },
   }
 }

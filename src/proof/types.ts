@@ -29,6 +29,13 @@ export interface Contribution {
 /** Aggregation function type */
 export type AggregateFn = (values: number[]) => number
 
+/**
+ * Names of the built-in aggregate functions. The `veil-agg` tag on an
+ * aggregated event records which one produced the metric tags, so a verifier
+ * can recompute the aggregate without the function being supplied out-of-band.
+ */
+export type AggregateName = 'median' | 'mean' | 'sum' | 'min' | 'max'
+
 /** Result of proof verification */
 export interface ProofVerification {
   valid: boolean

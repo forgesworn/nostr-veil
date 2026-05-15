@@ -1,7 +1,8 @@
 import { lsagVerify, hasDuplicateKeyImage } from '@forgesworn/ring-sig'
 import type { EventTemplate } from '../nip85/types.js'
 import { NIP85_KINDS } from '../nip85/types.js'
-import type { TrustCircle, Contribution, AggregateFn } from './types.js'
+import type { TrustCircle, Contribution, AggregateFn, AggregateName } from './types.js'
+import { canonicalMessage, computeCircleId } from './circle.js'
 
 function median(values: number[]): number {
   const sorted = [...values].sort((a, b) => a - b)
@@ -9,6 +10,24 @@ function median(values: number[]): number {
   return sorted.length % 2 !== 0
     ? sorted[mid]
     : Math.round((sorted[mid - 1] + sorted[mid]) / 2)
+}
+
+/**
+ * Built-in named aggregate functions. The `veil-agg` tag records which one
+ * produced an event's metric tags, letting `verifyProof` recompute the
+ * aggregate without the function being supplied out-of-band.
+ */
+export const AGGREGATES: Record<AggregateName, AggregateFn> = {
+  median,
+  mean: values => Math.round(values.reduce((a, b) => a + b, 0) / values.length),
+  sum: values => values.reduce((a, b) => a + b, 0),
+  min: values => Math.min(...values),
+  max: values => Math.max(...values),
+}
+
+/** True if `name` is a recognised built-in aggregate function. */
+export function isAggregateName(name: string): name is AggregateName {
+  return Object.prototype.hasOwnProperty.call(AGGREGATES, name)
 }
 
 function serialiseSig(sig: Contribution['signature']): string {
@@ -35,37 +54,79 @@ function serialiseSig(sig: Contribution['signature']): string {
   })
 }
 
+function sameStringArray(a: string[], b: string[]): boolean {
+  return a.length === b.length && a.every((value, index) => value === b[index])
+}
+
 /**
  * Aggregate multiple anonymous contributions into a single NIP-85 event.
  *
  * Validates all LSAG signatures and checks key image uniqueness before
  * aggregating metrics (default: median). The result is a standard NIP-85
- * event with additional `veil-ring`, `veil-threshold`, and `veil-sig` tags.
+ * event with additional `veil-ring`, `veil-threshold`, `veil-agg`, and `veil-sig` tags.
  *
  * @param circle - Trust circle the contributions belong to
  * @param subject - The d-tag value (must match what contributors signed)
  * @param contributions - Array of {@link Contribution} objects from circle members
  * @param options - Optional configuration
- * @param options.aggregateFn - Function to combine metric values (default: median). Receives an array of numbers, returns a single number.
+ * @param options.aggregate - Name of a built-in aggregate function: 'median' (default), 'mean', 'sum', 'min', or 'max'. Recorded in the `veil-agg` tag so verifiers can recompute the aggregate automatically.
+ * @param options.aggregateFn - A custom function to combine metric values. Recorded as `veil-agg: custom`; verifiers must be passed the same function. Prefer `aggregate` for the standard functions.
  * @param options.kind - NIP-85 assertion kind (default: 30382 USER). Use `NIP85_KINDS.EVENT` (30383), `NIP85_KINDS.ADDRESSABLE` (30384), or `NIP85_KINDS.IDENTIFIER` (30385) for other assertion types.
  * @returns An unsigned {@link EventTemplate} with proof tags — sign and publish as a standard Nostr event
- * @throws If any LSAG signature is invalid or duplicate key images are detected
+ * @throws If any LSAG signature is invalid, duplicate key images are detected, or an unknown aggregate name is supplied
  */
 export function aggregateContributions(
   circle: TrustCircle,
   subject: string,
   contributions: Contribution[],
-  options?: AggregateFn | { aggregateFn?: AggregateFn; kind?: number }
+  options?: AggregateFn | { aggregateFn?: AggregateFn; aggregate?: AggregateName; kind?: number }
 ): EventTemplate {
-  const aggregateFn = typeof options === 'function'
-    ? options
-    : options?.aggregateFn ?? median
+  let aggregateFn: AggregateFn
+  let aggName: AggregateName | 'custom'
+  if (typeof options === 'function') {
+    aggregateFn = options
+    aggName = 'custom'
+  } else if (options?.aggregate !== undefined) {
+    if (!isAggregateName(options.aggregate)) {
+      throw new Error(`Unknown aggregate function: ${options.aggregate}`)
+    }
+    aggregateFn = AGGREGATES[options.aggregate]
+    aggName = options.aggregate
+  } else if (options?.aggregateFn !== undefined) {
+    aggregateFn = options.aggregateFn
+    aggName = 'custom'
+  } else {
+    aggregateFn = median
+    aggName = 'median'
+  }
   const kind = typeof options === 'object' && options !== null && 'kind' in options
     ? options.kind ?? NIP85_KINDS.USER
     : NIP85_KINDS.USER
+  if (circle.size !== circle.members.length) {
+    throw new Error(`Trust circle size mismatch: size=${circle.size}, members=${circle.members.length}`)
+  }
+  if (circle.circleId !== computeCircleId(circle.members)) {
+    throw new Error('Trust circle circleId does not match its members')
+  }
+
+  const expectedElectionId = `veil:v1:${circle.circleId}:${subject}`
+
   // Validate all signatures
   for (let i = 0; i < contributions.length; i++) {
-    if (!lsagVerify(contributions[i].signature)) {
+    const contribution = contributions[i]
+    if (contribution.keyImage !== contribution.signature.keyImage) {
+      throw new Error(`Detached key image does not match signature at contribution index ${i}`)
+    }
+    if (!sameStringArray(contribution.signature.ring, circle.members)) {
+      throw new Error(`Signature ring does not match trust circle at contribution index ${i}`)
+    }
+    if (contribution.signature.electionId !== expectedElectionId) {
+      throw new Error(`Signature electionId does not match trust circle subject at contribution index ${i}`)
+    }
+    if (contribution.signature.message !== canonicalMessage(circle.circleId, subject, contribution.metrics)) {
+      throw new Error(`Signature signed message does not match contribution metrics at contribution index ${i}`)
+    }
+    if (!lsagVerify(contribution.signature)) {
       throw new Error(`Invalid LSAG signature at contribution index ${i}`)
     }
   }
@@ -105,6 +166,7 @@ export function aggregateContributions(
       ...metricTags,
       ['veil-ring', ...circle.members],
       ['veil-threshold', String(contributions.length), String(circle.size)],
+      ['veil-agg', aggName],
       ...sigTags,
     ],
     content: '',
