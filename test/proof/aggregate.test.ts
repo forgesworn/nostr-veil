@@ -5,6 +5,7 @@ import { createTrustCircle } from '../../src/proof/circle.js'
 import { contributeAssertion } from '../../src/proof/contribute.js'
 import { aggregateContributions } from '../../src/proof/aggregate.js'
 import { NIP85_KINDS } from '../../src/nip85/types.js'
+import type { AggregateName } from '../../src/proof/types.js'
 
 describe('aggregateContributions', () => {
   const privKeys = [
@@ -140,5 +141,29 @@ describe('aggregateContributions', () => {
       const sortedKeys = [...keys].sort()
       expect(keys).toEqual(sortedKeys)
     }
+  })
+
+  it('tags the aggregate function as median by default', () => {
+    const event = aggregateContributions(circle, subject, makeContributions([80, 85, 90]))
+    expect(event.tags).toContainEqual(['veil-agg', 'median'])
+  })
+
+  it('records a named aggregate function in the veil-agg tag', () => {
+    const event = aggregateContributions(circle, subject, makeContributions([80, 84, 92]), { aggregate: 'mean' })
+    expect(event.tags).toContainEqual(['veil-agg', 'mean'])
+    expect(event.tags.find(t => t[0] === 'rank')?.[1]).toBe('85') // mean of 80, 84, 92
+  })
+
+  it('tags a bare custom aggregate function as custom', () => {
+    const max = (vals: number[]) => Math.max(...vals)
+    const event = aggregateContributions(circle, subject, makeContributions([80, 85, 90]), max)
+    expect(event.tags).toContainEqual(['veil-agg', 'custom'])
+  })
+
+  it('throws on an unknown aggregate name', () => {
+    expect(() => aggregateContributions(
+      circle, subject, makeContributions([80, 85, 90]),
+      { aggregate: 'mode' as AggregateName },
+    )).toThrow(/unknown aggregate/i)
   })
 })

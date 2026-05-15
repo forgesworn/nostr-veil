@@ -1,16 +1,17 @@
 import { lsagVerify, hasDuplicateKeyImage } from '@forgesworn/ring-sig'
 import { canonicalMessage, computeCircleId } from './circle.js'
 import type { AggregateFn, ProofVerification } from './types.js'
+import { AGGREGATES, isAggregateName } from './aggregate.js'
 
 /**
  * Verify all LSAG ring signatures in a Veil-enhanced NIP-85 event.
  *
  * Checks each `veil-sig` tag against the `veil-ring`, confirms key images are
  * distinct (no double-signing), validates the threshold metadata, and confirms
- * the published metric tags match the aggregate of the signed contribution messages.
+ * the published metric tags match the aggregate (named by the `veil-agg` tag) of the signed contribution messages.
  *
  * @param event - A Nostr event (or template) containing `veil-ring`, `veil-threshold`, and `veil-sig` tags
- * @param options - Optional aggregate function. Must match the function used when aggregating custom metric tags.
+ * @param options - Optional aggregate function, needed only for events whose `veil-agg` tag is `custom`. Named aggregates are resolved from the tag automatically.
  * @returns A {@link ProofVerification} with `valid`, `circleSize`, `threshold`, `distinctSigners`, and any `errors`
  */
 const MAX_RING_SIZE = 1000
@@ -26,18 +27,48 @@ interface SignedMessage {
   metrics: Record<string, number>
 }
 
-function median(values: number[]): number {
-  const sorted = [...values].sort((a, b) => a - b)
-  const mid = Math.floor(sorted.length / 2)
-  return sorted.length % 2 !== 0
-    ? sorted[mid]
-    : Math.round((sorted[mid - 1] + sorted[mid]) / 2)
-}
-
 function aggregateFnFromOptions(options?: VerifyOptions): AggregateFn {
   return typeof options === 'function'
     ? options
-    : options?.aggregateFn ?? median
+    : options?.aggregateFn ?? AGGREGATES.median
+}
+
+/**
+ * Determine which aggregate function to verify the metric tags against.
+ * Reads the `veil-agg` tag; an absent tag means median (pre-veil-agg events).
+ * Returns null and records an error when the function cannot be determined.
+ */
+function resolveAggregateFn(
+  tags: string[][],
+  options: VerifyOptions | undefined,
+  errors: string[],
+): AggregateFn | null {
+  const aggTags = tags.filter(t => t[0] === 'veil-agg')
+  if (aggTags.length > 1) {
+    errors.push('Multiple veil-agg tags')
+    return null
+  }
+  if (aggTags.length === 0) {
+    // No veil-agg tag: pre-veil-agg event, median unless the caller overrides.
+    return aggregateFnFromOptions(options)
+  }
+  const value = aggTags[0][1]
+  if (typeof value !== 'string' || value === '') {
+    errors.push('Invalid veil-agg tag')
+    return null
+  }
+  if (value === 'custom') {
+    if (typeof options === 'function' || options?.aggregateFn) {
+      return aggregateFnFromOptions(options)
+    }
+    errors.push('veil-agg is "custom": pass the aggregate function via options to verify the metric tags')
+    return null
+  }
+  if (!isAggregateName(value)) {
+    errors.push(`Unknown veil-agg function: ${value}`)
+    return null
+  }
+  return AGGREGATES[value]
 }
 
 function parseDecimalInteger(value: string | undefined): number | undefined {
@@ -155,7 +186,6 @@ export function verifyProof(event: {
   content: string
 }, options?: VerifyOptions): ProofVerification {
   const errors: string[] = []
-  const aggregateFn = aggregateFnFromOptions(options)
 
   // Require d tag -- without it the electionId check cannot bind signatures to a subject
   const dTag = event.tags.find(t => t[0] === 'd')
@@ -292,10 +322,13 @@ export function verifyProof(event: {
   }
 
   if (errors.length === 0) {
-    const published = extractPublishedMetrics(event.tags)
-    errors.push(...published.errors)
-    const signedMetrics = aggregateSignedMetrics(signedMessages, aggregateFn, errors)
-    comparePublishedMetrics(published.metrics, signedMetrics, errors)
+    const aggregateFn = resolveAggregateFn(event.tags, options, errors)
+    if (aggregateFn !== null) {
+      const published = extractPublishedMetrics(event.tags)
+      errors.push(...published.errors)
+      const signedMetrics = aggregateSignedMetrics(signedMessages, aggregateFn, errors)
+      comparePublishedMetrics(published.metrics, signedMetrics, errors)
+    }
   }
 
   return {
