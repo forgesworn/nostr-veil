@@ -51,3 +51,21 @@ export interface ProofVerification {
   distinctSigners: number
   errors: string[]
 }
+
+/** Result of verifying a federation of scoped circle assertions */
+export interface FederationVerification {
+  /** True when every event verified and they share a single subject and scope */
+  valid: boolean
+  /** The subject (d-tag) the verified events agree on, or null if they disagree or none verified */
+  subject: string | null
+  /** The federation scope the verified events agree on, or null if they disagree or none verified */
+  scope: string | null
+  /** Number of distinct circles (by circleId) across the events */
+  circleCount: number
+  /** Total signatures across all events; a contributor in N circles counts N times */
+  totalSignatures: number
+  /** Distinct contributors across the federation, deduplicated by LSAG key image */
+  distinctSigners: number
+  /** Verification errors, each per-event error prefixed with its index; empty when valid */
+  errors: string[]
+}
