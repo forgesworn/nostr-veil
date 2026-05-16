@@ -143,6 +143,7 @@ The resulting `assertion` is a plain `EventTemplate` you sign and publish like a
 | `contributeAssertion(circle, subject, metrics, privateKey, memberIndex)` | Produce an anonymous ring-signed `Contribution` |
 | `aggregateContributions(circle, subject, contributions, options?)` | Aggregate contributions into a NIP-85 event with veil tags (default aggregation: median) |
 | `verifyProof(event, options?)` | Verify ring signatures, threshold metadata, and signed metric aggregation |
+| `verifyFederation(events, options?)` | Verify several scoped events together and count distinct contributors across circles ([cross-circle deduplication](#cross-circle-deduplication)) |
 | `canonicalMessage(circleId, subject, metrics)` | Compute the canonical message signed by contributors |
 | `computeCircleId(sortedPubkeys)` | Compute the deterministic circle ID (SHA-256 of colon-joined pubkeys) |
 
@@ -192,9 +193,19 @@ const circleA = createTrustCircle(membersA, { scope: 'community-moderators' })
 const circleB = createTrustCircle(membersB, { scope: 'community-moderators' })
 ```
 
-Circles sharing a `scope` derive the key image from the scope rather than the circle, so a contributor who appears in several of them produces the *same* token in each. An aggregator gathering events across the federation can drop the duplicates -- matched by key image, never by identity -- and count each contributor once.
+Circles sharing a `scope` derive the key image from the scope rather than the circle, so a contributor who appears in several of them produces the *same* token in each. `verifyFederation` gathers events from across the federation, verifies each one, and counts the distinct contributors -- matched by key image, never by identity:
 
-A scoped event carries a `veil-scope` tag, which `verifyProof` reads automatically. Circles created without a `scope` behave exactly as before: no tag, fully isolated.
+```ts
+import { verifyFederation } from 'nostr-veil'
+
+// Aggregated events from every circle in the federation, all about the same subject
+const result = verifyFederation([circleAEvent, circleBEvent, circleCEvent])
+// { valid: true, scope: 'community-moderators', circleCount: 3,
+//   totalSignatures: 7, distinctSigners: 5, ... }
+// distinctSigners < totalSignatures: two contributors signed in more than one circle
+```
+
+A scoped event carries a `veil-scope` tag, which both `verifyProof` and `verifyFederation` read automatically. `verifyFederation` rejects the federation if the events disagree on subject or scope, or if any event is unscoped -- an isolated circle's key images cannot be matched across circles. Circles created without a `scope` behave exactly as before: no tag, fully isolated.
 
 **Trade-off.** A shared scope is what enables cross-circle counting, and equally what makes cross-circle membership *overlap* observable: anyone collecting the events can see that one contributor signed in several circles, still without learning who. Use a `scope` when federated counting is worth that signal, and omit it otherwise.
 
