@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>nostr-veil -- anonymous trust for Nostr</title>
+  <meta name="description" content="nostr-veil adds ring-signature privacy to Nostr trust scores: a group vouches for someone collectively, anyone can verify the result, nobody can tell which members took part." />
+
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="nostr-veil -- anonymous trust for Nostr" />
+  <meta property="og:description" content="Trust scores you can verify without seeing who vouched. Ring-signature privacy for Nostr reputation." />
+  <meta property="og:image" content="https://raw.githubusercontent.com/forgesworn/nostr-veil/main/social-preview.png" />
+  <meta property="og:url" content="https://veil.forgesworn.dev/use-cases/" />
+  <meta name="twitter:card" content="summary_large_image" />
+
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='9' fill='none' stroke='%23d97706' stroke-width='3'/></svg>" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600&family=Playfair+Display:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --bg-deep: #08090d;
+      --bg-surface: #0a0c12;
+      --bg-raised: #0d0d14;
+      --border-subtle: #141825;
+      --border-dim: #1a1a2e;
+      --text-primary: #e0e0e0;
+      --text-secondary: #9ca3af;
+      --text-muted: #4b5563;
+      --accent-teal: #0d9488;
+      --accent-amber: #d97706;
+      --accent-purple: #7b68ee;
+      --accent-crimson: #dc2626;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    html, body { overflow-x: hidden; }
+
+    body {
+      background: var(--bg-deep);
+      background-image:
+        repeating-linear-gradient(0deg, transparent, transparent 39px, rgba(26,26,46,0.3) 39px, rgba(26,26,46,0.3) 40px),
+        repeating-linear-gradient(90deg, transparent, transparent 39px, rgba(26,26,46,0.3) 39px, rgba(26,26,46,0.3) 40px);
+      color: var(--text-primary);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      line-height: 1.65;
+    }
+
+    h1, h2, h3 { font-family: 'Playfair Display', serif; line-height: 1.2; font-weight: 600; }
+    code, pre, .mono { font-family: 'JetBrains Mono', monospace; }
+
+    a { color: var(--accent-amber); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    .wrap { max-width: 1080px; margin: 0 auto; padding: 0 28px; }
+    section { padding: 88px 0; border-top: 1px solid var(--border-subtle); }
+
+    .kicker {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--accent-amber);
+    }
+
+    /* ---- header ---- */
+    header {
+      position: sticky; top: 0; z-index: 10;
+      background: rgba(8,9,13,0.82);
+      backdrop-filter: blur(8px);
+      border-bottom: 1px solid var(--border-subtle);
+    }
+    .header-inner { display: flex; align-items: center; justify-content: space-between; padding: 16px 28px; max-width: 1080px; margin: 0 auto; }
+    .wordmark { font-family: 'JetBrains Mono', monospace; font-weight: 600; font-size: 15px; color: var(--text-primary); }
+    .wordmark .dot { color: var(--accent-amber); }
+    .nav { display: flex; gap: 24px; font-family: 'JetBrains Mono', monospace; font-size: 13px; }
+    .nav a { color: var(--text-secondary); }
+    .nav a:hover { color: var(--accent-amber); text-decoration: none; }
+
+    /* ---- hero ---- */
+    .hero { padding: 104px 0 96px; text-align: center; }
+    .hero h1 { font-size: 54px; max-width: 18ch; margin: 22px auto 0; }
+    .hero h1 .amber { color: var(--accent-amber); }
+    .hero .lede {
+      font-size: 19px; color: var(--text-secondary);
+      max-width: 60ch; margin: 26px auto 0;
+    }
+
+    .ring { display: flex; gap: 16px; justify-content: center; margin: 44px 0 14px; }
+    .ring span {
+      width: 15px; height: 15px; border-radius: 50%;
+      background: var(--bg-raised);
+      border: 1px solid var(--border-dim);
+      box-shadow: 0 0 14px rgba(217,119,6,0.10);
+    }
+    .ring-caption {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12.5px; color: var(--text-muted);
+      letter-spacing: 0.04em;
+    }
+
+    .cta-row { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; margin-top: 40px; }
+    .btn {
+      font-family: 'JetBrains Mono', monospace; font-size: 13px;
+      padding: 12px 22px; border-radius: 6px; border: 1px solid var(--border-dim);
+      display: inline-block; transition: border-color 0.15s, transform 0.15s;
+    }
+    .btn:hover { text-decoration: none; transform: translateY(-1px); }
+    .btn-primary { background: var(--accent-amber); color: #1a1205; border-color: var(--accent-amber); font-weight: 600; }
+    .btn-primary:hover { background: #e8850e; }
+    .btn-ghost { background: transparent; color: var(--text-primary); }
+    .btn-ghost:hover { border-color: var(--accent-amber); color: var(--accent-amber); }
+
+    /* ---- generic section heading ---- */
+    .sec-head { max-width: 62ch; }
+    .sec-head h2 { font-size: 34px; margin: 14px 0 0; }
+    .sec-head p { color: var(--text-secondary); margin-top: 16px; font-size: 16.5px; }
+
+    .prose { max-width: 64ch; color: var(--text-secondary); font-size: 16.5px; }
+    .prose p + p { margin-top: 18px; }
+    .prose strong { color: var(--text-primary); font-weight: 600; }
+
+    /* ---- trilemma ---- */
+    .tri { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; margin-top: 40px; }
+    .tri-card { background: var(--bg-raised); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 26px 24px; }
+    .tri-card h3 { font-size: 21px; }
+    .tri-card .verdict { font-family: 'JetBrains Mono', monospace; font-size: 12px; margin: 10px 0 14px; }
+    .tri-card .verdict .no { color: var(--accent-crimson); }
+    .tri-card .verdict .yes { color: var(--accent-teal); }
+    .tri-card p { color: var(--text-secondary); font-size: 14.5px; }
+
+    .creds { display: grid; grid-template-columns: repeat(3, 1fr); gap: 26px; margin-top: 40px; }
+    .cred h3 { font-size: 18px; color: var(--accent-amber); }
+    .cred p { color: var(--text-secondary); font-size: 14.5px; margin-top: 10px; }
+
+    /* ---- steps ---- */
+    .steps { display: grid; grid-template-columns: repeat(2, 1fr); gap: 18px; margin-top: 40px; }
+    .step { background: var(--bg-raised); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 24px; }
+    .step .num { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--accent-amber); }
+    .step h3 { font-size: 19px; margin: 8px 0 8px; }
+    .step p { color: var(--text-secondary); font-size: 14.5px; }
+
+    pre {
+      background: var(--bg-surface); border: 1px solid var(--border-subtle);
+      border-radius: 8px; padding: 22px; margin-top: 26px;
+      overflow-x: auto; font-size: 13px; line-height: 1.7; color: var(--text-primary);
+    }
+    pre .c { color: var(--text-muted); }
+    pre .k { color: var(--accent-amber); }
+
+    /* ---- use cases ---- */
+    .cases { display: grid; grid-template-columns: repeat(2, 1fr); gap: 18px; margin-top: 40px; }
+    .case {
+      background: var(--bg-raised); border: 1px solid var(--border-subtle);
+      border-radius: 8px; padding: 26px 24px; transition: border-color 0.15s;
+    }
+    .case:hover { border-color: rgba(217,119,6,0.45); }
+    .case:last-child { grid-column: 1 / -1; }
+    .case h3 { font-size: 21px; margin: 10px 0 10px; }
+    .case p { color: var(--text-secondary); font-size: 15px; }
+
+    /* ---- roadmap ---- */
+    .road { margin-top: 36px; display: flex; flex-direction: column; gap: 1px; background: var(--border-subtle); border: 1px solid var(--border-subtle); border-radius: 8px; overflow: hidden; }
+    .road-item { background: var(--bg-raised); padding: 20px 24px; display: flex; gap: 20px; align-items: baseline; }
+    .road-item .tag { font-family: 'JetBrains Mono', monospace; font-size: 10.5px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--accent-purple); border: 1px solid var(--border-dim); border-radius: 4px; padding: 3px 8px; flex-shrink: 0; }
+    .road-item .body { font-size: 15px; }
+    .road-item .body strong { color: var(--text-primary); font-weight: 600; }
+    .road-item .body span { color: var(--text-secondary); }
+
+    /* ---- footer ---- */
+    footer { border-top: 1px solid var(--border-subtle); background: var(--bg-raised); padding: 64px 0 56px; }
+    .foot-grid { display: flex; justify-content: space-between; gap: 40px; flex-wrap: wrap; }
+    .foot-lead { max-width: 42ch; }
+    .foot-lead h3 { font-size: 22px; }
+    .foot-lead p { color: var(--text-secondary); font-size: 14.5px; margin-top: 12px; }
+    .foot-col h4 { font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 14px; }
+    .foot-col a { display: block; color: var(--text-secondary); font-size: 14px; margin-bottom: 9px; }
+    .foot-col a:hover { color: var(--accent-amber); text-decoration: none; }
+    .foot-bottom { margin-top: 48px; padding-top: 24px; border-top: 1px solid var(--border-subtle); display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--text-muted); }
+
+    @media (max-width: 760px) {
+      .hero h1 { font-size: 36px; }
+      .hero .lede { font-size: 17px; }
+      .sec-head h2 { font-size: 27px; }
+      section { padding: 64px 0; }
+      .tri, .steps, .cases, .creds { grid-template-columns: 1fr; }
+      .case:last-child { grid-column: auto; }
+      .nav { display: none; }
+      .ring span { width: 12px; height: 12px; }
+      .ring { gap: 11px; }
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="header-inner">
+      <span class="wordmark">nostr-veil<span class="dot">.</span></span>
+      <nav class="nav">
+        <a href="#problem">Problem</a>
+        <a href="#how">How it works</a>
+        <a href="#cases">Use cases</a>
+        <a href="#roadmap">Roadmap</a>
+        <a href="https://github.com/forgesworn/nostr-veil">GitHub</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <!-- ============ HERO ============ -->
+    <div class="wrap hero">
+      <span class="kicker">Anonymous trust assertions for Nostr</span>
+      <h1>Trust scores you can verify <span class="amber">without seeing who vouched</span>.</h1>
+      <p class="lede">
+        nostr-veil is a privacy extension for NIP-85. A group vouches for someone,
+        together; anyone can check the result; nobody can tell which members took
+        part. Ring-signature privacy for Nostr reputation, built for the people who
+        need trust systems most and can least afford to be named.
+      </p>
+
+      <div class="ring" aria-hidden="true">
+        <span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+      </div>
+      <p class="ring-caption">a circle of seven. one of them signed. the proof confirms it. nothing reveals who.</p>
+
+      <div class="cta-row">
+        <a class="btn btn-primary" href="../">See the live demo</a>
+        <a class="btn btn-ghost" href="https://github.com/forgesworn/nostr-veil">View on GitHub</a>
+        <a class="btn btn-ghost" href="https://www.npmjs.com/package/nostr-veil">npm install nostr-veil</a>
+      </div>
+    </div>
+
+    <!-- ============ PROBLEM ============ -->
+    <section id="problem">
+      <div class="wrap">
+        <div class="sec-head">
+          <span class="kicker">The problem</span>
+          <h2>Reputation that exposes its contributors will never be used where it matters.</h2>
+        </div>
+        <div class="prose" style="margin-top: 28px;">
+          <p>
+            Nostr already has a standard for publishing trust scores: <strong>NIP-85</strong>,
+            the Trusted Assertions spec. A provider publishes a score about someone, and you
+            either trust the provider or you don't. But the scores are fully transparent.
+            Anyone who can see a score can see exactly who gave it.
+          </p>
+          <p>
+            That is fine for benign signals like follower counts. It fails completely the
+            moment the subject is sensitive. <strong>Whistleblowers, journalists, abuse
+            reporters, political dissidents</strong> -- the people who need reputation systems
+            most are the ones who cannot afford to be identified.
+          </p>
+          <p>
+            The reason web-of-trust has never worked for sensitive contexts is not missing
+            cryptography. It is that nobody built the layer that makes taking part safe.
+            <strong>nostr-veil is that layer.</strong>
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ TRILEMMA ============ -->
+    <section id="trilemma">
+      <div class="wrap">
+        <div class="sec-head">
+          <span class="kicker">The trust trilemma</span>
+          <h2>Verifiable. Private. Portable.</h2>
+          <p>Standard NIP-85 makes you pick two. nostr-veil is the layer that delivers all three.</p>
+        </div>
+        <div class="tri">
+          <div class="tri-card">
+            <h3>Verifiable</h3>
+            <div class="verdict">NIP-85 <span class="yes">yes</span> &nbsp;/&nbsp; veil <span class="yes">yes</span></div>
+            <p>Every score is backed by signatures anyone can check. The maths, not a brand, is what you trust.</p>
+          </div>
+          <div class="tri-card">
+            <h3>Private</h3>
+            <div class="verdict">NIP-85 <span class="no">no</span> &nbsp;/&nbsp; veil <span class="yes">yes</span></div>
+            <p>Standard NIP-85 reveals exactly who gave every score. veil hides each contributor inside the circle. This is the property nothing else delivers.</p>
+          </div>
+          <div class="tri-card">
+            <h3>Portable</h3>
+            <div class="verdict">NIP-85 <span class="yes">yes</span> &nbsp;/&nbsp; veil <span class="yes">yes</span></div>
+            <p>The output is an ordinary NIP-85 event on ordinary relays. Any Nostr client reads it, today, unchanged.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ HOW IT WORKS ============ -->
+    <section id="how">
+      <div class="wrap">
+        <div class="sec-head">
+          <span class="kicker">How it works</span>
+          <h2>Four steps, no names.</h2>
+        </div>
+        <div class="steps">
+          <div class="step">
+            <span class="num">01</span>
+            <h3>Form a trust circle</h3>
+            <p>A fixed group of public keys agrees to assess a subject together. The membership list is public; who signs is not.</p>
+          </div>
+          <div class="step">
+            <span class="num">02</span>
+            <h3>Contribute anonymously</h3>
+            <p>Each member's score is wrapped in an LSAG ring signature: proof that some member of the circle signed, with no way to tell which. A duplicate-detection token stops anyone signing twice.</p>
+          </div>
+          <div class="step">
+            <span class="num">03</span>
+            <h3>Aggregate into a standard event</h3>
+            <p>Contributions combine, median by default, into an ordinary NIP-85 event. Every Nostr client reads it as a normal trust score.</p>
+          </div>
+          <div class="step">
+            <span class="num">04</span>
+            <h3>Anyone verifies the proof</h3>
+            <p>A veil-aware client checks every ring signature and the threshold. It learns that K distinct members agreed. It never learns who they were.</p>
+          </div>
+        </div>
+<pre><span class="c">// the whole flow, four calls</span>
+<span class="k">import</span> { createTrustCircle, contributeAssertion,
+         aggregateContributions, verifyProof } <span class="k">from</span> <span class="k">'nostr-veil'</span>
+
+<span class="k">const</span> circle = createTrustCircle([alice, bob, carol])
+
+<span class="k">const</span> a = contributeAssertion(circle, subject, { rank: 74 }, aliceKey, 0)
+<span class="k">const</span> b = contributeAssertion(circle, subject, { rank: 80 }, bobKey,   1)
+
+<span class="k">const</span> assertion = aggregateContributions(circle, subject, [a, b])
+<span class="k">const</span> result    = verifyProof(assertion)
+<span class="c">// { valid: true, circleSize: 3, threshold: 2, distinctSigners: 2 }</span></pre>
+      </div>
+    </section>
+
+    <!-- ============ WHY TRUST IT ============ -->
+    <section id="trust">
+      <div class="wrap">
+        <div class="sec-head">
+          <span class="kicker">Why you can trust it</span>
+          <h2>Cryptography you can build on.</h2>
+        </div>
+        <div class="creds">
+          <div class="cred">
+            <h3>A proven primitive</h3>
+            <p>Ring signatures are not new. Monero has used them in production since 2014. nostr-veil applies that cryptography; it does not invent it.</p>
+          </div>
+          <div class="cred">
+            <h3>The curve Nostr already uses</h3>
+            <p>Signatures are built on secp256k1, the same elliptic curve as Bitcoin and every Nostr key. No new cryptographic trust assumptions.</p>
+          </div>
+          <div class="cred">
+            <h3>Independently maintained</h3>
+            <p>The ring-signature engine is its own published, separately tested npm package, on its own release cycle and useful well beyond nostr-veil.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ USE CASES ============ -->
+    <section id="cases">
+      <div class="wrap">
+        <div class="sec-head">
+          <span class="kicker">What it unlocks</span>
+          <h2>Seven things you can build on it today.</h2>
+          <p>Every one of these runs on shipped code. None of them is possible with reputation that names its contributors.</p>
+        </div>
+        <div class="cases">
+          <div class="case">
+            <span class="kicker">Moderation</span>
+            <h3>Anonymous abuse reporting</h3>
+            <p>A moderation circle flags a serial harasser. The platform sees that five distinct moderators agreed, enough to act on, but no moderator's name is attached. None of them can be singled out for reprisal.</p>
+          </div>
+          <div class="case">
+            <span class="kicker">Journalism</span>
+            <h3>Source corroboration</h3>
+            <p>Several contacts who have dealt with a would-be source independently vouch that they are who they claim. An editor confirms the threshold was met. The list of who vouched is never written down, so it cannot be subpoenaed.</p>
+          </div>
+          <div class="case">
+            <span class="kicker">Research</span>
+            <h3>Anonymous peer review</h3>
+            <p>A circle of reviewers scores a paper or a researcher. The verdict is verifiable and it stands. A junior reviewer can rate a powerful figure honestly without their next grant depending on it.</p>
+          </div>
+          <div class="case">
+            <span class="kicker">Onboarding</span>
+            <h3>Sybil-resistant vouching</h3>
+            <p>Established members co-sign that a new account is a real person. The newcomer carries a portable proof that enough members vouched, without anyone publishing a follow graph that maps the whole community.</p>
+          </div>
+          <div class="case">
+            <span class="kicker">Communities</span>
+            <h3>Federated moderation</h3>
+            <p>Moderation circles across several communities assess the same bad actor. A shared scope lets a verifier count the distinct moderators who flagged them across all of them. Someone in three circles counts once, not three times, still with no names.</p>
+          </div>
+          <div class="case">
+            <span class="kicker">Fact-checking</span>
+            <h3>Claim and content verification</h3>
+            <p>A circle of fact-checkers scores a specific post. Readers see a verifiable "nine of twelve checkers rated this accurate" on the note itself. A checker who contradicts a popular claim is not left exposed to the pile-on.</p>
+          </div>
+          <div class="case">
+            <span class="kicker">Commerce</span>
+            <h3>Real-world trade reputation</h3>
+            <p>Past counterparties of a trader rate how the deal actually went. A new counterparty sees a verifiable track record. The people who left honest, critical marks cannot be identified and retaliated against.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ ROADMAP ============ -->
+    <section id="roadmap">
+      <div class="wrap">
+        <div class="sec-head">
+          <span class="kicker">On the roadmap</span>
+          <h2>What is shipped, and what is next.</h2>
+          <p>Shipped today is the core: anonymous circles, threshold aggregation, signed-metric verification, and cross-circle federation. Next, honestly labelled:</p>
+        </div>
+        <div class="road">
+          <div class="road-item">
+            <span class="tag">planned</span>
+            <span class="body"><strong>Revocation.</strong> <span>A contributor can withdraw a vouch they no longer stand behind, verifiably, without revealing who they are.</span></span>
+          </div>
+          <div class="road-item">
+            <span class="tag">planned</span>
+            <span class="body"><strong>Time-bounded trust.</strong> <span>Assertions that carry an expiry, so a score reflects now and not five years ago.</span></span>
+          </div>
+          <div class="road-item">
+            <span class="tag">planned</span>
+            <span class="body"><strong>Anonymous endorsements.</strong> <span>A circle co-signs a credential or attestation, not only a numeric score.</span></span>
+          </div>
+          <div class="road-item">
+            <span class="tag">planned</span>
+            <span class="body"><strong>Anonymous gated access.</strong> <span>A trust circle doubles as an anonymous membership group, so a relay or community can admit members without learning which member just arrived.</span></span>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ============ FOOTER ============ -->
+  <footer>
+    <div class="wrap">
+      <div class="foot-grid">
+        <div class="foot-lead">
+          <h3>Part of the ForgeSworn toolkit</h3>
+          <p>nostr-veil is one layer of a stack of open-source cryptographic identity and trust tools for Nostr. Each library is independently maintained and useful on its own.</p>
+        </div>
+        <div class="foot-col">
+          <h4>nostr-veil</h4>
+          <a href="../">Live demo</a>
+          <a href="https://github.com/forgesworn/nostr-veil">GitHub repository</a>
+          <a href="https://www.npmjs.com/package/nostr-veil">npm package</a>
+          <a href="https://github.com/forgesworn/nostr-veil/blob/main/IMPACT.md">Impact statement</a>
+        </div>
+        <div class="foot-col">
+          <h4>Companion libraries</h4>
+          <a href="https://github.com/forgesworn/ring-sig">ring-sig</a>
+          <a href="https://github.com/forgesworn/nsec-tree">nsec-tree</a>
+          <a href="https://github.com/forgesworn/canary-kit">canary-kit</a>
+          <a href="https://github.com/forgesworn/signet">signet</a>
+          <a href="https://github.com/forgesworn/dominion">dominion</a>
+        </div>
+      </div>
+      <div class="foot-bottom">
+        <span>MIT licence &nbsp; / &nbsp; ForgeSworn</span>
+        <span>
+          <a href="https://github.com/sponsors/TheCryptoDonkey">Sponsor</a>
+          &nbsp; / &nbsp;
+          <a href="lightning:thedonkey@strike.me">Lightning: thedonkey@strike.me</a>
+        </span>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>
