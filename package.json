@@ -1,6 +1,6 @@
 {
   "name": "nostr-veil",
-  "version": "0.12.0",
+  "version": "0.12.1",
   "description": "Privacy layer for Nostr reputation systems. Groups collectively score trustworthiness using ring signatures -- scores are verifiable but contributors are unidentifiable.",
   "type": "module",
   "main": "./dist/index.js",

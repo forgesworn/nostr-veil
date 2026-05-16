@@ -1,3 +1,11 @@
+## 0.12.1 (2026-05-16)
+
+
+### Chore
+
+* migrate the release pipeline from semantic-release to anvil
+* first npm publish via anvil OIDC trusted publishing; no library code change since 0.12.0
+
 # [0.12.0](https://github.com/forgesworn/nostr-veil/compare/v0.11.0...v0.12.0) (2026-05-16)
 
 
