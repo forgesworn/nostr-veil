@@ -18,7 +18,7 @@ Supporting files:
 
 ```bash
 npm run build    # tsc -p tsconfig.build.json
-npm test         # vitest run (118 tests across 11 files)
+npm test         # vitest run (165 tests across 12 files)
 npm run lint     # tsc --noEmit (type-checking only)
 npm run demo     # Vite dev server for the interactive demo
 ```
