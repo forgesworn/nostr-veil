@@ -139,7 +139,7 @@ The resulting `assertion` is a plain `EventTemplate` you sign and publish like a
 
 | Export | Description |
 |--------|-------------|
-| `createTrustCircle(memberPubkeys)` | Create a trust circle from an array of pubkeys |
+| `createTrustCircle(memberPubkeys, options?)` | Create a trust circle from an array of pubkeys; pass `{ scope }` to federate circles for [cross-circle deduplication](#cross-circle-deduplication) |
 | `contributeAssertion(circle, subject, metrics, privateKey, memberIndex)` | Produce an anonymous ring-signed `Contribution` |
 | `aggregateContributions(circle, subject, contributions, options?)` | Aggregate contributions into a NIP-85 event with veil tags (default aggregation: median) |
 | `verifyProof(event, options?)` | Verify ring signatures, threshold metadata, and signed metric aggregation |
@@ -159,11 +159,13 @@ The resulting `assertion` is a plain `EventTemplate` you sign and publish like a
 
 Each member of a trust circle independently submits their scores. Under the hood, each submission is wrapped in a ring signature -- a cryptographic envelope that proves "a member of this group signed this" without revealing which member.
 
-The published event carries three extra tags on top of the standard NIP-85 format:
+The published event carries extra tags on top of the standard NIP-85 format:
 
 - `veil-ring` -- the full list of circle members (the group who could have contributed)
 - `veil-threshold` -- how many members actually contributed vs. total circle size
+- `veil-agg` -- which aggregate function produced the metric tags (median by default)
 - `veil-sig` (one per contributor) -- the ring signature and a duplicate-detection token
+- `veil-scope` -- present only for a federated circle; see [Cross-circle deduplication](#cross-circle-deduplication)
 
 A verifier calls `verifyProof`, which:
 
@@ -175,6 +177,26 @@ A verifier calls `verifyProof`, which:
 At no point does verification require knowing which member produced which signature. The group membership is public. The identities of the actual contributors are not.
 
 By default, verification expects the same median aggregation used by `aggregateContributions`. If you pass a custom `aggregateFn` to `aggregateContributions`, pass the same function to `verifyProof`.
+
+---
+
+## Cross-circle deduplication
+
+By default every trust circle is cryptographically isolated. A contributor's duplicate-detection token -- the LSAG key image -- is derived from the circle itself, so the same person contributing to two different circles produces two unrelated tokens. Nobody can tell the circles share a member.
+
+That isolation is the right default, but it caps a trust score at one circle. To count honestly across a *federation* of circles all assessing the same subject, give them a shared `scope`:
+
+```ts
+// Two community moderation circles, one federation
+const circleA = createTrustCircle(membersA, { scope: 'community-moderators' })
+const circleB = createTrustCircle(membersB, { scope: 'community-moderators' })
+```
+
+Circles sharing a `scope` derive the key image from the scope rather than the circle, so a contributor who appears in several of them produces the *same* token in each. An aggregator gathering events across the federation can drop the duplicates -- matched by key image, never by identity -- and count each contributor once.
+
+A scoped event carries a `veil-scope` tag, which `verifyProof` reads automatically. Circles created without a `scope` behave exactly as before: no tag, fully isolated.
+
+**Trade-off.** A shared scope is what enables cross-circle counting, and equally what makes cross-circle membership *overlap* observable: anyone collecting the events can see that one contributor signed in several circles, still without learning who. Use a `scope` when federated counting is worth that signal, and omit it otherwise.
 
 ---
 

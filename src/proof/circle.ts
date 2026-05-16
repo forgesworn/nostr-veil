@@ -2,6 +2,16 @@ import { sha256 } from '@noble/hashes/sha2.js'
 import { bytesToHex } from '@noble/hashes/utils.js'
 import type { TrustCircle } from './types.js'
 
+/** Maximum length of a federation scope string (and of a `veil-scope` tag value). */
+export const MAX_SCOPE_LENGTH = 128
+
+/**
+ * A valid federation scope: a non-empty lowercase slug. Enforced on both the
+ * build side ({@link createTrustCircle}) and the verify side, so a mistyped
+ * scope fails loudly instead of silently breaking cross-circle deduplication.
+ */
+export const SCOPE_RE = /^[a-z0-9._-]+$/
+
 /**
  * Compute a deterministic circle ID by SHA-256 hashing the colon-joined sorted pubkeys.
  *
@@ -15,6 +25,24 @@ import type { TrustCircle } from './types.js'
 export function computeCircleId(sortedPubkeys: string[]): string {
   const input = sortedPubkeys.join(':')
   return bytesToHex(sha256(new TextEncoder().encode(input)))
+}
+
+/**
+ * Build the LSAG electionId that scopes a contributor's key image.
+ *
+ * An LSAG key image `I = x * H_p(P || electionId)` is identical for a given
+ * signer wherever the electionId matches. Passing a circle's `circleId` (the
+ * default) isolates every circle: the same person yields an unrelated key image
+ * in each. Passing a shared federation `scope` instead lets a set of circles
+ * recognise a contributor who appears in several of them, which is what makes
+ * cross-circle deduplication possible.
+ *
+ * @param scope - A circle's `scope` if it has one, otherwise its `circleId`
+ * @param subject - The d-tag value the contribution is about
+ * @returns The versioned electionId string `veil:v1:<scope>:<subject>`
+ */
+export function electionId(scope: string, subject: string): string {
+  return `veil:v1:${scope}:${subject}`
 }
 
 /**
@@ -73,16 +101,31 @@ export function canonicalMessage(
  * appear exactly once; duplicates cause an immediate throw.
  *
  * @param memberPubkeys - Array of hex-encoded x-only public keys (64 chars each)
+ * @param options - Optional configuration
+ * @param options.scope - Federation scope for cross-circle deduplication. When set,
+ *   every contribution's LSAG key image is scoped to this string rather than the
+ *   `circleId`, so the same member yields a matching key image in any circle that
+ *   shares the scope. Must be a lowercase slug ({@link SCOPE_RE}). Omit for the
+ *   default per-circle isolation.
  * @returns A {@link TrustCircle} with a stable `members` order and a deterministic `circleId`
  *
  * @throws If fewer than 2 pubkeys are supplied
  * @throws If any pubkey appears more than once in the array
+ * @throws If `scope` is empty, longer than {@link MAX_SCOPE_LENGTH}, or not a lowercase slug
  *
  * @example
  * const circle = createTrustCircle([alicePubkey, bobPubkey, carolPubkey])
  * // { members: ['alice…', 'bob…', 'carol…'], circleId: '3f4a…', size: 3 }
+ *
+ * @example
+ * // Two circles whose shared contributors can be deduplicated:
+ * const a = createTrustCircle(membersA, { scope: 'community-moderators' })
+ * const b = createTrustCircle(membersB, { scope: 'community-moderators' })
  */
-export function createTrustCircle(memberPubkeys: string[]): TrustCircle {
+export function createTrustCircle(
+  memberPubkeys: string[],
+  options?: { scope?: string }
+): TrustCircle {
   if (memberPubkeys.length < 2) {
     throw new Error('Trust circle requires at least 2 members')
   }
@@ -94,9 +137,22 @@ export function createTrustCircle(memberPubkeys: string[]): TrustCircle {
     if (seen.has(pk)) throw new Error(`Duplicate pubkey in trust circle: ${pk}`)
     seen.add(pk)
   }
-  return {
+  const circle: TrustCircle = {
     members: sorted,
     circleId: computeCircleId(sorted),
     size: sorted.length,
   }
+  if (options?.scope !== undefined) {
+    if (typeof options.scope !== 'string' || options.scope.length === 0) {
+      throw new Error('Trust circle scope must be a non-empty string')
+    }
+    if (options.scope.length > MAX_SCOPE_LENGTH) {
+      throw new Error(`Trust circle scope exceeds maximum length (${MAX_SCOPE_LENGTH})`)
+    }
+    if (!SCOPE_RE.test(options.scope)) {
+      throw new Error('Trust circle scope must be a lowercase slug (a-z, 0-9, dot, hyphen, underscore)')
+    }
+    circle.scope = options.scope
+  }
+  return circle
 }

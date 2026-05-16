@@ -1,5 +1,5 @@
 import { lsagVerify, hasDuplicateKeyImage } from '@forgesworn/ring-sig'
-import { canonicalMessage, computeCircleId } from './circle.js'
+import { canonicalMessage, computeCircleId, electionId, MAX_SCOPE_LENGTH, SCOPE_RE } from './circle.js'
 import type { AggregateFn, ProofVerification } from './types.js'
 import { AGGREGATES, isAggregateName } from './aggregate.js'
 
@@ -69,6 +69,37 @@ function resolveAggregateFn(
     return null
   }
   return AGGREGATES[value]
+}
+
+/**
+ * Resolve the dedup scope an event's electionIds are built from. A `veil-scope`
+ * tag names a federation scope shared across circles. Absent, the scope is the
+ * circleId: per-circle isolation, and how every pre-veil-scope event verifies.
+ * Returns null and records an error when the tag is malformed.
+ */
+function resolveScope(tags: string[][], circleId: string, errors: string[]): string | null {
+  const scopeTags = tags.filter(t => t[0] === 'veil-scope')
+  if (scopeTags.length > 1) {
+    errors.push('Multiple veil-scope tags')
+    return null
+  }
+  if (scopeTags.length === 0) {
+    return circleId
+  }
+  const value = scopeTags[0][1]
+  if (typeof value !== 'string' || value === '') {
+    errors.push('Invalid veil-scope tag')
+    return null
+  }
+  if (value.length > MAX_SCOPE_LENGTH) {
+    errors.push(`veil-scope exceeds maximum length (${MAX_SCOPE_LENGTH})`)
+    return null
+  }
+  if (!SCOPE_RE.test(value)) {
+    errors.push('veil-scope is not a valid scope slug')
+    return null
+  }
+  return value
 }
 
 function parseDecimalInteger(value: string | undefined): number | undefined {
@@ -195,6 +226,7 @@ export function verifyProof(event: {
   if (typeof dTag[1] !== 'string' || dTag[1] === '') {
     return { valid: false, circleSize: 0, threshold: 0, distinctSigners: 0, errors: ['Invalid d tag'] }
   }
+  const subject = dTag[1]
 
   const ringTag = event.tags.find(t => t[0] === 'veil-ring')
   if (!ringTag) {
@@ -254,7 +286,12 @@ export function verifyProof(event: {
 
   // Circle ID is derived from the already-validated sorted ring
   const expectedCircleId = computeCircleId(ring)
-  const expectedElectionId = `veil:v1:${expectedCircleId}:${dTag[1]}`
+  // Scope comes from the veil-scope tag, or defaults to the circleId
+  const scope = resolveScope(event.tags, expectedCircleId, errors)
+  if (scope === null) {
+    return { valid: false, circleSize, threshold, distinctSigners: 0, errors }
+  }
+  const expectedElectionId = electionId(scope, subject)
 
   const keyImages: string[] = []
   const signedMessages: SignedMessage[] = []
@@ -272,9 +309,10 @@ export function verifyProof(event: {
       }
 
       // Bind the signature to this event's subject: the electionId must match
-      // the pattern veil:v1:<circleId>:<subject> derived from the ring and d-tag.
-      // Without this check, valid signatures could be transplanted between events.
-      // Missing electionId is treated as failure -- stripping it is the simplest bypass.
+      // veil:v1:<scope>:<subject>, where scope is the veil-scope tag value or,
+      // absent that tag, the circleId derived from the ring. Without this check,
+      // valid signatures could be transplanted between events. Missing electionId
+      // is treated as failure -- stripping it is the simplest bypass.
       if (typeof sigData.electionId !== 'string') {
         errors.push(`Signature at index ${i} missing electionId`)
         continue
@@ -299,7 +337,7 @@ export function verifyProof(event: {
         errors.push(`Signature at index ${i} signed message circleId mismatch`)
         continue
       }
-      if (signedMessage.subject !== dTag[1]) {
+      if (signedMessage.subject !== subject) {
         errors.push(`Signature at index ${i} signed message subject mismatch`)
         continue
       }

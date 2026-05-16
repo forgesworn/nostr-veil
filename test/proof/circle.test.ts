@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { createTrustCircle, computeCircleId, canonicalMessage } from '../../src/proof/circle.js'
+import { createTrustCircle, computeCircleId, canonicalMessage, electionId, MAX_SCOPE_LENGTH } from '../../src/proof/circle.js'
 
 describe('createTrustCircle', () => {
   const pubkeys = ['b'.repeat(64), 'a'.repeat(64), 'c'.repeat(64)]
@@ -27,6 +27,27 @@ describe('createTrustCircle', () => {
 
   it('rejects fewer than 2 members', () => {
     expect(() => createTrustCircle(['a'.repeat(64)])).toThrow()
+  })
+
+  it('omits scope by default', () => {
+    expect(createTrustCircle(pubkeys).scope).toBeUndefined()
+  })
+
+  it('accepts an optional federation scope', () => {
+    expect(createTrustCircle(pubkeys, { scope: 'reviewers-2026' }).scope).toBe('reviewers-2026')
+  })
+
+  it('rejects an empty scope', () => {
+    expect(() => createTrustCircle(pubkeys, { scope: '' })).toThrow(/non-empty/)
+  })
+
+  it('rejects a scope longer than the maximum', () => {
+    expect(() => createTrustCircle(pubkeys, { scope: 'x'.repeat(MAX_SCOPE_LENGTH + 1) })).toThrow(/maximum length/)
+  })
+
+  it('rejects a scope that is not a lowercase slug', () => {
+    expect(() => createTrustCircle(pubkeys, { scope: 'Not A Slug' })).toThrow(/slug/)
+    expect(() => createTrustCircle(pubkeys, { scope: 'has:colon' })).toThrow(/slug/)
   })
 })
 
@@ -61,5 +82,15 @@ describe('canonicalMessage', () => {
 
   it('rejects -Infinity metric values', () => {
     expect(() => canonicalMessage('cid', 'sub', { rank: -Infinity })).toThrow(/finite/)
+  })
+})
+
+describe('electionId', () => {
+  it('builds a versioned election id from scope and subject', () => {
+    expect(electionId('reviewers-2026', 'abc')).toBe('veil:v1:reviewers-2026:abc')
+  })
+
+  it('differs when the scope differs', () => {
+    expect(electionId('circle-a', 'subj')).not.toBe(electionId('circle-b', 'subj'))
   })
 })

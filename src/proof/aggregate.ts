@@ -2,7 +2,7 @@ import { lsagVerify, hasDuplicateKeyImage } from '@forgesworn/ring-sig'
 import type { EventTemplate } from '../nip85/types.js'
 import { NIP85_KINDS } from '../nip85/types.js'
 import type { TrustCircle, Contribution, AggregateFn, AggregateName } from './types.js'
-import { canonicalMessage, computeCircleId } from './circle.js'
+import { canonicalMessage, computeCircleId, electionId } from './circle.js'
 
 function median(values: number[]): number {
   const sorted = [...values].sort((a, b) => a - b)
@@ -63,7 +63,8 @@ function sameStringArray(a: string[], b: string[]): boolean {
  *
  * Validates all LSAG signatures and checks key image uniqueness before
  * aggregating metrics (default: median). The result is a standard NIP-85
- * event with additional `veil-ring`, `veil-threshold`, `veil-agg`, and `veil-sig` tags.
+ * event with additional `veil-ring`, `veil-threshold`, `veil-agg`, `veil-sig`,
+ * and -- for a circle with a federation scope -- `veil-scope` tags.
  *
  * @param circle - Trust circle the contributions belong to
  * @param subject - The d-tag value (must match what contributors signed)
@@ -109,7 +110,7 @@ export function aggregateContributions(
     throw new Error('Trust circle circleId does not match its members')
   }
 
-  const expectedElectionId = `veil:v1:${circle.circleId}:${subject}`
+  const expectedElectionId = electionId(circle.scope ?? circle.circleId, subject)
 
   // Validate all signatures
   for (let i = 0; i < contributions.length; i++) {
@@ -158,17 +159,20 @@ export function aggregateContributions(
   const metricTags = Object.entries(aggregatedMetrics).map(([k, v]) => [k, String(v)])
   const sigTags = contributions.map(c => ['veil-sig', serialiseSig(c.signature), c.keyImage])
 
-  return {
-    kind,
-    tags: [
-      ['d', subject],
-      ['p', subject],
-      ...metricTags,
-      ['veil-ring', ...circle.members],
-      ['veil-threshold', String(contributions.length), String(circle.size)],
-      ['veil-agg', aggName],
-      ...sigTags,
-    ],
-    content: '',
+  const tags: string[][] = [
+    ['d', subject],
+    ['p', subject],
+    ...metricTags,
+    ['veil-ring', ...circle.members],
+    ['veil-threshold', String(contributions.length), String(circle.size)],
+    ['veil-agg', aggName],
+  ]
+  // Only a scoped circle emits veil-scope: unscoped events stay byte-identical
+  // to pre-veil-scope output, and verifyProof treats an absent tag as circle-scoped.
+  if (circle.scope !== undefined) {
+    tags.push(['veil-scope', circle.scope])
   }
+  tags.push(...sigTags)
+
+  return { kind, tags, content: '' }
 }

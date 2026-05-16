@@ -1,12 +1,14 @@
 import { lsagSign } from '@forgesworn/ring-sig'
 import type { TrustCircle, Contribution } from './types.js'
-import { canonicalMessage } from './circle.js'
+import { canonicalMessage, electionId } from './circle.js'
 
 /**
  * Produce an anonymous contribution to a trust circle assertion.
  *
  * Signs the canonical message with an LSAG ring signature so the contributor's
- * identity is hidden within the ring. The key image prevents double-signing.
+ * identity is hidden within the ring. The key image prevents double-signing; if
+ * the circle has a `scope`, that key image is shared across every circle using
+ * the same scope, which is what enables cross-circle deduplication.
  *
  * @param circle - Trust circle created via {@link createTrustCircle}
  * @param subject - The d-tag value (hex pubkey for kind 30382)
@@ -24,9 +26,9 @@ export function contributeAssertion(
   memberIndex: number
 ): Contribution {
   const message = canonicalMessage(circle.circleId, subject, metrics)
-  const electionId = `veil:v1:${circle.circleId}:${subject}`
+  const eid = electionId(circle.scope ?? circle.circleId, subject)
 
-  const signature = lsagSign(message, circle.members, memberIndex, privateKey, electionId)
+  const signature = lsagSign(message, circle.members, memberIndex, privateKey, eid)
 
   return {
     signature,
