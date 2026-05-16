@@ -166,4 +166,44 @@ describe('aggregateContributions', () => {
       { aggregate: 'mode' as AggregateName },
     )).toThrow(/unknown aggregate/i)
   })
+
+  it('omits the veil-scope tag for an unscoped circle', () => {
+    const event = aggregateContributions(circle, subject, makeContributions([80, 85, 90]))
+    expect(event.tags.find(t => t[0] === 'veil-scope')).toBeUndefined()
+  })
+
+  it('records the federation scope in a veil-scope tag', () => {
+    const scoped = createTrustCircle(pubKeys, { scope: 'fed-1' })
+    const contributions = pubKeys.map((pk, i) =>
+      contributeAssertion(scoped, subject, { rank: 80 + i * 5 }, privKeys[i], scoped.members.indexOf(pk)),
+    )
+    const event = aggregateContributions(scoped, subject, contributions)
+    expect(event.tags).toContainEqual(['veil-scope', 'fed-1'])
+  })
+
+  it('exposes a matching veil-sig key image for a shared signer across scoped circles', () => {
+    const signers = privKeys.map((priv, i) => ({ priv, pub: pubKeys[i] }))
+    const aggregateScoped = (members: typeof signers, scope: string) => {
+      const c = createTrustCircle(members.map(s => s.pub), { scope })
+      const contributions = members.map(s =>
+        contributeAssertion(c, subject, { rank: 80 }, s.priv, c.members.indexOf(s.pub)),
+      )
+      return aggregateContributions(c, subject, contributions)
+    }
+    const eventA = aggregateScoped([signers[0], signers[1]], 'fed-1')
+    const eventB = aggregateScoped([signers[0], signers[2]], 'fed-1')
+    const keyImagesA = eventA.tags.filter(t => t[0] === 'veil-sig').map(t => t[2])
+    const keyImagesB = eventB.tags.filter(t => t[0] === 'veil-sig').map(t => t[2])
+    expect(keyImagesA.filter(ki => keyImagesB.includes(ki))).toHaveLength(1)
+  })
+
+  it('rejects contributions whose scope does not match the aggregating circle', () => {
+    const fedCircle = createTrustCircle(pubKeys, { scope: 'fed-1' })
+    const contributions = pubKeys.map((pk, i) =>
+      contributeAssertion(fedCircle, subject, { rank: 80 }, privKeys[i], fedCircle.members.indexOf(pk)),
+    )
+    // Same members, different scope -- the signed electionId no longer matches
+    const otherCircle = createTrustCircle(pubKeys, { scope: 'fed-2' })
+    expect(() => aggregateContributions(otherCircle, subject, contributions)).toThrow(/electionId/i)
+  })
 })

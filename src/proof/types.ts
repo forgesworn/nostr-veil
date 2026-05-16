@@ -6,6 +6,13 @@ export interface TrustCircle {
   circleId: string
   /** Number of members */
   size: number
+  /**
+   * Optional federation scope for cross-circle deduplication. When set, every
+   * contribution's LSAG key image is scoped to this string instead of the
+   * `circleId`, so the same member produces a matching key image in any circle
+   * that shares the scope. Omit for the default per-circle isolation.
+   */
+  scope?: string
 }
 
 /** A single member's contribution to a circle assertion */

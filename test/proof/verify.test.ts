@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { schnorr } from '@noble/curves/secp256k1.js'
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js'
-import { createTrustCircle } from '../../src/proof/circle.js'
+import { createTrustCircle, MAX_SCOPE_LENGTH } from '../../src/proof/circle.js'
 import { contributeAssertion } from '../../src/proof/contribute.js'
 import { aggregateContributions } from '../../src/proof/aggregate.js'
 import { verifyProof } from '../../src/proof/verify.js'
@@ -197,5 +197,66 @@ describe('verifyProof', () => {
     const result = verifyProof(event)
     expect(result.valid).toBe(false)
     expect(result.errors.some(e => /veil-agg/i.test(e))).toBe(true)
+  })
+
+  function makeScopedEvent(scope: string) {
+    const scoped = createTrustCircle(pubKeys, { scope })
+    const contributions = privKeys.map((pk, i) =>
+      contributeAssertion(scoped, subject, { rank: 85 }, pk, scoped.members.indexOf(pubKeys[i])),
+    )
+    return aggregateContributions(scoped, subject, contributions)
+  }
+
+  it('verifies an aggregated event from a scoped circle', () => {
+    const event = makeScopedEvent('fed-1')
+    expect(event.tags).toContainEqual(['veil-scope', 'fed-1'])
+    expect(verifyProof(event).valid).toBe(true)
+  })
+
+  it('verifies an event with no veil-scope tag as circle-scoped (backward compatible)', () => {
+    const event = makeEvent()
+    expect(event.tags.find(t => t[0] === 'veil-scope')).toBeUndefined()
+    expect(verifyProof(event).valid).toBe(true)
+  })
+
+  it('rejects an event whose veil-scope tag has been altered', () => {
+    const event = makeScopedEvent('fed-1')
+    const idx = event.tags.findIndex(t => t[0] === 'veil-scope')
+    event.tags[idx] = ['veil-scope', 'fed-2']
+    const result = verifyProof(event)
+    expect(result.valid).toBe(false)
+    expect(result.errors.some(e => /electionId mismatch/.test(e))).toBe(true)
+  })
+
+  it('rejects a veil-scope tag added to an otherwise circle-scoped event', () => {
+    const event = makeEvent()
+    event.tags.push(['veil-scope', 'fed-1'])
+    const result = verifyProof(event)
+    expect(result.valid).toBe(false)
+    expect(result.errors.some(e => /electionId mismatch/.test(e))).toBe(true)
+  })
+
+  it('rejects an event with multiple veil-scope tags', () => {
+    const event = makeEvent()
+    event.tags.push(['veil-scope', 'fed-1'], ['veil-scope', 'fed-2'])
+    const result = verifyProof(event)
+    expect(result.valid).toBe(false)
+    expect(result.errors.some(e => /Multiple veil-scope/.test(e))).toBe(true)
+  })
+
+  it('rejects an event whose veil-scope tag exceeds the maximum length', () => {
+    const event = makeEvent()
+    event.tags.push(['veil-scope', 'x'.repeat(MAX_SCOPE_LENGTH + 1)])
+    const result = verifyProof(event)
+    expect(result.valid).toBe(false)
+    expect(result.errors.some(e => /veil-scope exceeds/.test(e))).toBe(true)
+  })
+
+  it('rejects an event whose veil-scope tag is not a valid slug', () => {
+    const event = makeEvent()
+    event.tags.push(['veil-scope', 'has spaces'])
+    const result = verifyProof(event)
+    expect(result.valid).toBe(false)
+    expect(result.errors.some(e => /slug/.test(e))).toBe(true)
   })
 })
