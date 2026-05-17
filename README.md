@@ -174,7 +174,7 @@ The resulting `assertion` is a plain `EventTemplate` you sign and publish like a
 | `verifyProductionDeployment(events, bundle, options?)` | One-call production gate that also requires an expiring bundle and signed relay-fetched events by default |
 | `VerificationIssue`, `VerificationIssueCode` | Stable machine-readable issue codes returned alongside human-readable errors |
 | `explainVerificationIssue(issueOrCode)`, `remediationForIssue(issueOrCode)` | Turn stable issue codes into concrete operator or verifier remediation guidance |
-| `canonicalRelaySubject`, `canonicalNip05Subject`, `canonicalDomainSubject`, `canonicalNpmPackageSubject` | Canonical subject helpers for common real-world identifiers |
+| `canonicalRelaySubject`, `canonicalServiceSubject`, `canonicalNip05Subject`, `canonicalDomainSubject`, `canonicalLnurlpSubject`, `canonicalNip96Subject`, `canonicalNpmPackageSubject`, `canonicalGitRepositorySubject`, `canonicalGithubRepositorySubject`, `canonicalMaintainerSubject` | Canonical subject helpers for common real-world identifiers |
 | `canonicalPubkeySubject`, `canonicalEventSubject`, `canonicalAddressSubject` | Canonical subject helpers for Nostr-native subjects |
 
 ### Signing utility (root export)

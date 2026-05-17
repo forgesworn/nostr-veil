@@ -69,6 +69,11 @@ publisher pubkeys for production relay-fetched assertions; it also requires
 expiring bundles and signed events by default. Use issue explanations to turn
 failures into concrete operator actions instead of only showing negative
 results.
+Canonical subject helpers cover Nostr-native subjects plus relays, service
+endpoints, NIP-05, domains, LNURLp, NIP-96, npm packages, git repositories,
+GitHub repositories, maintainers, vendors, and sources. Prefer those helpers
+before signing so every contributor scores the same verifier-compatible
+identifier.
 
 ## Limits
 

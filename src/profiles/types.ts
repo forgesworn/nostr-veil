@@ -18,7 +18,12 @@ export type SubjectFormat =
   | 'relay'
   | 'nip05'
   | 'domain'
+  | 'git'
+  | 'lnurlp'
+  | 'maintainer'
+  | 'nip96'
   | 'package'
+  | 'service'
   | 'vendor'
   | 'source'
 

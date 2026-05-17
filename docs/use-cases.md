@@ -129,6 +129,11 @@ standardise every external namespace. Examples that use `k = 0` are placeholders
 for an application-private profile, not a Nostr-wide package, domain, or vendor
 registry.
 
+Use the canonical subject helpers from `nostr-veil/profiles` where one exists.
+They keep package, repository, maintainer, service, NIP-05, LNURLp, NIP-96,
+relay, domain, vendor, and source identifiers in one verifier-compatible form
+before reviewers sign.
+
 ## Detailed pages
 
 Each page works through the subject shape, helper calls, metrics, verification,
@@ -230,6 +235,8 @@ to the author, sponsor, or audience.
   the vendor is just a Nostr pubkey.
 - Subject: an agreed identifier such as `relay:wss://relay.example.com`,
   `vendor:market.example:alice`, or `service:blossom:example.com`.
+- Canonical helpers: `canonicalRelaySubject`, `canonicalServiceSubject`, and
+  `canonicalVendorSubject`.
 - Helper: `contributeIdentifierAssertion` and
   `aggregateIdentifierContributions`.
 - Metrics: `rank`, `comment_cnt`, or `reaction_cnt`.
@@ -250,6 +257,9 @@ authority comes from the chosen circle.
 - Subject examples: `npm:nostr-veil@0.14.0`,
   `git:https://github.com/forgesworn/nostr-veil@36f74b0`, or
   `maintainer:github:forgesworn`.
+- Canonical helpers: `canonicalNpmPackageSubject`,
+  `canonicalGitRepositorySubject`, `canonicalGithubRepositorySubject`, and
+  `canonicalMaintainerSubject`.
 - Helper: `contributeIdentifierAssertion` and
   `aggregateIdentifierContributions`.
 - Metrics: `rank` as safety, review confidence, or maintenance confidence.
@@ -269,6 +279,9 @@ reviewer signal.
 - Use: kind 30385 identifier assertion.
 - Subject examples: `nip05:alice@example.com`, `domain:example.com`,
   `lnurlp:alice@example.com`, or `nip96:https://upload.example.com`.
+- Canonical helpers: `canonicalNip05Subject`, `canonicalDomainSubject`,
+  `canonicalLnurlpSubject`, `canonicalNip96Subject`, and
+  `canonicalServiceSubject`.
 - Helper: `contributeIdentifierAssertion` and
   `aggregateIdentifierContributions`.
 - Metrics: `rank`.

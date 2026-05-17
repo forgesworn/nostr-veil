@@ -9,6 +9,9 @@ payment endpoint, or other service identifier outside a single Nostr pubkey.
 - NIP-85 kind: 30385 identifier assertion.
 - Subject examples: `nip05:alice@example.com`, `domain:example.com`,
   `lnurlp:alice@example.com`, `nip96:https://upload.example.com`.
+- Canonical helpers: `canonicalNip05Subject`, `canonicalDomainSubject`,
+  `canonicalLnurlpSubject`, `canonicalNip96Subject`, and
+  `canonicalServiceSubject`.
 - Helpers: `contributeIdentifierAssertion`,
   `aggregateIdentifierContributions`.
 - Proof version: v2 recommended.
@@ -39,8 +42,9 @@ payment endpoint, or other service identifier outside a single Nostr pubkey.
 
 ## Implementation recipe
 
-1. Canonicalise the identifier before signing: lowercase host names, agreed
-   schemes, punycode handling, and trailing slash rules.
+1. Canonicalise the identifier before signing with the NIP-05, domain, LNURLp,
+   NIP-96, or service helper: lowercase host names, agreed schemes, punycode
+   handling, and trailing slash rules.
 2. Decide whether the subject is a domain, a specific NIP-05 name, a payment
    endpoint, or a service provider.
 3. Run the underlying service check outside nostr-veil, then publish the

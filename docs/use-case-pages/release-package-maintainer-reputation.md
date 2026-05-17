@@ -11,6 +11,9 @@ or attacker.
 - Subject examples: `npm:nostr-veil@0.14.0`,
   `git:https://github.com/forgesworn/nostr-veil@36f74b0`,
   `maintainer:github:forgesworn`.
+- Canonical helpers: `canonicalNpmPackageSubject`,
+  `canonicalGitRepositorySubject`, `canonicalGithubRepositorySubject`, and
+  `canonicalMaintainerSubject`.
 - Helpers: `contributeIdentifierAssertion`,
   `aggregateIdentifierContributions`.
 - Proof version: v2 recommended.
@@ -44,7 +47,8 @@ or attacker.
 
 1. Decide the exact subject: package name, package version, tarball digest,
    repository commit, release artefact, or maintainer identity.
-2. Canonicalise that subject before signing so every reviewer scores the same
+2. Canonicalise that subject before signing with the package, git repository,
+   GitHub repository, or maintainer helper so every reviewer scores the same
    string.
 3. Define what `rank` means: safety, audit confidence, maintenance confidence,
    compromise suspicion, or release readiness.

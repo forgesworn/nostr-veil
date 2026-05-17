@@ -683,6 +683,11 @@ For example, `bundle.trusted_publishers_missing` means the verifier has no
 pinned publisher keys, while `event.signature_invalid` means the fetched event
 must be rejected and can optionally be retried from another relay.
 
+Canonical subject helpers cover Nostr-native subjects plus relays, service
+endpoints, NIP-05, domains, LNURLp, NIP-96, npm packages, git repositories,
+GitHub repositories, maintainers, vendors, and sources. Prefer them before
+signing and verification so every contributor scores the same identifier.
+
 ---
 
 ### `nostr-veil` root export -- Signing Utilities

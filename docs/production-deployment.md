@@ -11,6 +11,7 @@ should call `verifyProductionDeployment()` with a pinned publisher key. A policy
 should include:
 
 - the exact expected subject;
+- the canonical subject helper used before signing and verification;
 - the accepted circle manifests or explicit circle IDs for this deployment;
 - the minimum distinct signer count;
 - the freshness window;

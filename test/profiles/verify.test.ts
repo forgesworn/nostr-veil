@@ -2,6 +2,9 @@ import { describe, expect, it } from 'vitest'
 import { useCaseResults } from '../../examples/use-cases/_all.js'
 import type { UseCaseResult } from '../../examples/use-cases/_shared.js'
 import {
+  NIP05_DOMAIN_SERVICE_PROVIDER_TRUST_PROFILE,
+  RELEASE_PACKAGE_MAINTAINER_REPUTATION_PROFILE,
+  RELAY_SERVICE_REPUTATION_PROFILE,
   USE_CASE_PROFILE_BY_ID,
   USE_CASE_PROFILES,
   computeCircleId,
@@ -54,6 +57,22 @@ describe('verifyUseCaseProfile', () => {
 
       expect(verification.valid, `${result.slug}: ${verification.errors.join('; ')}`).toBe(true)
     }
+  })
+
+  it('keeps documented real-world identifier shapes in the safer profiles', () => {
+    expect(RELEASE_PACKAGE_MAINTAINER_REPUTATION_PROFILE.subjectFormats).toEqual([
+      'package',
+      'git',
+      'maintainer',
+    ])
+    expect(RELAY_SERVICE_REPUTATION_PROFILE.subjectFormats).toEqual(['relay', 'service'])
+    expect(NIP05_DOMAIN_SERVICE_PROVIDER_TRUST_PROFILE.subjectFormats).toEqual([
+      'nip05',
+      'domain',
+      'lnurlp',
+      'nip96',
+      'service',
+    ])
   })
 
   it('fails closed when accepted circle ids are not supplied', () => {

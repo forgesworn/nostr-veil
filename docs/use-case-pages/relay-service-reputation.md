@@ -8,7 +8,9 @@ algorithm provider, or other service endpoint rather than a Nostr account.
 - Status: supported today.
 - NIP-85 kind: 30385 identifier assertion.
 - Subject examples: `relay:wss://relay.example.com`,
-  `service:blossom:example.com`, `bot:pubkey:<pubkey>`.
+  `service:blossom:example.com`, `service:moderation:https://mod.example.com/api`.
+- Canonical helpers: `canonicalRelaySubject` and
+  `canonicalServiceSubject`.
 - Helpers: `contributeIdentifierAssertion`,
   `aggregateIdentifierContributions`.
 - Proof version: v2 recommended.
@@ -42,7 +44,8 @@ different decimal namespace if your application needs one.
 
 ## Implementation recipe
 
-1. Canonicalise the service identifier before signing: scheme, host, port,
+1. Canonicalise the service identifier before signing with
+   `canonicalRelaySubject` or `canonicalServiceSubject`: scheme, host, port,
    trailing slash, and service class.
 2. Define what `rank` measures for this service class: reliability, censorship
    behaviour, latency, privacy, malware risk, support quality, or abuse

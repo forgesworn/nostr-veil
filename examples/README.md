@@ -40,6 +40,12 @@ audit/error handling. Production apps can pass those codes to
 operator action. The recipes also use NIP-85 kind names such as "kind 30385
 identifier assertion" so the subject route is explicit.
 
+For real deployments, canonicalise subjects before signing. The profile helpers
+cover relays, service endpoints, NIP-05, domains, LNURLp, NIP-96, npm packages,
+git repositories, GitHub repositories, maintainers, vendors, and sources, so
+reviewers and verifiers do not accidentally split the same real-world thing
+across several strings.
+
 `use-cases-relay.ts` is an opt-in live relay check. It signs every canonical
 use-case example as a Nostr event, publishes the events to
 `wss://relay.trotters.cc`, fetches them back by id, and verifies the fetched
