@@ -58,6 +58,14 @@ Two subpath exports, plus a root that re-exports everything:
 **`nostr-veil/proof`** -- Ring-signature proof layer:
 `createTrustCircle`, `contributeAssertion`, `contributeEventAssertion`, `contributeAddressableAssertion`, `contributeIdentifierAssertion`, `aggregateContributions`, `aggregateEventContributions`, `aggregateAddressableContributions`, `aggregateIdentifierContributions`, `verifyProof`, `verifyFederation`, `canonicalMessage`, `canonicalMessageV2`, `computeCircleId`
 
+**`nostr-veil/profiles`** -- Safer deployment profiles:
+`USE_CASE_PROFILES`, `USE_CASE_PROFILE_BY_ID`, `verifyUseCaseProfile`,
+`createCircleManifest`, `verifyCircleManifest`, `createDeploymentPolicy`,
+`verifyDeploymentPolicy`, `createSignedDeploymentBundle`,
+`verifyDeploymentBundle`, and canonical subject helpers. Use signed deployment
+bundles with pinned trusted publisher pubkeys when policy/manifests are
+distributed outside the verifier binary.
+
 ## Limits
 
 nostr-veil hides which public ring member contributed. It does not hide the ring

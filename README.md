@@ -169,6 +169,8 @@ The resulting `assertion` is a plain `EventTemplate` you sign and publish like a
 | `verifyCircleManifest(manifest, options?)` | Verify that a circle manifest matches its members and deployment constraints |
 | `createDeploymentPolicy(profile, options)` | Build a fail-closed deployment policy with accepted circles, expected subject, metric bounds, freshness, threshold, and signature requirements |
 | `verifyDeploymentPolicy(events, policy, options?)` | Verify a profile plus deployment-specific controls before acting on a score |
+| `createSignedDeploymentBundle(policy, options)` | Sign a deployment policy and its manifests as trusted operator configuration |
+| `verifyDeploymentBundle(events, bundle, options?)` | Verify a signed bundle from trusted publishers, then verify the bundled deployment policy |
 | `canonicalRelaySubject`, `canonicalNip05Subject`, `canonicalDomainSubject`, `canonicalNpmPackageSubject` | Canonical subject helpers for common real-world identifiers |
 | `canonicalPubkeySubject`, `canonicalEventSubject`, `canonicalAddressSubject` | Canonical subject helpers for Nostr-native subjects |
 

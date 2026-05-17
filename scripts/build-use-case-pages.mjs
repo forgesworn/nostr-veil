@@ -106,6 +106,7 @@ const safetyChecks = [
   ['Insufficient threshold', 'Removing a signature must fail the profile threshold.'],
   ['Stale assertion', 'created_at must remain inside the freshness window.'],
   ['Unknown circle', 'The circle ID must be accepted by deployment policy.'],
+  ['Unsigned policy', 'Production verifiers should require a signed deployment bundle from a trusted publisher.'],
   ['Relay mutation', 'Fetched event content and tags must match the Nostr signature.'],
 ]
 const nip85Kinds = [

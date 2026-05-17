@@ -160,6 +160,7 @@ describe('public use-case pages', () => {
       'Proof downgrade',
       'Duplicate signer',
       'Unknown circle',
+      'Unsigned policy',
       'Relay mutation',
       'verifyUseCaseProfile()',
     ]

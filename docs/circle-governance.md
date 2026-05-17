@@ -65,3 +65,8 @@ circle ID to the member list and records the allowed profile IDs, issue/expiry
 times, superseded circles, revoked circles, policy URI, contact, and evidence
 process. Treat manifests as signed or otherwise trusted deployment policy, not
 as self-authenticating evidence from an arbitrary relay.
+
+For portable deployments, put manifests inside a signed deployment bundle and
+pin the publisher pubkey in the verifier. This lets operators rotate or revoke
+circles without asking applications to trust unsigned policy material from a
+relay or website.

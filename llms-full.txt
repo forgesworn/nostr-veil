@@ -599,6 +599,56 @@ Produce the deterministic proof-v2 message. The context must include `kind`,
 
 ---
 
+### `nostr-veil/profiles` -- Safer Deployment Profiles
+
+Use this layer when an application wants to act on a score. It adds profile
+checks, deployment policy, circle manifests, and signed policy bundles on top of
+the low-level proof verifier.
+
+#### `verifyUseCaseProfile(events, profile, options) → UseCaseProfileVerification`
+
+Verify NIP-85 syntax, proof version, expected kind and subject tag, freshness,
+threshold, accepted circles, expected subject, and federation policy.
+
+#### `createCircleManifest(options) → CircleManifest`
+
+Build a machine-readable circle manifest. A manifest binds a member list to its
+circle ID and records allowed profile IDs, issue/expiry times, superseded
+circles, revoked circles, policy URI, contact, and evidence process.
+
+#### `createDeploymentPolicy(profile, options) → UseCaseDeploymentPolicy`
+
+Build a fail-closed verifier policy with accepted circle IDs or manifests,
+expected subject, optional subject-tag value, freshness, signer threshold,
+metric bounds, unknown-metric handling, and optional Nostr event signature
+requirements.
+
+#### `createSignedDeploymentBundle(policy, options) → SignedDeploymentBundle`
+
+Sign a deployment policy and its manifests as trusted operator configuration.
+Use this when policy material is distributed separately from the verifier.
+
+#### `verifyDeploymentBundle(events, bundle, options) → DeploymentBundleVerification`
+
+Verify that the bundle signature is valid, the signer pubkey is pinned in
+`trustedPublishers`, the bundle is fresh, and the bundled deployment policy
+accepts the signed assertion events.
+
+```ts
+const bundle = createSignedDeploymentBundle(policy, {
+  id: 'package-release-gate',
+  issuedAt,
+  expiresAt,
+  privateKey: operatorPrivateKey,
+})
+const result = verifyDeploymentBundle(assertionFromRelay, bundle, {
+  now,
+  trustedPublishers: [operatorPubkey],
+})
+```
+
+---
+
 ### `nostr-veil` root export -- Signing Utilities
 
 #### `computeEventId(event) → string`

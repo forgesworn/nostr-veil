@@ -25,9 +25,11 @@ import {
   canonicalNpmPackageSubject,
   createCircleManifest,
   createDeploymentPolicy,
-  verifyDeploymentPolicy,
+  createSignedDeploymentBundle,
+  verifyDeploymentBundle,
 } from 'nostr-veil/profiles'
 
+const trustedPolicyPublishers = [operatorPubkey]
 const subject = canonicalNpmPackageSubject('nostr-veil', '0.14.0')
 const reviewerPubkeys = [alicePubkey, bobPubkey, carolPubkey].sort()
 const circle = createCircleManifest({
@@ -46,8 +48,15 @@ const policy = createDeploymentPolicy(RELEASE_PACKAGE_MAINTAINER_REPUTATION_PROF
   },
   rejectUnknownMetrics: true,
 })
-const result = verifyDeploymentPolicy(assertion, policy, {
+const bundle = createSignedDeploymentBundle(policy, {
+  id: 'package-release-gate',
+  issuedAt: 1778000000,
+  expiresAt: 1778000900,
+  privateKey: operatorPrivateKey,
+})
+const result = verifyDeploymentBundle(assertion, bundle, {
   now: Math.floor(Date.now() / 1000),
+  trustedPublishers: trustedPolicyPublishers,
 })
 
 if (!result.valid) throw new Error(result.errors.join('; '))

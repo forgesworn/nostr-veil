@@ -8,13 +8,18 @@ import {
   USE_CASE_PROFILE_BY_ID,
   computeCircleId,
   computeEventId,
+  createCircleManifest,
+  createDeploymentPolicy,
+  createSignedDeploymentBundle,
   signEvent,
+  verifyDeploymentBundle,
   verifyUseCaseProfile,
 } from '../../src/index.js'
 import type { EventTemplate, SignedEvent } from '../../src/index.js'
 import type { UseCaseProfile, VerifyUseCaseProfileOptions } from '../../src/profiles/index.js'
 
 const META_TAGS = new Set(['d', 'p', 'e', 'a', 'k'])
+const BUNDLE_PUBLISHER_KEY = '44'.repeat(32)
 const RELAY_PUBLISHER_KEY = '55'.repeat(32)
 
 function isAssertionResult(result: UseCaseResult): result is UseCaseResult & { assertion: EventTemplate } {
@@ -43,9 +48,13 @@ function tagValue(event: EventTemplate, name: string): string | undefined {
 }
 
 function circleId(event: EventTemplate): string {
+  return computeCircleId(ringMembers(event))
+}
+
+function ringMembers(event: EventTemplate): string[] {
   const ring = event.tags.find(tag => tag[0] === 'veil-ring')?.slice(1)
   if (ring === undefined) throw new Error('missing veil-ring tag')
-  return computeCircleId(ring)
+  return ring
 }
 
 function firstMetricTagIndex(event: EventTemplate): number {
@@ -126,6 +135,35 @@ function verifyDeployment(
     acceptedCircleIds: acceptedCircleIdsFor(result),
     now: nowFor(result),
     ...options,
+  })
+}
+
+function signedDeploymentBundleFor(result: UseCaseResult) {
+  const profile = profileFor(result)
+  const events = eventsFor(result)
+  const now = nowFor(result)
+  const subject = tagValue(events[0], 'd')
+  if (subject === undefined) throw new Error(`${result.slug} is missing d tag`)
+  const circleManifests = events.map((event, index) => createCircleManifest({
+    issuedAt: now,
+    expiresAt: now + 600,
+    members: ringMembers(event),
+    name: `${result.slug} circle ${index + 1}`,
+    profileIds: [profile.id],
+    purpose: `${profile.title} deployment test`,
+  }))
+  const policy = createDeploymentPolicy(profile, {
+    circleManifests,
+    expectedSubject: subject,
+    ...(profile.subjectTagValue === undefined ? {} : { expectedSubjectTagValue: profile.subjectTagValue }),
+    requireNostrSignature: true,
+  })
+
+  return createSignedDeploymentBundle(policy, {
+    expiresAt: now + 600,
+    id: result.slug,
+    issuedAt: now,
+    privateKey: BUNDLE_PUBLISHER_KEY,
   })
 }
 
@@ -280,6 +318,21 @@ describe('adversarial use-case deployment checks', () => {
         expect(signedEventIsValid(contentTampered), `${result.slug}[${index}] content tamper accepted`).toBe(false)
         expect(signedEventIsValid(tagTampered), `${result.slug}[${index}] tag tamper accepted`).toBe(false)
       }
+    }
+  })
+
+  it('verifies every use case through a signed deployment bundle and signed relay event', { timeout: 30_000 }, () => {
+    for (const result of useCaseResults) {
+      const bundle = signedDeploymentBundleFor(result)
+      const signedEvents = eventsFor(result).map(event => signEvent(event, RELAY_PUBLISHER_KEY))
+      const verification = verifyDeploymentBundle(signedEvents, bundle, {
+        now: nowFor(result),
+        trustedPublishers: [bundle.signer],
+      })
+
+      expect(verification.valid, `${result.slug}: ${verification.errors.join('; ')}`).toBe(true)
+      expect(verification.bundle.signatureValid, result.slug).toBe(true)
+      expect(verification.deployment.nostrSignatures).toEqual({ checked: true, valid: true })
     }
   })
 })

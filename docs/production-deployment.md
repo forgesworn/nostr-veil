@@ -5,8 +5,10 @@ a deployment policy. The policy should be explicit, versioned, and tested.
 
 ## Policy checks
 
-Use `createDeploymentPolicy()` and `verifyDeploymentPolicy()` for production
-flows. A policy should include:
+Use `createDeploymentPolicy()` for the local deployment controls, then wrap the
+policy in `createSignedDeploymentBundle()` before distributing it. Verifiers
+should call `verifyDeploymentBundle()` with a pinned publisher key. A policy
+should include:
 
 - the exact expected subject;
 - the accepted circle manifests or explicit circle IDs for this deployment;
@@ -22,9 +24,11 @@ import {
   canonicalNpmPackageSubject,
   createCircleManifest,
   createDeploymentPolicy,
-  verifyDeploymentPolicy,
+  createSignedDeploymentBundle,
+  verifyDeploymentBundle,
 } from 'nostr-veil/profiles'
 
+const trustedPolicyPublishers = [operatorPubkey]
 const subject = canonicalNpmPackageSubject('nostr-veil', '0.15.0')
 const reviewerPubkeys = [alicePubkey, bobPubkey, carolPubkey].sort()
 const packageReviewCircle = createCircleManifest({
@@ -44,9 +48,16 @@ const policy = createDeploymentPolicy(RELEASE_PACKAGE_MAINTAINER_REPUTATION_PROF
   rejectUnknownMetrics: true,
   requireNostrSignature: true,
 })
+const bundle = createSignedDeploymentBundle(policy, {
+  id: 'package-release-gate',
+  issuedAt: 1778000000,
+  expiresAt: 1778000900,
+  privateKey: operatorPrivateKey,
+})
 
-const result = verifyDeploymentPolicy(assertionFromRelay, policy, {
+const result = verifyDeploymentBundle(assertionFromRelay, bundle, {
   now: Math.floor(Date.now() / 1000),
+  trustedPublishers: trustedPolicyPublishers,
 })
 
 if (!result.valid) throw new Error(result.errors.join('; '))
@@ -83,6 +94,9 @@ npm run test:production-recipes
 A production verifier should reject, or move to manual review, when:
 
 - no accepted circle list or manifest is configured;
+- no trusted bundle publisher is configured;
+- the deployment bundle is unsigned, expired, tampered, or signed by the wrong
+  publisher;
 - a manifest is expired, revoked, superseded, or does not allow the profile;
 - the assertion is about a different subject;
 - the assertion is stale;
