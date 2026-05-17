@@ -77,6 +77,29 @@ The `veil-sig` JSON excludes `ring` and `keyImage` (which live in the other
 tags). It contains `c0`, `electionId`, `message`, `responses`, and optionally
 `domain`.
 
+## Use-Case Mapping
+
+The shipped primitives cover these concrete shapes:
+
+- Kind 30382 user assertions: user reputation, abuse reporting, source
+  corroboration where the source has a pubkey, onboarding vouches, and
+  pubkey-backed trade reputation.
+- Kind 30383 event assertions: event, claim, announcement, and proposal review.
+- Kind 30384 addressable assertions: long-form notes, research artefacts,
+  grant applications, community lists, labeler profiles, and moderation lists.
+- Kind 30385 identifier assertions: relays, services, vendors, marketplaces,
+  packages, releases, maintainers, NIP-05 identifiers, domains, and other
+  external identifiers. The `k` namespace is chosen by the application profile,
+  not standardised by nostr-veil.
+- Scoped federations: cross-circle moderation or review where overlapping
+  members should count once across several circles.
+
+For new workflows, prefer proof v2 and verify with
+`verifyProof(event, { requireProofVersion: 'v2' })`. Credential co-signing and
+anonymous gated access are future profiles: nostr-veil can provide the
+threshold proof, but those flows need separate credential/admission event
+formats and handshakes.
+
 ## Type Definitions
 
 ### `TrustCircle`
@@ -635,5 +658,6 @@ These are not dependencies but complement nostr-veil:
 ## Optional
 
 - [README](https://github.com/forgesworn/nostr-veil/blob/main/README.md): Full documentation with architecture diagram
+- [docs/use-cases.md](https://github.com/forgesworn/nostr-veil/blob/main/docs/use-cases.md): Concrete use-case implementation map
 - [IMPACT.md](https://github.com/forgesworn/nostr-veil/blob/main/IMPACT.md): Problem statement and ecosystem impact
 - [@forgesworn/ring-sig](https://github.com/forgesworn/ring-sig): Underlying ring signature library

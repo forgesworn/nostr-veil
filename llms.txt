@@ -65,6 +65,20 @@ membership list, individual anonymous metric values, network/timing metadata, or
 whether the circle was socially well-chosen. Shared federation scopes intentionally
 reveal cross-circle overlap by key image while still hiding the contributor's identity.
 
+## Use-Case Mapping
+
+Use `aggregateContributions` for user reputation, abuse reporting, source
+corroboration, onboarding vouches, and pubkey-backed trade reputation. Use
+`aggregateEventContributions` for event and claim verification. Use
+`aggregateAddressableContributions` for long-form review, research, proposals,
+lists, and labeler profiles. Use `aggregateIdentifierContributions` for relays,
+services, packages, releases, maintainers, NIP-05 identifiers, domains, vendors,
+and other external identifiers; the kind 30385 `k` namespace is chosen by the
+application profile, not standardised by nostr-veil. Credential co-signing and
+anonymous gated access are future profiles: nostr-veil can provide the threshold
+proof, but those flows need separate credential/admission event formats and
+handshakes.
+
 ## Companion Libraries
 
 These are not dependencies but complement nostr-veil:
@@ -77,5 +91,6 @@ These are not dependencies but complement nostr-veil:
 ## Optional
 
 - [README](https://github.com/forgesworn/nostr-veil/blob/main/README.md): Full documentation with architecture diagram
+- [docs/use-cases.md](https://github.com/forgesworn/nostr-veil/blob/main/docs/use-cases.md): Concrete use-case implementation map
 - [IMPACT.md](https://github.com/forgesworn/nostr-veil/blob/main/IMPACT.md): Problem statement and ecosystem impact
 - [@forgesworn/ring-sig](https://github.com/forgesworn/ring-sig): Underlying ring signature library

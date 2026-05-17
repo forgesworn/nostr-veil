@@ -241,20 +241,26 @@ For sensitive deployments, combine nostr-veil with careful collection, transport
 
 ## Use cases
 
-The shipped primitives support more than user trust scores:
+The shipped primitives support more than user trust scores. See
+[docs/use-cases.md](./docs/use-cases.md) for a concrete implementation map,
+including subject formats, helper functions, metrics, and the boundary between
+what ships today and what needs a future profile.
+
+Supported today:
 
 - User reputation and abuse reporting with kind 30382 user assertions.
-- Source corroboration and peer review where contributors need protection from retaliation.
+- Source corroboration and peer review, using kind 30382 for pubkeys or kind 30385 for external identifiers.
 - Event and claim verification with kind 30383 event assertions via `aggregateEventContributions`.
-- Article, long-form note, or research review with kind 30384 addressable assertions via `aggregateAddressableContributions`.
-- Relay, service, vendor, marketplace, or external identifier reputation with kind 30385 identifier assertions via `aggregateIdentifierContributions`.
-- Release, package, and maintainer reputation where reviewers can flag compromised releases or risky maintainership without exposing themselves.
-- NIP-05, domain, and service-provider trust where communities can score identifiers outside a single Nostr pubkey.
+- Article, long-form note, research, grant, and proposal review with kind 30384 addressable assertions via `aggregateAddressableContributions`.
+- Relay, service, vendor, marketplace, package, release, maintainer, NIP-05, and domain reputation with kind 30385 identifier assertions via `aggregateIdentifierContributions`.
 - Community list, labeler, and moderation-list reputation where users can compare curation sources without mapping every reviewer.
 - Federated moderation where scoped circles count overlapping contributors once, not once per circle.
 - Privacy-preserving onboarding where an already-trusted circle can vouch for a new account without naming the individual vouchees.
-- Future anonymous credential or attestation co-signing, once endorsement event formats are agreed: a circle can prove enough members backed a credential without naming which members.
-- Future relay or community admission, once gated-access handshakes exist: a verifier can require a threshold-backed proof without learning which trusted member opened the door.
+
+Future profiles:
+
+- Anonymous credential or attestation co-signing, once endorsement event formats define subject, expiry, revocation, and presentation rules.
+- Relay or community admission, once a gated-access handshake exists; today nostr-veil can publish the threshold-backed assertion, but it is not the whole anonymous access-control protocol.
 
 nostr-veil proves that distinct keys from a public trust circle contributed. Trust-circle formation, Sybil policy, revocation, and anonymous access control are separate application-layer decisions.
 
@@ -271,6 +277,8 @@ That isolation is the right default, but it caps a trust score at one circle. To
 const circleA = createTrustCircle(membersA, { scope: 'community-moderators' })
 const circleB = createTrustCircle(membersB, { scope: 'community-moderators' })
 ```
+
+Scopes are lowercase slugs: letters, digits, dot, hyphen, and underscore.
 
 Circles sharing a `scope` derive the key image from the scope rather than the circle, so a contributor who appears in several of them produces the *same* token in each. `verifyFederation` gathers events from across the federation, verifies each one, and counts the distinct contributors -- matched by key image, never by identity:
 
@@ -307,6 +315,7 @@ Each project is independently maintained and published. nostr-veil focuses solel
 ## Further reading
 
 - [IMPACT.md](./IMPACT.md) -- Problem statement and ecosystem impact
+- [docs/use-cases.md](./docs/use-cases.md) -- Concrete implementation map for supported and future use cases
 - [CONTRIBUTING.md](./CONTRIBUTING.md) -- Setup, testing, and PR guidelines
 - [SECURITY.md](./SECURITY.md) -- Vulnerability reporting and cryptographic scope
 - [llms.txt](./llms.txt) -- Machine-readable project summary for LLMs
