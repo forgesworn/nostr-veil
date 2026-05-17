@@ -62,11 +62,13 @@ Two subpath exports, plus a root that re-exports everything:
 `USE_CASE_PROFILES`, `USE_CASE_PROFILE_BY_ID`, `verifyUseCaseProfile`,
 `createCircleManifest`, `verifyCircleManifest`, `createDeploymentPolicy`,
 `verifyDeploymentPolicy`, `createSignedDeploymentBundle`,
-`verifyDeploymentBundle`, `verifyProductionDeployment`, `VerificationIssue`,
-`VerificationIssueCode`, `explainVerificationIssue`, `remediationForIssue`, and
-canonical subject helpers. Use `verifyProductionDeployment` with pinned trusted
-publisher pubkeys for production relay-fetched assertions; it also requires
-expiring bundles and signed events by default. Use issue explanations to turn
+`verifyDeploymentBundle`, `verifyProductionDeployment`,
+`createProductionDecisionReport`, `verifyProductionDeploymentReport`,
+`VerificationIssue`, `VerificationIssueCode`, `explainVerificationIssue`,
+`remediationForIssue`, and canonical subject helpers. Use
+`verifyProductionDeployment` with pinned trusted publisher pubkeys for
+production relay-fetched assertions; it also requires expiring bundles and
+signed events by default. Use decision reports and issue explanations to turn
 failures into concrete operator actions instead of only showing negative
 results.
 Canonical subject helpers cover Nostr-native subjects plus relays, service

@@ -5,8 +5,10 @@ import {
   createCircleManifest,
   createDeploymentPolicy,
   createSignedDeploymentBundle,
+  createProductionDecisionReport,
   signEvent,
   verifyProductionDeployment,
+  verifyProductionDeploymentReport,
 } from '../../src/index.js'
 import type { EventTemplate, SignedDeploymentBundle, UseCaseDeploymentPolicy } from '../../src/index.js'
 
@@ -133,5 +135,70 @@ describe('production deployment verifier', () => {
 
     expect(result.valid).toBe(false)
     expect(issueCodes(result)).toContain('event.signature_invalid')
+  })
+
+  it('summarises a valid deployment as an accept report', () => {
+    const signedBundle = bundle()
+    const signedAssertion = signEvent(packageAssertion, RELAY_PUBLISHER_KEY)
+    const result = verifyProductionDeployment(signedAssertion, signedBundle, {
+      now: packageAssertion.created_at,
+      trustedPublishers: [signedBundle.signer],
+    })
+    const report = createProductionDecisionReport(result)
+
+    expect(report.valid).toBe(true)
+    expect(report.decision).toBe('accept')
+    expect(report.recommendedAction).toBe('accept')
+    expect(report.bundle.id).toBe('package-release-gate')
+    expect(report.profile.id).toBe(RELEASE_PACKAGE_MAINTAINER_REPUTATION_PROFILE.id)
+    expect(report.subject).toBe(tagValue(packageAssertion, 'd'))
+    expect(report.controls.every(control => control.status === 'pass')).toBe(true)
+    expect(report.issues).toEqual([])
+  })
+
+  it('turns production failures into operator remediation', () => {
+    const signedBundle = bundle()
+    const signedAssertion = signEvent(packageAssertion, RELAY_PUBLISHER_KEY)
+    const result = verifyProductionDeployment(signedAssertion, signedBundle, {
+      now: packageAssertion.created_at,
+    })
+    const report = createProductionDecisionReport(result)
+
+    expect(report.valid).toBe(false)
+    expect(report.decision).toBe('reject')
+    expect(report.recommendedAction).toBe('operator-action')
+    expect(report.issues.map(issue => issue.code)).toContain('bundle.trusted_publishers_missing')
+    expect(report.issues[0]).toHaveProperty('summary')
+    expect(report.issues[0]).toHaveProperty('remediation')
+    expect(report.remediations).toContain(
+      'Pass trustedPublishers to the verifier and pin the operator keys your deployment actually trusts.',
+    )
+    expect(report.controls.find(control => control.id === 'bundle-publisher')?.status).toBe('fail')
+  })
+
+  it('marks intentionally disabled event signature checks as not checked', () => {
+    const signedBundle = bundle(policy({ requireNostrSignature: false }))
+    const result = verifyProductionDeployment(packageAssertion, signedBundle, {
+      now: packageAssertion.created_at,
+      requireSignedEvents: false,
+      trustedPublishers: [signedBundle.signer],
+    })
+    const report = createProductionDecisionReport(result)
+
+    expect(result.valid).toBe(true)
+    expect(report.controls.find(control => control.id === 'event-signatures')?.status).toBe('not-checked')
+  })
+
+  it('can verify production deployments and return the decision report directly', () => {
+    const signedBundle = bundle()
+    const signedAssertion = signEvent(packageAssertion, RELAY_PUBLISHER_KEY)
+    const report = verifyProductionDeploymentReport(signedAssertion, signedBundle, {
+      now: packageAssertion.created_at,
+      trustedPublishers: [signedBundle.signer],
+    })
+
+    expect(report.valid).toBe(true)
+    expect(report.recommendedAction).toBe('accept')
+    expect(report.policyId).toBe('release-package-maintainer-reputation')
   })
 })

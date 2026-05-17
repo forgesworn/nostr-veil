@@ -11,6 +11,7 @@ import {
   RELEASE_PACKAGE_MAINTAINER_REPUTATION_PROFILE,
   canonicalNip05Subject,
   canonicalNpmPackageSubject,
+  createProductionDecisionReport,
   createCircleManifest,
   createDeploymentPolicy,
   createSignedDeploymentBundle,
@@ -24,11 +25,14 @@ import { events as moderationEvents } from './use-cases/federated-moderation.js'
 
 interface RecipeResult {
   action: string
+  controlStatuses: Record<string, string>
   errors: string[]
   issueCodes: string[]
   kind: string
   name: string
+  remediations: string[]
   valid: boolean
+  verifierAction: string
 }
 
 const BUNDLE_PUBLISHER_KEY = '44'.repeat(32)
@@ -95,6 +99,18 @@ function verifyWithSignedBundle(
   })
 }
 
+function recipeDiagnostics(result: ReturnType<typeof verifyWithSignedBundle>) {
+  const report = createProductionDecisionReport(result)
+
+  return {
+    controlStatuses: Object.fromEntries(report.controls.map(control => [control.id, control.status])),
+    errors: result.errors,
+    issueCodes: report.issues.map(issue => issue.code),
+    remediations: [...report.remediations],
+    verifierAction: report.recommendedAction,
+  }
+}
+
 function packageReleaseGate(): RecipeResult {
   const subject = canonicalNpmPackageSubject('nostr-veil', '0.14.0')
   const policy = createDeploymentPolicy(RELEASE_PACKAGE_MAINTAINER_REPUTATION_PROFILE, {
@@ -113,8 +129,7 @@ function packageReleaseGate(): RecipeResult {
 
   return {
     action: result.valid && rank >= 85 ? 'surface-reviewed-release' : 'manual-review',
-    errors: result.errors,
-    issueCodes: result.issues.map(issue => issue.code),
+    ...recipeDiagnostics(result),
     kind: describeNip85Kind(RELEASE_PACKAGE_MAINTAINER_REPUTATION_PROFILE.kind),
     name: 'package-release-gate',
     valid: result.valid,
@@ -140,8 +155,7 @@ function relayServicePreference(): RecipeResult {
 
   return {
     action: result.valid && rank >= 75 ? 'prefer-relay' : 'do-not-prefer-relay',
-    errors: result.errors,
-    issueCodes: result.issues.map(issue => issue.code),
+    ...recipeDiagnostics(result),
     kind: describeNip85Kind(RELAY_SERVICE_REPUTATION_PROFILE.kind),
     name: 'relay-service-preference',
     valid: result.valid,
@@ -167,8 +181,7 @@ function nip05DomainWarning(): RecipeResult {
 
   return {
     action: result.valid && rank >= 80 ? 'show-provider-trust-signal' : 'show-provider-warning',
-    errors: result.errors,
-    issueCodes: result.issues.map(issue => issue.code),
+    ...recipeDiagnostics(result),
     kind: describeNip85Kind(NIP05_DOMAIN_SERVICE_PROVIDER_TRUST_PROFILE.kind),
     name: 'nip05-domain-warning',
     valid: result.valid,
@@ -193,8 +206,7 @@ function federatedModerationReview(): RecipeResult {
 
   return {
     action: result.valid && reportCount >= 4 ? 'queue-human-moderation-review' : 'no-automatic-action',
-    errors: result.errors,
-    issueCodes: result.issues.map(issue => issue.code),
+    ...recipeDiagnostics(result),
     kind: describeNip85Kind(FEDERATED_MODERATION_PROFILE.kind),
     name: 'federated-moderation-review',
     valid: result.valid,
@@ -218,8 +230,7 @@ function relayAdmissionGate(): RecipeResult {
 
   return {
     action: result.valid && rank >= 90 ? 'admit-with-standard-rate-limits' : 'manual-admission-review',
-    errors: result.errors,
-    issueCodes: result.issues.map(issue => issue.code),
+    ...recipeDiagnostics(result),
     kind: describeNip85Kind(RELAY_COMMUNITY_ADMISSION_PROFILE.kind),
     name: 'relay-admission-gate',
     valid: result.valid,
@@ -235,9 +246,10 @@ export const productionRecipeResults = [
 ]
 
 for (const result of productionRecipeResults) {
-  console.log(`${result.name}: valid=${result.valid ? 'yes' : 'no'} kind="${result.kind}" action=${result.action}`)
+  console.log(`${result.name}: valid=${result.valid ? 'yes' : 'no'} kind="${result.kind}" action=${result.action} verifier=${result.verifierAction}`)
   if (!result.valid) {
     console.log(`  errors=${result.errors.join('; ')}`)
     console.log(`  issueCodes=${result.issueCodes.join(',')}`)
+    console.log(`  remediations=${result.remediations.join(' | ')}`)
   }
 }

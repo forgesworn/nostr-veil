@@ -26,7 +26,7 @@ import {
   createCircleManifest,
   createDeploymentPolicy,
   createSignedDeploymentBundle,
-  verifyProductionDeployment,
+  verifyProductionDeploymentReport,
 } from 'nostr-veil/profiles'
 
 const trustedPolicyPublishers = [operatorPubkey]
@@ -55,12 +55,12 @@ const bundle = createSignedDeploymentBundle(policy, {
   expiresAt: 1778000900,
   privateKey: operatorPrivateKey,
 })
-const result = verifyProductionDeployment(assertion, bundle, {
+const report = verifyProductionDeploymentReport(assertion, bundle, {
   now: Math.floor(Date.now() / 1000),
   trustedPublishers: trustedPolicyPublishers,
 })
 
-if (!result.valid) throw new Error(result.issues.map(issue => issue.code).join(', '))
+if (!report.valid) throw new Error(report.issues.map(issue => issue.code).join(', '))
 ```
 
 See [circle governance](./circle-governance.md) for the operational controls

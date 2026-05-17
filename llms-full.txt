@@ -163,7 +163,10 @@ Deployment/profile verifiers keep human-readable `errors` for compatibility and
 also return stable `issues[].code` values for application policy, logging, and
 alerts. Use `explainVerificationIssue(issueOrCode)` or
 `remediationForIssue(issueOrCode)` to turn a stable code into the concrete next
-operator or verifier action.
+operator or verifier action. For production UI and audit logs,
+`verifyProductionDeploymentReport()` returns the verifier decision with expanded
+issue remediations, a recommended action, and pass/fail/not-checked status for
+the controls.
 
 ### `EventTemplate`
 
@@ -682,6 +685,18 @@ Use `explainVerificationIssue(issue)` when presenting failures to an operator.
 For example, `bundle.trusted_publishers_missing` means the verifier has no
 pinned publisher keys, while `event.signature_invalid` means the fetched event
 must be rejected and can optionally be retried from another relay.
+
+#### `createProductionDecisionReport(result) → ProductionDecisionReport`
+
+Convert a `verifyProductionDeployment()` result into an audit- and UI-ready
+report. The report keeps the accept/reject decision, adds `recommendedAction`,
+expands every issue with summary and remediation text, lists unique
+remediations, and reports whether production controls passed, failed, or were
+explicitly relaxed.
+
+#### `verifyProductionDeploymentReport(events, bundle, options) → ProductionDecisionReport`
+
+Verify a production deployment and return the decision report directly.
 
 Canonical subject helpers cover Nostr-native subjects plus relays, service
 endpoints, NIP-05, domains, LNURLp, NIP-96, npm packages, git repositories,

@@ -26,8 +26,7 @@ import {
   createCircleManifest,
   createDeploymentPolicy,
   createSignedDeploymentBundle,
-  explainVerificationIssue,
-  verifyProductionDeployment,
+  verifyProductionDeploymentReport,
 } from 'nostr-veil/profiles'
 
 const trustedPolicyPublishers = [operatorPubkey]
@@ -57,17 +56,14 @@ const bundle = createSignedDeploymentBundle(policy, {
   privateKey: operatorPrivateKey,
 })
 
-const result = verifyProductionDeployment(assertionFromRelay, bundle, {
+const report = verifyProductionDeploymentReport(assertionFromRelay, bundle, {
   now: Math.floor(Date.now() / 1000),
   trustedPublishers: trustedPolicyPublishers,
 })
 
-if (!result.valid) {
-  audit(result.issues.map(issue => ({
-    ...issue,
-    ...explainVerificationIssue(issue),
-  })))
-  throw new Error(result.errors.join('; '))
+if (!report.valid) {
+  audit(report)
+  throw new Error(report.issues.map(issue => issue.code).join('; '))
 }
 ```
 
@@ -78,7 +74,8 @@ signatures for relay-fetched assertions. The result is a gate, not a business
 decision. After it passes, the application still decides what action is
 proportionate for that subject and score.
 
-`result.errors` are human-readable. `result.issues` contains stable
+The raw `verifyProductionDeployment()` result keeps human-readable
+`result.errors`. Both the raw result and the decision report include stable
 machine-readable codes such as `bundle.trusted_publishers_missing`,
 `bundle.signer_untrusted`, `bundle.expired`, `event.signature_invalid`,
 `circle.unaccepted`, `metric.below_min`, and `policy.nostr_signature_not_required`.
@@ -88,6 +85,12 @@ operator or application needs the next action as well as the code. For example,
 `bundle.trusted_publishers_missing` tells the deployer to pin trusted publisher
 keys, while `event.signature_invalid` tells the verifier to reject the fetched
 event and optionally retry from another relay.
+
+For application UI and audit logs, prefer `verifyProductionDeploymentReport()`
+or pass an existing `verifyProductionDeployment()` result to
+`createProductionDecisionReport()`. The report keeps the accept/reject decision,
+adds `recommendedAction`, expands every issue with summary and remediation text,
+and names the controls that passed, failed, or were explicitly relaxed.
 
 ## Recipe patterns
 

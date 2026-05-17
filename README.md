@@ -172,6 +172,7 @@ The resulting `assertion` is a plain `EventTemplate` you sign and publish like a
 | `createSignedDeploymentBundle(policy, options)` | Sign a deployment policy and its manifests as trusted operator configuration |
 | `verifyDeploymentBundle(events, bundle, options?)` | Verify a signed bundle from trusted publishers, then verify the bundled deployment policy |
 | `verifyProductionDeployment(events, bundle, options?)` | One-call production gate that also requires an expiring bundle and signed relay-fetched events by default |
+| `createProductionDecisionReport(result)`, `verifyProductionDeploymentReport(events, bundle, options?)` | Produce an audit/UI-ready decision report with recommended action, issue remediation, and control status |
 | `VerificationIssue`, `VerificationIssueCode` | Stable machine-readable issue codes returned alongside human-readable errors |
 | `explainVerificationIssue(issueOrCode)`, `remediationForIssue(issueOrCode)` | Turn stable issue codes into concrete operator or verifier remediation guidance |
 | `canonicalRelaySubject`, `canonicalServiceSubject`, `canonicalNip05Subject`, `canonicalDomainSubject`, `canonicalLnurlpSubject`, `canonicalNip96Subject`, `canonicalNpmPackageSubject`, `canonicalGitRepositorySubject`, `canonicalGithubRepositorySubject`, `canonicalMaintainerSubject` | Canonical subject helpers for common real-world identifiers |
@@ -270,7 +271,10 @@ composing lower-level checks. It returns the existing human-readable `errors`
 plus stable `issues[].code` values such as `bundle.signer_untrusted`,
 `event.signature_invalid`, `circle.unaccepted`, and `metric.below_min`. Use
 `explainVerificationIssue()` or `remediationForIssue()` to show the exact
-operator action for each failure.
+operator action for each failure. For application UI, audit logs, and support
+runbooks, `verifyProductionDeploymentReport()` returns the same decision with a
+recommended action, expanded issue remediations, and pass/fail/not-checked
+status for the production controls.
 
 ---
 

@@ -37,8 +37,10 @@ release reputation, relay preference, NIP-05/domain trust, federated moderation
 review, and relay/community admission. The recipes use stable issue codes for
 audit/error handling. Production apps can pass those codes to
 `explainVerificationIssue()` or `remediationForIssue()` to show the corrective
-operator action. The recipes also use NIP-85 kind names such as "kind 30385
-identifier assertion" so the subject route is explicit.
+operator action, or use `verifyProductionDeploymentReport()` when they need the
+decision, control status, and remediation text in one object. The recipes also
+use NIP-85 kind names such as "kind 30385 identifier assertion" so the subject
+route is explicit.
 
 For real deployments, canonicalise subjects before signing. The profile helpers
 cover relays, service endpoints, NIP-05, domains, LNURLp, NIP-96, npm packages,
