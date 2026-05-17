@@ -618,7 +618,7 @@ function renderSafetyMatrix() {
     <p>${escapeHtml(detail)}</p>
   </div>`).join('\n  ')}
 </div>
-<p>Use <code>verifyProductionDeployment()</code> with trusted bundle publishers, signed relay events, accepted circle manifests, expected subject, freshness, and threshold policy so these checks are not left to application glue. For application UI and audit logs, use <code>verifyProductionDeploymentReport()</code> or <code>createProductionDecisionReport()</code> so failures include issue codes, remediation text, a recommended action, pass/fail/not-checked status for the controls, and the profile's <code>proofClaims</code>, <code>proofLimitations</code>, <code>requiredControls</code>, and <code>recommendedActions</code>.</p>`
+<p>Use <code>validateUseCaseProfileDefinition()</code> for custom profiles, then <code>verifyProductionDeployment()</code> with trusted bundle publishers, signed relay events, accepted circle manifests, expected subject, freshness, and threshold policy so these checks are not left to application glue. For application UI and audit logs, use <code>verifyProductionDeploymentReport()</code> or <code>createProductionDecisionReport()</code> so failures include issue codes, remediation text, a recommended action, pass/fail/not-checked status for the controls, and the profile's <code>proofClaims</code>, <code>proofLimitations</code>, <code>requiredControls</code>, and <code>recommendedActions</code>.</p>`
 }
 
 function renderNip85KindReference() {

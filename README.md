@@ -164,6 +164,7 @@ The resulting `assertion` is a plain `EventTemplate` you sign and publish like a
 |--------|-------------|
 | `USE_CASE_PROFILES` | Built-in machine-readable profiles for the documented use cases, including proof claims, limitations, required controls, and recommended actions |
 | `USE_CASE_PROFILE_BY_ID` | Lookup table keyed by use-case slug |
+| `validateUseCaseProfileDefinition(profile)` | Check custom profiles for NIP-85 route mismatches, unsupported metrics, missing safety metadata, and overclaiming warnings before production use |
 | `verifyUseCaseProfile(events, profile, options)` | Verify NIP-85 syntax, proof v2, subject binding, threshold, freshness, accepted circles, and federation policy |
 | `createCircleManifest(options)` | Build a machine-readable circle manifest with member list, allowed profiles, expiry, revocation, and supersession metadata |
 | `verifyCircleManifest(manifest, options?)` | Verify that a circle manifest matches its members and deployment constraints |
@@ -181,7 +182,10 @@ The resulting `assertion` is a plain `EventTemplate` you sign and publish like a
 The built-in profiles include safety metadata for production UX and agentic
 integrations: `proofClaims`, `proofLimitations`, `requiredControls`, and
 `recommendedActions`. Use those fields to show what the proof actually supports
-and which real-world checks must still happen outside nostr-veil.
+and which real-world checks must still happen outside nostr-veil. If you define
+a custom profile, run `validateUseCaseProfileDefinition()` in tests or CI before
+shipping it; warnings are where the profile may be technically valid but
+underspecified for real-world decisions.
 
 ### Signing utility (root export)
 

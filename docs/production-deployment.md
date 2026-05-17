@@ -10,6 +10,8 @@ policy in `createSignedDeploymentBundle()` before distributing it. Verifiers
 should call `verifyProductionDeployment()` with a pinned publisher key. A policy
 should include:
 
+- a profile definition that passes `validateUseCaseProfileDefinition()`, with
+  any warnings explicitly resolved or accepted;
 - the exact expected subject;
 - the canonical subject helper used before signing and verification;
 - the accepted circle manifests or explicit circle IDs for this deployment;
@@ -26,10 +28,14 @@ import {
   createCircleManifest,
   createDeploymentPolicy,
   createSignedDeploymentBundle,
+  validateUseCaseProfileDefinition,
   verifyProductionDeploymentReport,
 } from 'nostr-veil/profiles'
 
 const trustedPolicyPublishers = [operatorPubkey]
+const profileCheck = validateUseCaseProfileDefinition(RELEASE_PACKAGE_MAINTAINER_REPUTATION_PROFILE)
+if (!profileCheck.valid) throw new Error(profileCheck.errors.join('; '))
+
 const subject = canonicalNpmPackageSubject('nostr-veil', '0.15.0')
 const reviewerPubkeys = [alicePubkey, bobPubkey, carolPubkey].sort()
 const packageReviewCircle = createCircleManifest({
@@ -94,6 +100,11 @@ names the controls that passed, failed, or were explicitly relaxed, and carries
 the profile's `proofClaims`, `proofLimitations`, `requiredControls`, and
 `recommendedActions` so the UI can explain the proof boundary without inventing
 its own copy.
+
+`validateUseCaseProfileDefinition()` is intentionally advisory for custom
+profiles, so adding it does not reject legacy events or change production bundle
+verification. Use it as a CI gate for new application profiles and treat
+warnings as review items before a score drives automation.
 
 ## Recipe patterns
 

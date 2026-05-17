@@ -47,6 +47,11 @@ The built-in profiles also expose `proofClaims`, `proofLimitations`,
 production decision so the UI says what the proof supports and which real-world
 checks still have to run.
 
+When adding a custom use-case profile, run
+`validateUseCaseProfileDefinition(profile)` in the same test suite. It catches
+NIP-85 kind/tag mismatches, unsupported metrics, missing safety metadata, and
+warnings where a profile may overclaim or omit real-world controls.
+
 For real deployments, canonicalise subjects before signing. The profile helpers
 cover relays, service endpoints, NIP-05, domains, LNURLp, NIP-96, npm packages,
 git repositories, GitHub repositories, maintainers, vendors, and sources, so

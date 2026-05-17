@@ -108,7 +108,10 @@ workflow, canonicalisation, expiry, revocation, transport privacy, Sybil policy,
 or a companion protocol.
 Built-in `USE_CASE_PROFILES` also expose `proofClaims`, `proofLimitations`,
 `requiredControls`, and `recommendedActions` so applications and agents can
-present the safety boundary without inventing their own copy.
+present the safety boundary without inventing their own copy. For custom
+profiles, run `validateUseCaseProfileDefinition(profile)` in tests or CI to
+catch NIP-85 route mismatches, unsupported metrics, missing safety metadata,
+and overclaiming warnings before a score drives production behaviour.
 
 ## Type Definitions
 
@@ -628,6 +631,15 @@ checks, deployment policy, circle manifests, and signed policy bundles on top of
 the low-level proof verifier. Built-in profiles carry machine-readable safety
 metadata: `proofClaims`, `proofLimitations`, `requiredControls`, and
 `recommendedActions`.
+
+#### `validateUseCaseProfileDefinition(profile) → UseCaseProfileDefinitionValidation`
+
+Validate a built-in or custom use-case profile before it is used in a deployment
+policy. Errors catch NIP-85 kind/tag route mismatches, unsupported proof
+versions, incompatible subject formats, unsupported metrics, missing freshness
+or threshold configuration, and missing safety metadata. Warnings flag softer
+review items such as v1 proof use, low thresholds, absent real-world controls,
+or proof claims that appear to overstate what nostr-veil proves.
 
 #### `verifyUseCaseProfile(events, profile, options) → UseCaseProfileVerification`
 

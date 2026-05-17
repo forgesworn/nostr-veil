@@ -64,8 +64,12 @@ Two subpath exports, plus a root that re-exports everything:
 `verifyDeploymentPolicy`, `createSignedDeploymentBundle`,
 `verifyDeploymentBundle`, `verifyProductionDeployment`,
 `createProductionDecisionReport`, `verifyProductionDeploymentReport`,
-`VerificationIssue`, `VerificationIssueCode`, `explainVerificationIssue`,
-`remediationForIssue`, and canonical subject helpers. Use
+`validateUseCaseProfileDefinition`, `VerificationIssue`,
+`VerificationIssueCode`, `explainVerificationIssue`,
+`remediationForIssue`, and canonical subject helpers. Run
+`validateUseCaseProfileDefinition(profile)` for custom profiles to catch
+NIP-85 route mismatches, unsupported metrics, missing safety metadata, and
+overclaiming warnings before production use. Use
 `verifyProductionDeployment` with pinned trusted publisher pubkeys for
 production relay-fetched assertions; it also requires expiring bundles and
 signed events by default. Use decision reports and issue explanations to turn

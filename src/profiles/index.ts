@@ -1,6 +1,7 @@
 export * from './types.js'
 export * from './canonical.js'
 export * from './profiles.js'
+export * from './definition.js'
 export * from './verify.js'
 export * from './policy.js'
 export * from './manifest.js'

@@ -19,6 +19,12 @@ The built-in `USE_CASE_PROFILES` expose the same safety boundary as
 machine-readable metadata: `proofClaims`, `proofLimitations`,
 `requiredControls`, and `recommendedActions`.
 
+When defining a new profile, run `validateUseCaseProfileDefinition(profile)`
+before using it in a deployment policy. Validation errors mean the verifier will
+not be able to check the claimed NIP-85 route correctly. Warnings flag softer
+risks such as overclaiming proof semantics or omitting the real-world controls
+that make a score safe to act on.
+
 For production deployments, use the machine-readable profiles and safe verifier
 from `nostr-veil/profiles` through an explicit deployment policy:
 
@@ -29,10 +35,14 @@ import {
   createCircleManifest,
   createDeploymentPolicy,
   createSignedDeploymentBundle,
+  validateUseCaseProfileDefinition,
   verifyProductionDeploymentReport,
 } from 'nostr-veil/profiles'
 
 const trustedPolicyPublishers = [operatorPubkey]
+const profileCheck = validateUseCaseProfileDefinition(RELEASE_PACKAGE_MAINTAINER_REPUTATION_PROFILE)
+if (!profileCheck.valid) throw new Error(profileCheck.errors.join('; '))
+
 const subject = canonicalNpmPackageSubject('nostr-veil', '0.14.0')
 const reviewerPubkeys = [alicePubkey, bobPubkey, carolPubkey].sort()
 const circle = createCircleManifest({

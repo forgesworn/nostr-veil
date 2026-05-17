@@ -64,6 +64,10 @@ export interface UseCaseProfile {
   requiredControls?: UseCaseRequiredControl[]
 }
 
+export interface UseCaseProfileDefinitionValidation extends ValidationResult {
+  warnings: string[]
+}
+
 export interface VerifyUseCaseProfileOptions {
   acceptedCircleIds?: Iterable<string>
   aggregateFn?: AggregateFn
