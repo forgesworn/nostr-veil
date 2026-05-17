@@ -73,9 +73,9 @@ if (!syntax.valid || !proof.valid) throw new Error('invalid identity assertion')
 - The threshold and aggregate can be verified from the event.
 - Proof v2 binds the contribution to the identifier assertion namespace.
 
-## Boundary and companion controls
+## Operational requirements
 
-| Boundary | Add this to cover it |
+| Risk to handle | Required control |
 | --- | --- |
 | The proof does not prove domain control. | Perform DNS, HTTPS, NIP-05, LNURL, or service-specific checks before reviewers contribute. |
 | The proof does not perform NIP-05 resolution. | Resolve and cache the NIP-05 result in the application; use nostr-veil only for the circle's assessment of that identifier. |

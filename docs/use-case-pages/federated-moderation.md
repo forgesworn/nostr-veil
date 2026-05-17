@@ -74,9 +74,9 @@ console.log(federation.distinctSigners, federation.totalSignatures)
 - Matching scoped key images are counted once across circles.
 - A member who contributed in multiple circles does not inflate the total.
 
-## Boundary and companion controls
+## Operational requirements
 
-| Boundary | Add this to cover it |
+| Risk to handle | Required control |
 | --- | --- |
 | Scoped federation reveals that the same unknown contributor appeared in more than one circle. | Use scoped federation only when deduplication is worth that overlap signal. Otherwise keep circles unscoped and display separate circle results. |
 | The proof does not prove circles are independent. | Publish federation membership rules, circle admission policies, and governance for conflicts or captured circles. |

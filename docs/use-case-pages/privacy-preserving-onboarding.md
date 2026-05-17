@@ -71,9 +71,9 @@ const accepted = syntax.valid && proof.valid && proof.distinctSigners >= 3
 - The candidate subject is bound to the proof.
 - No individual vouching member is identified.
 
-## Boundary and companion controls
+## Operational requirements
 
-| Boundary | Add this to cover it |
+| Risk to handle | Required control |
 | --- | --- |
 | The assertion does not admit the user to a relay by itself. | Implement relay or community policy that checks the assertion and then grants access. |
 | The candidate pubkey is visible. | Use this for portable vouching today. For private membership or unlinkable entry, add a separate anonymous admission protocol. |

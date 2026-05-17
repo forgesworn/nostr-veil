@@ -80,9 +80,9 @@ if (!syntax.valid || !proof.valid) throw new Error('invalid source assertion')
 - The aggregate `rank` matches the signed confidence values.
 - With proof v2, the proof is bound to kind 30385 and the `k` profile tag.
 
-## Boundary and companion controls
+## Operational requirements
 
-| Boundary | Add this to cover it |
+| Risk to handle | Required control |
 | --- | --- |
 | The proof does not prove the source's claim is true. | Pair it with normal editorial verification: documents, independent confirmation, fact-checking, and correction policy. |
 | The proof does not prove the source is safe to contact. | Use a separate source-risk review, secure contact plan, and least-knowledge handling for sensitive details. |

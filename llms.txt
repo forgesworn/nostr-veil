@@ -64,7 +64,7 @@ nostr-veil hides which public ring member contributed. It does not hide the ring
 membership list, individual anonymous metric values, network/timing metadata, or
 whether the circle was socially well-chosen. Shared federation scopes intentionally
 reveal cross-circle overlap by key image while still hiding the contributor's identity.
-Use companion controls for the boundary: circle admission and rotation, evidence
+Use operational controls for the boundary: circle admission and rotation, evidence
 workflow, appeals, identifier canonicalisation, expiry, revocation, batching,
 transport privacy, and service-specific checks.
 
@@ -82,9 +82,12 @@ anonymous gated access are future profiles: nostr-veil can provide the threshold
 proof, but those flows need separate credential/admission event formats and
 handshakes.
 
-Use-case pages follow a Recall-style narrative arc: Hook, Stakes, Evidence,
-Mechanism, Build shape, Boundary, Companion controls, Outcome. Each caveat
-should say what companion policy or protocol covers the missing part.
+Use-case pages are implementation profiles. Each page should identify the
+subject shape, helper, metric meaning, proof version, verifier action, proof
+boundary, and the operational controls needed outside nostr-veil. Caveats
+should be paired with concrete controls such as evidence workflow,
+canonicalisation, expiry, revocation, transport privacy, Sybil policy, or a
+companion protocol.
 
 ## Companion Libraries
 
@@ -98,6 +101,6 @@ These are not dependencies but complement nostr-veil:
 ## Optional
 
 - [README](https://github.com/forgesworn/nostr-veil/blob/main/README.md): Full documentation with architecture diagram
-- [docs/use-cases.md](https://github.com/forgesworn/nostr-veil/blob/main/docs/use-cases.md): Concrete use-case field guide with individual worked pages and companion controls
+- [docs/use-cases.md](https://github.com/forgesworn/nostr-veil/blob/main/docs/use-cases.md): Concrete use-case field guide with individual worked pages and operational controls
 - [IMPACT.md](https://github.com/forgesworn/nostr-veil/blob/main/IMPACT.md): Problem statement and ecosystem impact
 - [@forgesworn/ring-sig](https://github.com/forgesworn/ring-sig): Underlying ring signature library

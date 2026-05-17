@@ -100,11 +100,10 @@ anonymous gated access are future profiles: nostr-veil can provide the
 threshold proof, but those flows need separate credential/admission event
 formats and handshakes.
 
-The use-case documentation is written as a production field guide. Each page
-should identify the subject shape, helper, metric meaning, proof boundary, and
-the companion controls needed beyond nostr-veil. Use the Recall-style narrative
-arc: Hook, Stakes, Evidence, Mechanism, Build shape, Boundary, Companion
-controls, Outcome. Caveats should be paired with a mitigation such as evidence
+The use-case documentation is written as implementation profiles. Each page
+should identify the subject shape, helper, metric meaning, proof version,
+verifier action, proof boundary, and the operational controls needed beyond
+nostr-veil. Caveats should be paired with a concrete control such as evidence
 workflow, canonicalisation, expiry, revocation, transport privacy, Sybil policy,
 or a companion protocol.
 

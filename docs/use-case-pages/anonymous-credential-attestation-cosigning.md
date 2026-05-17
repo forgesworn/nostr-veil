@@ -79,9 +79,9 @@ if (!syntax.valid || !proof.valid) throw new Error('invalid attestation score')
 - Whether endorsements are binary, ranked, weighted, or scoped.
 - How a verifier discovers the right circle for the credential class.
 
-## Boundary and what to add
+## Operational requirements
 
-| Boundary | Add this to cover it |
+| Risk to handle | Required control |
 | --- | --- |
 | nostr-veil does not currently issue anonymous credentials. | Define a credential or attestation event format, issuer rules, holder binding, and presentation flow. |
 | Selective disclosure is not defined here. | Add a credential protocol that can reveal only the required attributes while keeping the nostr-veil proof as the anonymous endorsement signal. |

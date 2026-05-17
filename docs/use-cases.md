@@ -12,30 +12,9 @@ It does not decide whether a circle is socially legitimate, whether a claim is
 true, whether an off-chain package or domain is safe, or whether a verifier
 should act on the score. Those are application policy decisions.
 
-The right way to present a nostr-veil use case is not "the proof solves trust".
-It is "the proof gives one precise, verifiable privacy-preserving signal, and
-the application supplies the surrounding policy".
-
-## Use-case storytelling model
-
-Use the same kind of narrative arc as the Recall pitch site: name the broken
-assumption, make the stakes concrete, show evidence, then introduce the
-mechanism and implementation path. It is close to a PAS/PASO sales structure
-with extra proof and boundary sections for technical readers.
-
-| Step | Question to answer |
-| --- | --- |
-| Hook | What familiar assumption is broken? |
-| Stakes | Who is exposed, pressured, or blocked by the current trust workflow? |
-| Evidence | What concrete facts, examples, or threat model prove the problem is real? |
-| Mechanism | What does nostr-veil add that the existing workflow lacks? |
-| Build shape | Which circle, metric, threshold, NIP-85 kind, subject tag, helper, and proof version are used? |
-| Boundary | What does the proof deliberately not establish? |
-| Companion controls | What policy, evidence process, protocol, or operational control covers that boundary? |
-| Outcome | What can the verifier safely do after checking the assertion? |
-
-Use this structure when adding new pages. It keeps the story compelling,
-specific, and useful without over-claiming the cryptography.
+Each worked page is written as an implementation profile: choose the subject,
+pick the helper, define the metric meaning, require the right proof version,
+then add the operational controls that sit outside the cryptographic proof.
 
 ## Implementation pattern
 

@@ -72,9 +72,9 @@ if (!syntax.valid || !proof.valid) throw new Error('invalid proposal assertion')
 - The score is bound to a specific proposal subject.
 - The reviewer set is public, but individual reviewers are not named.
 
-## Boundary and companion controls
+## Operational requirements
 
-| Boundary | Add this to cover it |
+| Risk to handle | Required control |
 | --- | --- |
 | The proof does not prove the proposal will succeed. | Use milestone tracking, deliverable checks, and post-award review to validate execution. |
 | The proof does not show private reviewer rationale. | Publish redacted rationale, criteria scores, or decision notes when transparency is required. |

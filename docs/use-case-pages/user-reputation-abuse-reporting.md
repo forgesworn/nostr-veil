@@ -85,9 +85,9 @@ signed it; they cannot see which members signed.
 - The metric tags match the aggregate of the signed contributions.
 - With proof v2, the proof is bound to kind 30382 and the `p` subject hint.
 
-## Boundary and companion controls
+## Operational requirements
 
-| Boundary | Add this to cover it |
+| Risk to handle | Required control |
 | --- | --- |
 | The proof does not prove that abuse happened. | Keep a separate evidence workflow, retention policy, escalation path, and appeal process. Use the nostr-veil score as the anonymous threshold signal, not as the whole case file. |
 | The proof does not prove the circle is fair, independent, or Sybil-resistant. | Publish admission criteria, rotate compromised members, use independent circles for high-impact actions, and audit circle membership changes. |

@@ -81,9 +81,9 @@ if (!syntax.valid || !proof.valid) throw new Error('invalid vendor assertion')
 - The final metric tags match the signed anonymous contributions.
 - The signal is portable as a Nostr event.
 
-## Boundary and companion controls
+## Operational requirements
 
-| Boundary | Add this to cover it |
+| Risk to handle | Required control |
 | --- | --- |
 | The proof does not adjudicate disputes. | Add evidence submission, dispute review, appeal paths, refund policy, and moderator escalation. |
 | The proof does not prove vendor identity outside the chosen profile. | Use Nostr pubkeys, marketplace account checks, NIP-05/domain checks, escrow records, or other identity controls as appropriate. |

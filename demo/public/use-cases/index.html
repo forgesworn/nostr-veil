@@ -3,82 +3,75 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>nostr-veil use cases: anonymous threshold trust for Nostr</title>
-  <meta name="description" content="Implementation guide for nostr-veil use cases: what the proof establishes, what application policy must add, and worked examples for each Nostr trust workflow." />
+  <title>nostr-veil use-case atlas</title>
+  <meta name="description" content="A practical atlas of nostr-veil use cases with subject routes, proof boundaries, and worked implementation examples for Nostr trust workflows." />
 
   <meta property="og:type" content="website" />
-  <meta property="og:title" content="nostr-veil use cases" />
-  <meta property="og:description" content="Anonymous threshold-backed NIP-85 assertions for moderation, source corroboration, relay reputation, software review, onboarding, and more." />
+  <meta property="og:title" content="nostr-veil use-case atlas" />
+  <meta property="og:description" content="Anonymous threshold-backed NIP-85 assertions for moderation, source corroboration, relays, software review, onboarding, and more." />
   <meta property="og:image" content="https://raw.githubusercontent.com/forgesworn/nostr-veil/main/social-preview.png" />
   <meta property="og:url" content="https://veil.forgesworn.dev/use-cases/" />
   <meta name="twitter:card" content="summary_large_image" />
 
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='9' fill='none' stroke='%2347d6b6' stroke-width='3'/></svg>" />
-
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='9' fill='none' stroke='%2340c7aa' stroke-width='3'/></svg>" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 
   <style>
     :root {
-      --bg: #07090c;
-      --bg-2: #0a0e13;
-      --surface: #0d131a;
-      --surface-2: #111923;
-      --surface-3: #16212b;
-      --line: #22303d;
-      --line-strong: #344453;
-      --text: #f3f7fa;
-      --text-soft: #b3c0cc;
-      --muted: #748392;
-      --accent: #47d6b6;
-      --accent-2: #79a7ff;
-      --accent-3: #f2b84b;
-      --danger: #ff6b6b;
-      --shadow: 0 22px 80px rgba(0,0,0,0.34);
+      --ink: #111820;
+      --ink-2: #2b3844;
+      --muted: #627180;
+      --paper: #f7f8f5;
+      --paper-2: #eef2ed;
+      --white: #ffffff;
+      --line: #d9e0db;
+      --line-strong: #b7c4bc;
+      --dark: #07100f;
+      --dark-line: #213238;
+      --mint: #40c7aa;
+      --mint-dark: #0e7462;
+      --blue: #3d6fd9;
+      --shadow: 0 24px 70px rgba(17, 24, 32, 0.14);
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
     html { scroll-behavior: smooth; }
-    html, body { overflow-x: hidden; }
     body {
       min-height: 100vh;
       background:
-        linear-gradient(rgba(255,255,255,0.026) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255,255,255,0.026) 1px, transparent 1px),
-        linear-gradient(180deg, var(--bg), var(--bg-2) 48%, var(--bg));
-      background-size: 40px 40px, 40px 40px, 100% 100%;
-      color: var(--text);
+        linear-gradient(rgba(17, 24, 32, 0.035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(17, 24, 32, 0.035) 1px, transparent 1px),
+        var(--paper);
+      background-size: 36px 36px, 36px 36px, auto;
+      color: var(--ink);
       font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      line-height: 1.58;
+      line-height: 1.55;
       -webkit-font-smoothing: antialiased;
       text-rendering: optimizeLegibility;
     }
 
-    a { color: var(--accent); text-decoration: none; }
+    a { color: inherit; text-decoration: none; }
     a:hover { text-decoration: underline; text-underline-offset: 3px; }
-    code, pre, .mono { font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace; }
+    code, .mono { font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace; }
     .wrap { width: min(1180px, calc(100% - 40px)); margin: 0 auto; }
     .eyebrow {
-      color: var(--accent);
+      color: var(--mint-dark);
       font-family: "JetBrains Mono", ui-monospace, monospace;
       font-size: 12px;
-      font-weight: 600;
-      letter-spacing: 0.14em;
+      font-weight: 700;
+      letter-spacing: 0.12em;
       text-transform: uppercase;
     }
-    .section { padding: 88px 0; border-top: 1px solid rgba(255,255,255,0.07); }
-    .section-head { display: grid; grid-template-columns: minmax(0, 0.74fr) minmax(280px, 0.46fr); gap: 42px; align-items: end; margin-bottom: 34px; }
-    .section-head h2 { font-size: clamp(30px, 4vw, 48px); line-height: 1.02; letter-spacing: 0; margin-top: 12px; max-width: 800px; }
-    .section-head p { color: var(--text-soft); font-size: 16px; max-width: 56ch; }
 
     header {
       position: sticky;
       top: 0;
-      z-index: 30;
-      background: rgba(7,9,12,0.86);
-      border-bottom: 1px solid rgba(255,255,255,0.07);
-      backdrop-filter: blur(16px);
+      z-index: 20;
+      background: rgba(247, 248, 245, 0.9);
+      border-bottom: 1px solid var(--line);
+      backdrop-filter: blur(18px);
     }
     .nav-shell {
       height: 66px;
@@ -91,266 +84,330 @@
       display: inline-flex;
       align-items: center;
       gap: 10px;
-      color: var(--text);
       font-family: "JetBrains Mono", ui-monospace, monospace;
       font-size: 14px;
-      font-weight: 700;
-      letter-spacing: 0.02em;
+      font-weight: 800;
+      letter-spacing: 0.01em;
     }
     .brand-mark {
       width: 24px;
       height: 24px;
-      border: 1px solid var(--line-strong);
+      border: 1px solid var(--ink);
       border-radius: 50%;
       display: grid;
       place-items: center;
+      background: var(--dark);
     }
     .brand-mark::before {
       content: "";
       width: 8px;
       height: 8px;
       border-radius: 50%;
-      background: var(--accent);
-      box-shadow: 0 0 18px rgba(71,214,182,0.55);
+      background: var(--mint);
+      box-shadow: 0 0 18px rgba(64, 199, 170, 0.7);
     }
-    .nav { display: flex; align-items: center; gap: 22px; font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 12px; }
-    .nav a { color: var(--text-soft); }
-    .nav a:hover { color: var(--text); text-decoration: none; }
-    .nav .install {
-      color: #06100d;
-      background: var(--accent);
-      border-radius: 999px;
-      padding: 8px 12px;
+    .nav {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      color: var(--ink-2);
+      font-family: "JetBrains Mono", ui-monospace, monospace;
+      font-size: 12px;
       font-weight: 700;
     }
+    .nav a:hover { color: var(--mint-dark); text-decoration: none; }
+    .nav .install {
+      min-height: 34px;
+      display: inline-flex;
+      align-items: center;
+      border-radius: 999px;
+      padding: 0 13px;
+      color: var(--white);
+      background: var(--ink);
+    }
 
-    .hero { padding: 88px 0 70px; }
+    .hero {
+      color: var(--white);
+      background: linear-gradient(135deg, var(--dark), #0b1319 58%, #12161c);
+      border-bottom: 1px solid var(--dark-line);
+    }
     .hero-grid {
+      min-height: min(760px, calc(100vh - 120px));
       display: grid;
-      grid-template-columns: minmax(0, 0.95fr) minmax(360px, 0.58fr);
+      grid-template-columns: minmax(0, 0.92fr) minmax(360px, 0.7fr);
       gap: 54px;
       align-items: center;
-    }
-    .hero-grid > *,
-    .section-head > *,
-    .split > *,
-    .kind-grid > *,
-    .arc-grid > *,
-    .case-grid > *,
-    .road > *,
-    .footer-grid > * {
-      min-width: 0;
+      padding: 64px 0 68px;
     }
     .hero h1 {
-      font-size: clamp(44px, 7vw, 84px);
-      line-height: 0.96;
-      letter-spacing: 0;
-      max-width: 11ch;
+      max-width: 10ch;
       margin-top: 18px;
+      font-size: clamp(48px, 8vw, 92px);
+      line-height: 0.95;
+      letter-spacing: 0;
     }
     .hero .lede {
+      max-width: 62ch;
       margin-top: 24px;
-      max-width: 66ch;
-      color: var(--text-soft);
-      font-size: clamp(17px, 2vw, 20px);
+      color: #c7d2d9;
+      font-size: clamp(17px, 2vw, 21px);
     }
-    .hero .lede strong { color: var(--text); font-weight: 700; }
-    .hero-actions { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 34px; }
+    .hero .lede strong { color: var(--white); font-weight: 750; }
+    .hero-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 34px;
+    }
     .button {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      min-height: 42px;
+      min-height: 43px;
       padding: 0 16px;
+      border: 1px solid var(--dark-line);
       border-radius: 999px;
-      border: 1px solid var(--line-strong);
-      color: var(--text);
-      background: rgba(255,255,255,0.04);
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--white);
       font-family: "JetBrains Mono", ui-monospace, monospace;
       font-size: 12px;
-      font-weight: 700;
+      font-weight: 800;
       white-space: nowrap;
     }
-    .button:hover { border-color: var(--accent); color: var(--accent); text-decoration: none; }
-    .button.primary { color: #06100d; background: var(--accent); border-color: var(--accent); }
-    .button.primary:hover { color: #06100d; background: #62e6ca; }
+    .button:hover { border-color: var(--mint); color: var(--mint); text-decoration: none; }
+    .button.primary { background: var(--mint); border-color: var(--mint); color: #031412; }
+    .button.primary:hover { background: #6be0c9; color: #031412; }
+    .button.light { border-color: var(--line-strong); background: var(--white); color: var(--ink); }
+    .button.light:hover { border-color: var(--mint-dark); color: var(--mint-dark); }
 
-    .proof-panel {
-      background: linear-gradient(180deg, rgba(22,33,43,0.92), rgba(13,19,26,0.94));
-      border: 1px solid var(--line-strong);
+    .hero-visual {
+      border: 1px solid var(--dark-line);
       border-radius: 8px;
-      box-shadow: var(--shadow);
+      background: rgba(255, 255, 255, 0.035);
+      box-shadow: 0 30px 100px rgba(0, 0, 0, 0.32);
       overflow: hidden;
-      max-width: 100%;
     }
-    .proof-top {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 18px 20px;
-      border-bottom: 1px solid var(--line);
-      font-family: "JetBrains Mono", ui-monospace, monospace;
-      font-size: 12px;
-      color: var(--text-soft);
+    .hero-visual img {
+      display: block;
+      width: 100%;
+      height: auto;
+      aspect-ratio: 2 / 1;
+      object-fit: cover;
+      background: #101827;
     }
-    .status-dot { display: inline-flex; align-items: center; gap: 8px; }
-    .status-dot::before {
-      content: "";
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: var(--accent);
-      box-shadow: 0 0 14px rgba(71,214,182,0.6);
-    }
-    .proof-body { padding: 20px; }
-    .proof-ring {
+    .hero-metrics {
       display: grid;
-      grid-template-columns: repeat(7, 1fr);
-      gap: 8px;
-      margin-bottom: 18px;
-      min-width: 0;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      border-top: 1px solid var(--dark-line);
     }
-    .proof-ring span {
-      height: 44px;
-      border-radius: 6px;
-      border: 1px solid var(--line);
-      background: var(--surface);
-      position: relative;
+    .hero-metric {
+      min-height: 86px;
+      padding: 16px;
+      border-right: 1px solid var(--dark-line);
     }
-    .proof-ring span:nth-child(3) {
-      border-color: rgba(71,214,182,0.8);
-      background: rgba(71,214,182,0.12);
-    }
-    .proof-ring span:nth-child(3)::after {
-      content: "";
-      position: absolute;
-      inset: 14px;
-      border-radius: 50%;
-      background: var(--accent);
-    }
-    .metric-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
-    .metric {
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      padding: 14px;
-      background: rgba(0,0,0,0.16);
-    }
-    .metric strong {
+    .hero-metric:last-child { border-right: 0; }
+    .hero-metric strong {
       display: block;
-      font-size: 22px;
+      color: var(--white);
+      font-size: 26px;
       line-height: 1;
-      letter-spacing: 0;
     }
-    .metric span {
+    .hero-metric span {
       display: block;
-      color: var(--muted);
+      margin-top: 8px;
+      color: #a8b8c1;
       font-family: "JetBrains Mono", ui-monospace, monospace;
       font-size: 11px;
-      margin-top: 8px;
-    }
-    .proof-note {
-      margin-top: 18px;
-      color: var(--text-soft);
-      font-size: 14px;
+      line-height: 1.35;
     }
 
-    .split {
+    .section { padding: 84px 0; }
+    .section + .section { border-top: 1px solid var(--line); }
+    .section-head {
       display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 18px;
+      grid-template-columns: minmax(0, 0.76fr) minmax(280px, 0.42fr);
+      gap: 42px;
+      align-items: end;
+      margin-bottom: 30px;
     }
-    .panel {
-      background: rgba(13,19,26,0.88);
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      padding: 24px;
+    .section-head h2 {
+      max-width: 820px;
+      margin-top: 12px;
+      font-size: clamp(30px, 4.3vw, 52px);
+      line-height: 1.02;
+      letter-spacing: 0;
     }
-    .panel h3 { font-size: 20px; line-height: 1.2; margin-bottom: 14px; }
-    .panel ul { list-style: none; display: grid; gap: 12px; }
-    .panel li { color: var(--text-soft); padding-left: 24px; position: relative; }
-    .panel li::before {
-      content: "";
-      position: absolute;
-      left: 0;
-      top: 0.78em;
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: var(--accent);
+    .section-head p {
+      max-width: 58ch;
+      color: var(--muted);
+      font-size: 16px;
     }
-    .panel.boundary li::before { background: var(--accent-3); }
 
-    .kind-grid {
+    .route-grid {
       display: grid;
       grid-template-columns: repeat(4, minmax(0, 1fr));
       gap: 14px;
     }
-    .kind {
+    .route-card {
+      min-height: 222px;
       border: 1px solid var(--line);
       border-radius: 8px;
-      background: var(--surface);
-      padding: 18px;
+      background: var(--white);
+      padding: 20px;
+      box-shadow: 0 1px 0 rgba(17, 24, 32, 0.04);
     }
-    .kind .kind-num {
-      color: var(--accent-2);
+    .route-card .kind {
+      display: inline-flex;
+      min-height: 28px;
+      align-items: center;
+      border-radius: 999px;
+      background: var(--paper-2);
+      padding: 0 10px;
+      color: var(--blue);
       font-family: "JetBrains Mono", ui-monospace, monospace;
       font-size: 12px;
-      font-weight: 700;
+      font-weight: 800;
     }
-    .kind h3 { margin: 10px 0 8px; font-size: 18px; }
-    .kind p { color: var(--text-soft); font-size: 14px; }
-    .kind code { color: var(--accent); }
+    .route-card h3 { margin-top: 18px; font-size: 21px; line-height: 1.16; }
+    .route-card p { margin-top: 10px; color: var(--muted); font-size: 14px; }
+    .route-card code { color: var(--mint-dark); font-size: 12px; }
 
-    .arc-grid {
-      display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
-      gap: 10px;
+    .contract {
+      color: var(--white);
+      background: var(--dark);
+      border-top: 1px solid var(--dark-line);
+      border-bottom: 1px solid var(--dark-line);
     }
-    .arc-step {
-      min-height: 156px;
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      background: rgba(17,25,35,0.82);
-      padding: 16px;
-    }
-    .arc-step strong {
-      display: block;
-      font-size: 28px;
-      color: var(--accent);
-      line-height: 1;
-      margin-bottom: 12px;
-    }
-    .arc-step h3 { font-size: 15px; margin-bottom: 8px; }
-    .arc-step p { color: var(--text-soft); font-size: 13px; line-height: 1.45; }
-
-    .case-toolbar {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 18px;
-      flex-wrap: wrap;
-      margin-bottom: 18px;
-    }
-    .case-toolbar p { color: var(--text-soft); max-width: 76ch; }
-    .case-grid {
+    .contract .eyebrow { color: var(--mint); }
+    .contract .section-head p { color: #b7c5cc; }
+    .contract-grid {
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 16px;
+      gap: 14px;
     }
-    .case {
+    .contract-card {
+      min-height: 250px;
+      border: 1px solid var(--dark-line);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.045);
+      padding: 22px;
+    }
+    .contract-card h3 { font-size: 22px; line-height: 1.18; }
+    .contract-card ul {
+      display: grid;
+      gap: 11px;
+      margin-top: 16px;
+      list-style: none;
+      color: #c5d2d8;
+      font-size: 14px;
+    }
+    .contract-card li {
+      position: relative;
+      padding-left: 18px;
+    }
+    .contract-card li::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 0.68em;
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--mint);
+    }
+    .contract-card.policy li::before { background: #f3b24b; }
+    .contract-card.verify li::before { background: #85a7ff; }
+
+    .example-band {
+      display: grid;
+      grid-template-columns: minmax(0, 0.72fr) minmax(280px, 0.4fr);
+      gap: 22px;
+      align-items: stretch;
       border: 1px solid var(--line);
       border-radius: 8px;
-      background: rgba(13,19,26,0.9);
-      padding: 20px;
+      background: var(--white);
+      padding: 22px;
+      box-shadow: var(--shadow);
+    }
+    .example-band h2 {
+      max-width: 760px;
+      font-size: clamp(28px, 4vw, 44px);
+      line-height: 1.06;
+      letter-spacing: 0;
+    }
+    .example-band p {
+      margin-top: 12px;
+      color: var(--muted);
+      max-width: 72ch;
+    }
+    .example-actions {
       display: flex;
       flex-direction: column;
-      min-height: 318px;
-      transition: border-color 0.16s ease, transform 0.16s ease, background 0.16s ease;
+      justify-content: center;
+      gap: 10px;
     }
-    .case:hover {
-      border-color: rgba(71,214,182,0.66);
-      background: rgba(17,25,35,0.96);
+
+    .atlas {
+      display: grid;
+      grid-template-columns: 250px minmax(0, 1fr);
+      gap: 34px;
+      align-items: start;
+    }
+    .atlas-nav {
+      position: sticky;
+      top: 88px;
+      display: grid;
+      gap: 8px;
+      border-left: 3px solid var(--ink);
+      padding-left: 14px;
+      font-family: "JetBrains Mono", ui-monospace, monospace;
+      font-size: 12px;
+      font-weight: 800;
+    }
+    .atlas-nav a {
+      min-height: 32px;
+      display: flex;
+      align-items: center;
+      color: var(--muted);
+    }
+    .atlas-nav a:hover { color: var(--mint-dark); text-decoration: none; }
+    .case-group { scroll-margin-top: 96px; }
+    .case-group + .case-group { margin-top: 44px; }
+    .group-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 18px;
+      align-items: end;
+      margin-bottom: 14px;
+    }
+    .group-head h3 {
+      font-size: clamp(24px, 3vw, 34px);
+      line-height: 1.08;
+    }
+    .group-head p {
+      max-width: 52ch;
+      color: var(--muted);
+      font-size: 14px;
+    }
+    .case-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+    }
+    .case-card {
+      min-height: 286px;
+      display: flex;
+      flex-direction: column;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--white);
+      padding: 20px;
+      transition: transform 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease;
+    }
+    .case-card:hover {
       transform: translateY(-2px);
+      border-color: var(--line-strong);
+      box-shadow: 0 18px 42px rgba(17, 24, 32, 0.12);
     }
     .case-top {
       display: flex;
@@ -359,80 +416,62 @@
       align-items: center;
       margin-bottom: 14px;
     }
-    .tag {
+    .pill {
       display: inline-flex;
       align-items: center;
-      min-height: 24px;
+      min-height: 26px;
+      border: 1px solid var(--line);
       border-radius: 999px;
-      border: 1px solid var(--line-strong);
       padding: 0 9px;
-      color: var(--text-soft);
+      background: var(--paper);
+      color: var(--ink-2);
       font-family: "JetBrains Mono", ui-monospace, monospace;
       font-size: 10px;
-      font-weight: 700;
-      letter-spacing: 0.08em;
+      font-weight: 800;
+      letter-spacing: 0.06em;
       text-transform: uppercase;
       white-space: nowrap;
     }
-    .tag.ready { color: #06100d; background: var(--accent); border-color: var(--accent); }
-    .tag.future { color: #160f03; background: var(--accent-3); border-color: var(--accent-3); }
-    .case h3 { font-size: 20px; line-height: 1.2; margin-bottom: 10px; }
-    .case p { color: var(--text-soft); font-size: 14px; }
-    .case .shape {
-      margin: 16px 0;
-      display: grid;
-      gap: 7px;
+    .pill.today { background: #dff5ee; border-color: #b7e7d8; color: #075747; }
+    .pill.future { background: #fff1cf; border-color: #efd189; color: #6a4508; }
+    .pill.scope { background: #e7edff; border-color: #c8d5ff; color: #254fba; }
+    .case-card h4 { font-size: 21px; line-height: 1.18; }
+    .case-card p {
+      margin-top: 10px;
       color: var(--muted);
+      font-size: 14px;
+    }
+    .case-meta {
+      display: grid;
+      gap: 6px;
+      margin: 16px 0 14px;
+      color: var(--ink-2);
       font-family: "JetBrains Mono", ui-monospace, monospace;
       font-size: 11px;
       line-height: 1.45;
     }
-    .case .solve {
+    .requirement {
       margin-top: auto;
-      border-top: 1px solid var(--line);
       padding-top: 14px;
-      color: var(--text-soft);
+      border-top: 1px solid var(--line);
+      color: var(--ink-2);
       font-size: 13px;
     }
-    .case-links { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 16px; }
-    .case-links a {
+    .case-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 15px;
       font-family: "JetBrains Mono", ui-monospace, monospace;
       font-size: 12px;
-      font-weight: 700;
+      font-weight: 800;
     }
-
-    pre {
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      background: #080d12;
-      padding: 22px;
-      overflow-x: auto;
-      color: var(--text);
-      font-size: 13px;
-      line-height: 1.7;
-      box-shadow: inset 0 1px 0 rgba(255,255,255,0.03);
-    }
-    pre .c { color: var(--muted); }
-    pre .k { color: var(--accent-2); }
-    pre .s { color: var(--accent); }
-
-    .road {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 16px;
-    }
-    .road-item {
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      background: var(--surface);
-      padding: 22px;
-    }
-    .road-item h3 { font-size: 20px; margin: 10px 0; }
-    .road-item p { color: var(--text-soft); }
+    .case-links a { color: var(--mint-dark); }
 
     footer {
-      border-top: 1px solid rgba(255,255,255,0.07);
-      background: #06080b;
+      color: var(--white);
+      background: var(--dark);
+      border-top: 1px solid var(--dark-line);
       padding: 54px 0;
     }
     .footer-grid {
@@ -442,9 +481,9 @@
       align-items: start;
     }
     .footer-grid h3 { font-size: 20px; margin-bottom: 10px; }
-    .footer-grid p { color: var(--text-soft); max-width: 56ch; }
+    .footer-grid p { color: #b7c5cc; max-width: 56ch; }
     .footer-col h4 {
-      color: var(--muted);
+      color: #8fa0a8;
       font-family: "JetBrains Mono", ui-monospace, monospace;
       font-size: 11px;
       letter-spacing: 0.12em;
@@ -453,7 +492,7 @@
     }
     .footer-col a {
       display: block;
-      color: var(--text-soft);
+      color: #d6e0e5;
       font-size: 14px;
       margin: 7px 0;
     }
@@ -461,43 +500,49 @@
     @media (max-width: 980px) {
       .hero-grid,
       .section-head,
-      .split,
-      .road,
+      .example-band,
+      .atlas,
       .footer-grid { grid-template-columns: 1fr; }
-      .kind-grid,
-      .case-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-      .arc-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-      .hero h1 { max-width: 13ch; }
+      .hero-grid {
+        min-height: auto;
+        padding: 52px 0 50px;
+      }
+      .hero-visual { width: min(100%, 620px); }
+      .route-grid,
+      .contract-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .atlas-nav {
+        position: static;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        border-left: 0;
+        border-top: 3px solid var(--ink);
+        padding: 14px 0 0;
+      }
     }
 
     @media (max-width: 680px) {
-      body,
-      header,
-      main,
-      footer,
-      .section,
-      .hero {
-        max-width: 100vw;
-        overflow-x: clip;
-      }
-      .wrap {
-        width: calc(100vw - 28px);
-        max-width: calc(100vw - 28px);
-      }
-      h1, h2, h3, p, li, a, span { overflow-wrap: anywhere; }
+      html, body { overflow-x: hidden; }
+      .wrap { width: calc(100vw - 28px); }
+      h1, h2, h3, h4, p, li, a, span { overflow-wrap: anywhere; }
       .nav a:not(.install) { display: none; }
-      .hero { padding: 62px 0 52px; }
-      .section { padding: 62px 0; }
-      .hero-grid { gap: 34px; }
-      .proof-panel { margin: 0; width: 100%; }
-      .proof-top { flex-wrap: wrap; row-gap: 8px; }
-      pre { max-width: 100%; }
-      .metric-grid,
-      .kind-grid,
+      .hero-grid {
+        min-height: auto;
+        gap: 24px;
+        padding: 34px 0 30px;
+      }
+      .hero-visual { width: 100%; }
+      .hero h1 { max-width: 12ch; }
+      .route-grid,
+      .contract-grid,
       .case-grid,
-      .arc-grid { grid-template-columns: 1fr; }
-      .case { min-height: auto; }
-      .proof-ring span { height: 36px; }
+      .atlas-nav { grid-template-columns: 1fr; }
+      .hero-metrics { display: none; }
+      .section { padding: 62px 0; }
+      .section-head { gap: 18px; }
+      .group-head { display: block; }
+      .group-head p { margin-top: 8px; }
+      .case-card { min-height: auto; }
+      .example-actions,
+      .example-actions .button { width: 100%; }
       .footer-grid { gap: 28px; }
     }
   </style>
@@ -510,10 +555,9 @@
         <span>nostr-veil</span>
       </a>
       <nav class="nav" aria-label="Primary">
-        <a href="#contract">Proof contract</a>
-        <a href="#shape">NIP-85 shape</a>
-        <a href="#cases">Use cases</a>
-        <a href="#roadmap">Roadmap</a>
+        <a href="#routes">Routes</a>
+        <a href="#contract">Proof</a>
+        <a href="#atlas">Examples</a>
         <a href="https://github.com/forgesworn/nostr-veil">GitHub</a>
         <a class="install" href="https://www.npmjs.com/package/nostr-veil">npm</a>
       </nav>
@@ -525,555 +569,461 @@
       <div class="wrap hero-grid">
         <div>
           <span class="eyebrow">Anonymous threshold trust for Nostr</span>
-          <h1>Use cases developers can implement.</h1>
+          <h1>Use-case atlas.</h1>
           <p class="lede">
-            nostr-veil turns NIP-85 trust assertions into <strong>anonymous,
-            threshold-backed proofs</strong>. A verifier can check that distinct
-            members of a public circle contributed, without learning which
-            members took part.
+            nostr-veil lets a public circle publish a <strong>verifiable
+            NIP-85 trust signal</strong> while hiding which circle members
+            contributed. Start with the thing being scored, then open the
+            worked example for the exact implementation path.
           </p>
           <div class="hero-actions">
-            <a class="button primary" href="#cases">Explore use cases</a>
-            <a class="button" href="https://github.com/forgesworn/nostr-veil/blob/main/docs/use-cases.md">Implementation guide</a>
+            <a class="button primary" href="#atlas">Open the atlas</a>
+            <a class="button" href="https://github.com/forgesworn/nostr-veil/blob/main/docs/use-cases.md">Field guide</a>
             <a class="button" href="https://github.com/forgesworn/nostr-veil/blob/main/examples/use-cases.ts">Runnable examples</a>
           </div>
         </div>
 
-        <aside class="proof-panel" aria-label="Proof summary">
-          <div class="proof-top">
-            <span class="status-dot">proof valid</span>
-            <span>v2 bound</span>
-          </div>
-          <div class="proof-body">
-            <div class="proof-ring" aria-hidden="true">
-              <span></span><span></span><span></span><span></span><span></span><span></span><span></span>
-            </div>
-            <div class="metric-grid">
-              <div class="metric">
-                <strong>7</strong>
-                <span>circle size</span>
-              </div>
-              <div class="metric">
-                <strong>4</strong>
-                <span>distinct signers</span>
-              </div>
-              <div class="metric">
-                <strong>0</strong>
-                <span>named signers</span>
-              </div>
-            </div>
-            <p class="proof-note">
-              The ring is public. The contributors are hidden. Duplicate
-              detection keeps one member from being counted twice for the same
-              circle, subject, and scope.
-            </p>
-          </div>
-        </aside>
+        <figure class="hero-visual" aria-label="nostr-veil proof visual">
+          <img src="../social-preview.png" alt="nostr-veil ring proof preview" width="1280" height="640" />
+          <figcaption class="hero-metrics">
+            <span class="hero-metric">
+              <strong>4</strong>
+              <span>NIP-85 subject routes</span>
+            </span>
+            <span class="hero-metric">
+              <strong>14</strong>
+              <span>worked use cases</span>
+            </span>
+            <span class="hero-metric">
+              <strong>v2</strong>
+              <span>kind and subject binding</span>
+            </span>
+          </figcaption>
+        </figure>
       </div>
     </section>
 
-    <section id="contract" class="section">
+    <section id="routes" class="section">
+      <div class="wrap">
+        <div class="section-head">
+          <div>
+            <span class="eyebrow">Choose the subject</span>
+            <h2>The assertion kind follows the thing a verifier will act on.</h2>
+          </div>
+          <p>
+            This is the first design decision. User, event, addressable event,
+            and external identifier assertions all use the same proof layer,
+            but they bind the score to different Nostr subjects.
+          </p>
+        </div>
+
+        <div class="route-grid">
+          <article class="route-card">
+            <span class="kind">30382</span>
+            <h3>User pubkey</h3>
+            <p>Accounts, onboarding candidates, moderators, vendors with a Nostr identity, and pubkey-backed sources.</p>
+            <p><code>aggregateContributions</code></p>
+          </article>
+          <article class="route-card">
+            <span class="kind">30383</span>
+            <h3>Event id</h3>
+            <p>Claims, reports, announcements, grant proposals, credentials, and other single-event artefacts.</p>
+            <p><code>aggregateEventContributions</code></p>
+          </article>
+          <article class="route-card">
+            <span class="kind">30384</span>
+            <h3>Addressable event</h3>
+            <p>Long-form notes, research artefacts, lists, labeler profiles, moderation feeds, and NIP-33 records.</p>
+            <p><code>aggregateAddressableContributions</code></p>
+          </article>
+          <article class="route-card">
+            <span class="kind">30385</span>
+            <h3>External identifier</h3>
+            <p>Relays, services, domains, NIP-05 names, packages, releases, maintainers, and marketplace identities.</p>
+            <p><code>aggregateIdentifierContributions</code></p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="contract" class="section contract">
       <div class="wrap">
         <div class="section-head">
           <div>
             <span class="eyebrow">Proof contract</span>
-            <h2>Be precise about what the proof gives you.</h2>
+            <h2>Keep the cryptographic promise narrow and useful.</h2>
           </div>
           <p>
-            The strongest use cases are honest at the boundary. nostr-veil
-            handles the anonymous threshold proof; the application supplies
-            evidence, policy, canonicalisation, expiry, and operational safety.
+            nostr-veil gives applications a privacy-preserving threshold
+            signal. The surrounding workflow decides what evidence, policy,
+            expiry, and enforcement make that signal safe to use.
           </p>
         </div>
 
-        <div class="split">
-          <div class="panel">
-            <h3>nostr-veil proves</h3>
+        <div class="contract-grid">
+          <article class="contract-card">
+            <h3>The proof verifies</h3>
             <ul>
-              <li>Each contribution was signed by some member of the public circle.</li>
+              <li>Each contribution came from some member of the published circle.</li>
               <li>Distinct contributors are counted once for the same circle, subject, and scope.</li>
-              <li>The published metric tags match the signed contribution messages.</li>
-              <li>Proof v2 binds the proof to the assertion kind and subject hint.</li>
-              <li>The output remains an ordinary NIP-85 event on ordinary relays.</li>
+              <li>The published aggregate matches the signed contribution messages.</li>
+              <li>Proof v2 binds the assertion kind and subject hint.</li>
             </ul>
-          </div>
-          <div class="panel boundary">
-            <h3>Your application supplies</h3>
+          </article>
+          <article class="contract-card policy">
+            <h3>The application decides</h3>
             <ul>
-              <li>Circle admission, rotation, Sybil policy, and governance.</li>
-              <li>Evidence workflows, appeals, reviewer methodology, and disputes.</li>
+              <li>Circle admission, rotation, independence, and Sybil policy.</li>
+              <li>Evidence handling, appeals, reviewer criteria, and disputes.</li>
               <li>Identifier canonicalisation for domains, packages, relays, and vendors.</li>
               <li>Expiry, revocation, freshness, and incident response.</li>
-              <li>Transport privacy when timing, IP address, or relay metadata matters.</li>
             </ul>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section id="shape" class="section">
-      <div class="wrap">
-        <div class="section-head">
-          <div>
-            <span class="eyebrow">NIP-85 shape</span>
-            <h2>Pick the subject first. The helper follows.</h2>
-          </div>
-          <p>
-            Most implementation mistakes come from scoring the wrong subject.
-            Start with the thing a verifier will act on, then choose the
-            matching assertion kind.
-          </p>
-        </div>
-
-        <div class="kind-grid">
-          <div class="kind">
-            <span class="kind-num">30382</span>
-            <h3>User pubkey</h3>
-            <p>Use <code>aggregateContributions</code> when the subject is a Nostr account.</p>
-          </div>
-          <div class="kind">
-            <span class="kind-num">30383</span>
-            <h3>Event id</h3>
-            <p>Use <code>aggregateEventContributions</code> for claims, proposals, announcements, and reports.</p>
-          </div>
-          <div class="kind">
-            <span class="kind-num">30384</span>
-            <h3>Addressable event</h3>
-            <p>Use <code>aggregateAddressableContributions</code> for long-form notes, lists, and NIP-33 records.</p>
-          </div>
-          <div class="kind">
-            <span class="kind-num">30385</span>
-            <h3>External identifier</h3>
-            <p>Use <code>aggregateIdentifierContributions</code> for packages, domains, relays, vendors, and services.</p>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section id="story" class="section">
-      <div class="wrap">
-        <div class="section-head">
-          <div>
-            <span class="eyebrow">Use-case lens</span>
-            <h2>The Recall-style arc for every use case.</h2>
-          </div>
-          <p>
-            Start with the broken assumption, make the stakes real, prove the
-            problem, then show the mechanism, implementation path, boundary,
-            and companion controls. This keeps the story sharp without
-            over-claiming the proof.
-          </p>
-        </div>
-
-        <div class="arc-grid">
-          <div class="arc-step">
-            <strong>01</strong>
-            <h3>Hook</h3>
-            <p>What familiar trust assumption is broken?</p>
-          </div>
-          <div class="arc-step">
-            <strong>02</strong>
-            <h3>Stakes</h3>
-            <p>Who is exposed, pressured, or blocked today?</p>
-          </div>
-          <div class="arc-step">
-            <strong>03</strong>
-            <h3>Evidence</h3>
-            <p>What facts or threat model prove the need?</p>
-          </div>
-          <div class="arc-step">
-            <strong>04</strong>
-            <h3>Mechanism</h3>
-            <p>What does nostr-veil add to the workflow?</p>
-          </div>
-          <div class="arc-step">
-            <strong>05</strong>
-            <h3>Build shape</h3>
-            <p>Which circle, metric, kind, subject, helper, and proof version?</p>
-          </div>
-          <div class="arc-step">
-            <strong>06</strong>
-            <h3>Boundary</h3>
-            <p>What does the proof deliberately not establish?</p>
-          </div>
-          <div class="arc-step">
-            <strong>07</strong>
-            <h3>Controls</h3>
-            <p>What policy or protocol covers the missing part?</p>
-          </div>
-          <div class="arc-step">
-            <strong>08</strong>
-            <h3>Outcome</h3>
-            <p>What can a verifier safely do after checking it?</p>
-          </div>
+          </article>
+          <article class="contract-card verify">
+            <h3>The verifier checks</h3>
+            <ul>
+              <li>Strict NIP-85 syntax before relying on the event.</li>
+              <li><code>verifyProof(event, { requireProofVersion: 'v2' })</code> for new subject-bound workflows.</li>
+              <li>The expected circle, threshold, metric meaning, and policy action.</li>
+              <li>Federation scope when multiple circles are combined.</li>
+            </ul>
+          </article>
         </div>
       </div>
     </section>
 
     <section class="section">
       <div class="wrap">
-        <div class="section-head">
+        <div class="example-band">
           <div>
-            <span class="eyebrow">Minimal flow</span>
-            <h2>Four calls for a v2 proof.</h2>
+            <span class="eyebrow">Worked examples</span>
+            <h2>Each use case has its own page with the actual build shape.</h2>
+            <p>
+              The individual examples cover subject tags, helper calls,
+              metric meaning, v2 verification, operational requirements, and
+              policy choices. The TypeScript script exercises the same shapes
+              as a runnable cross-check.
+            </p>
           </div>
-          <p>
-            Use v2 for new workflows where kind and subject binding matter.
-            Legacy v1 events still verify unless your policy explicitly rejects
-            them.
-          </p>
-        </div>
-
-<pre><span class="k">import</span> {
-  createTrustCircle,
-  contributeAssertion,
-  aggregateContributions,
-  validateAssertionStrict,
-  verifyProof,
-} <span class="k">from</span> <span class="s">'nostr-veil'</span>
-
-<span class="k">const</span> proofVersion = <span class="s">'v2'</span>
-<span class="k">const</span> circle = createTrustCircle(reviewers.map(r =&gt; r.pubkey))
-
-<span class="k">const</span> contributions = reviewers.map(reviewer =&gt;
-  contributeAssertion(
-    circle,
-    subjectPubkey,
-    { rank: reviewer.rank },
-    reviewer.privateKey,
-    circle.members.indexOf(reviewer.pubkey),
-    { proofVersion },
-  ),
-)
-
-<span class="k">const</span> assertion = aggregateContributions(circle, subjectPubkey, contributions, { proofVersion })
-<span class="k">const</span> syntax = validateAssertionStrict(assertion)
-<span class="k">const</span> proof = verifyProof(assertion, { requireProofVersion: <span class="s">'v2'</span> })
-
-<span class="k">if</span> (!syntax.valid || !proof.valid) {
-  <span class="k">throw new</span> Error([...syntax.errors, ...proof.errors].join(<span class="s">'; '</span>))
-}</pre>
-      </div>
-    </section>
-
-    <section id="cases" class="section">
-      <div class="wrap">
-        <div class="case-toolbar">
-          <div>
-            <span class="eyebrow">Use-case catalogue</span>
-            <h2 style="font-size: clamp(30px, 4vw, 48px); line-height: 1.02; margin-top: 12px;">Build today, with the boundary made explicit.</h2>
+          <div class="example-actions">
+            <a class="button light" href="https://github.com/forgesworn/nostr-veil/blob/main/docs/use-cases.md">Open the field guide</a>
+            <a class="button light" href="https://github.com/forgesworn/nostr-veil/blob/main/examples/use-cases.ts">Open the script</a>
           </div>
-          <p>
-            Each card links to an individual worked example and the runnable
-            cross-check script. The "add beside it" line is the practical answer
-            to the caveat.
-          </p>
-        </div>
-
-        <div class="case-grid">
-          <article class="case">
-            <div class="case-top">
-              <span class="tag">Moderation</span>
-              <span class="tag ready">today</span>
-            </div>
-            <h3>User reputation and abuse reporting</h3>
-            <p>Publish a threshold-backed score about an account without naming which moderators or peers contributed.</p>
-            <div class="shape">
-              <span>Kind 30382</span>
-              <span>Subject: user pubkey</span>
-              <span>Helper: aggregateContributions</span>
-            </div>
-            <p class="solve">Add beside it: evidence workflow, appeals, circle admission, and timing-safe collection.</p>
-            <div class="case-links">
-              <a href="https://github.com/forgesworn/nostr-veil/blob/main/docs/use-case-pages/user-reputation-abuse-reporting.md">Worked example</a>
-              <a href="https://github.com/forgesworn/nostr-veil/blob/main/examples/use-cases.ts">Script</a>
-            </div>
-          </article>
-
-          <article class="case">
-            <div class="case-top">
-              <span class="tag">Journalism</span>
-              <span class="tag ready">today</span>
-            </div>
-            <h3>Source corroboration</h3>
-            <p>An editorial circle can vouch that enough trusted people have prior knowledge of a source or document trail.</p>
-            <div class="shape">
-              <span>Kind 30382 or 30385</span>
-              <span>Subject: pubkey or source id</span>
-              <span>Helper: user or identifier aggregate</span>
-            </div>
-            <p class="solve">Add beside it: editorial verification, secure contact handling, identifier hygiene, and opsec.</p>
-            <div class="case-links">
-              <a href="https://github.com/forgesworn/nostr-veil/blob/main/docs/use-case-pages/source-corroboration.md">Worked example</a>
-              <a href="https://github.com/forgesworn/nostr-veil/blob/main/examples/use-cases.ts">Script</a>
-            </div>
-          </article>
-
-          <article class="case">
-            <div class="case-top">
-              <span class="tag">Fact-checking</span>
-              <span class="tag ready">today</span>
-            </div>
-            <h3>Event and claim verification</h3>
-            <p>Score a specific note, announcement, report, or claim while protecting the reviewers from direct exposure.</p>
-            <div class="shape">
-              <span>Kind 30383</span>
-              <span>Subject: event id</span>
-              <span>Helper: aggregateEventContributions</span>
-            </div>
-            <p class="solve">Add beside it: methodology, evidence links, correction events, and supersession rules.</p>
-            <div class="case-links">
-              <a href="https://github.com/forgesworn/nostr-veil/blob/main/docs/use-case-pages/event-claim-verification.md">Worked example</a>
-              <a href="https://github.com/forgesworn/nostr-veil/blob/main/examples/use-cases.ts">Script</a>
-            </div>
-          </article>
-
-          <article class="case">
-            <div class="case-top">
-              <span class="tag">Research</span>
-              <span class="tag ready">today</span>
-            </div>
-            <h3>Article, research, and long-form review</h3>
-            <p>Let a reviewer circle score an addressable artefact without revealing who reviewed it.</p>
-            <div class="shape">
-              <span>Kind 30384</span>
-              <span>Subject: NIP-33 address</span>
-              <span>Helper: aggregateAddressableContributions</span>
-            </div>
-            <p class="solve">Add beside it: review criteria, conflict rules, revision policy, and optional review notes.</p>
-            <div class="case-links">
-              <a href="https://github.com/forgesworn/nostr-veil/blob/main/docs/use-case-pages/article-research-review.md">Worked example</a>
-              <a href="https://github.com/forgesworn/nostr-veil/blob/main/examples/use-cases.ts">Script</a>
-            </div>
-          </article>
-
-          <article class="case">
-            <div class="case-top">
-              <span class="tag">Relays</span>
-              <span class="tag ready">today</span>
-            </div>
-            <h3>Relay and service reputation</h3>
-            <p>Score relays, upload services, bots, label APIs, and other service endpoints as external identifiers.</p>
-            <div class="shape">
-              <span>Kind 30385</span>
-              <span>Subject: relay or service id</span>
-              <span>Helper: aggregateIdentifierContributions</span>
-            </div>
-            <p class="solve">Add beside it: monitoring, service canonicalisation, expiry, and incident reports.</p>
-            <div class="case-links">
-              <a href="https://github.com/forgesworn/nostr-veil/blob/main/docs/use-case-pages/relay-service-reputation.md">Worked example</a>
-              <a href="https://github.com/forgesworn/nostr-veil/blob/main/examples/use-cases.ts">Script</a>
-            </div>
-          </article>
-
-          <article class="case">
-            <div class="case-top">
-              <span class="tag">Commerce</span>
-              <span class="tag ready">today</span>
-            </div>
-            <h3>Vendor and marketplace signals</h3>
-            <p>Publish portable counterparty reputation without exposing every customer, reviewer, or scam reporter.</p>
-            <div class="shape">
-              <span>Kind 30382 or 30385</span>
-              <span>Subject: pubkey or vendor id</span>
-              <span>Helper: user or identifier aggregate</span>
-            </div>
-            <p class="solve">Add beside it: dispute handling, refunds, evidence rules, identity checks, and recovery policy.</p>
-            <div class="case-links">
-              <a href="https://github.com/forgesworn/nostr-veil/blob/main/docs/use-case-pages/vendor-marketplace-signals.md">Worked example</a>
-              <a href="https://github.com/forgesworn/nostr-veil/blob/main/examples/use-cases.ts">Script</a>
-            </div>
-          </article>
-
-          <article class="case">
-            <div class="case-top">
-              <span class="tag">Software</span>
-              <span class="tag ready">today</span>
-            </div>
-            <h3>Release, package, and maintainer reputation</h3>
-            <p>Security reviewers can score releases, packages, commits, or maintainers without exposing every reviewer.</p>
-            <div class="shape">
-              <span>Kind 30385</span>
-              <span>Subject: package, release, or maintainer id</span>
-              <span>Helper: aggregateIdentifierContributions</span>
-            </div>
-            <p class="solve">Add beside it: provenance, signatures, SBOMs, reproducible builds, CI, and audit policy.</p>
-            <div class="case-links">
-              <a href="https://github.com/forgesworn/nostr-veil/blob/main/docs/use-case-pages/release-package-maintainer-reputation.md">Worked example</a>
-              <a href="https://github.com/forgesworn/nostr-veil/blob/main/examples/use-cases.ts">Script</a>
-            </div>
-          </article>
-
-          <article class="case">
-            <div class="case-top">
-              <span class="tag">Identity</span>
-              <span class="tag ready">today</span>
-            </div>
-            <h3>NIP-05, domain, and service-provider trust</h3>
-            <p>Score identity domains, NIP-05 names, upload providers, payment endpoints, or other service identifiers.</p>
-            <div class="shape">
-              <span>Kind 30385</span>
-              <span>Subject: domain, NIP-05, or service id</span>
-              <span>Helper: aggregateIdentifierContributions</span>
-            </div>
-            <p class="solve">Add beside it: DNS, HTTPS, NIP-05 resolution, canonicalisation, expiry, and provider checks.</p>
-            <div class="case-links">
-              <a href="https://github.com/forgesworn/nostr-veil/blob/main/docs/use-case-pages/nip05-domain-service-provider-trust.md">Worked example</a>
-              <a href="https://github.com/forgesworn/nostr-veil/blob/main/examples/use-cases.ts">Script</a>
-            </div>
-          </article>
-
-          <article class="case">
-            <div class="case-top">
-              <span class="tag">Curation</span>
-              <span class="tag ready">today</span>
-            </div>
-            <h3>List, labeler, and moderation-list reputation</h3>
-            <p>Compare lists, labelers, moderation feeds, and filter providers without publishing a reviewer graph.</p>
-            <div class="shape">
-              <span>Kind 30384, 30382, or 30385</span>
-              <span>Subject: list, operator, or feed</span>
-              <span>Helper: match the subject kind</span>
-            </div>
-            <p class="solve">Add beside it: spot checks, list revision policy, freshness, and separate operator scoring.</p>
-            <div class="case-links">
-              <a href="https://github.com/forgesworn/nostr-veil/blob/main/docs/use-case-pages/list-labeler-moderation-list-reputation.md">Worked example</a>
-              <a href="https://github.com/forgesworn/nostr-veil/blob/main/examples/use-cases.ts">Script</a>
-            </div>
-          </article>
-
-          <article class="case">
-            <div class="case-top">
-              <span class="tag">Federation</span>
-              <span class="tag ready">today</span>
-            </div>
-            <h3>Federated moderation</h3>
-            <p>Count distinct contributors across several scoped circles without counting an overlapping member multiple times.</p>
-            <div class="shape">
-              <span>Kind: any supported subject kind</span>
-              <span>Subject and scope must match</span>
-              <span>Helper: verifyFederation</span>
-            </div>
-            <p class="solve">Add beside it: scope governance, overlap-risk review, disagreement policy, and federation membership rules.</p>
-            <div class="case-links">
-              <a href="https://github.com/forgesworn/nostr-veil/blob/main/docs/use-case-pages/federated-moderation.md">Worked example</a>
-              <a href="https://github.com/forgesworn/nostr-veil/blob/main/examples/use-cases.ts">Script</a>
-            </div>
-          </article>
-
-          <article class="case">
-            <div class="case-top">
-              <span class="tag">Onboarding</span>
-              <span class="tag ready">today</span>
-            </div>
-            <h3>Privacy-preserving onboarding</h3>
-            <p>An existing circle can vouch for a candidate account without naming which members backed the candidate.</p>
-            <div class="shape">
-              <span>Kind 30382</span>
-              <span>Subject: candidate pubkey</span>
-              <span>Helper: aggregateContributions</span>
-            </div>
-            <p class="solve">Add beside it: admission policy, expiry, revocation, post-admission moderation, and threshold rules.</p>
-            <div class="case-links">
-              <a href="https://github.com/forgesworn/nostr-veil/blob/main/docs/use-case-pages/privacy-preserving-onboarding.md">Worked example</a>
-              <a href="https://github.com/forgesworn/nostr-veil/blob/main/examples/use-cases.ts">Script</a>
-            </div>
-          </article>
-
-          <article class="case">
-            <div class="case-top">
-              <span class="tag">Funding</span>
-              <span class="tag ready">today</span>
-            </div>
-            <h3>Grant, funding, and proposal review</h3>
-            <p>Reviewer circles can score proposals, milestones, or deliverables while reducing pressure on individual reviewers.</p>
-            <div class="shape">
-              <span>Kind 30383 or 30384</span>
-              <span>Subject: proposal event or address</span>
-              <span>Helper: event or addressable aggregate</span>
-            </div>
-            <p class="solve">Add beside it: reviewer criteria, conflict declarations, appeals, and milestone checks.</p>
-            <div class="case-links">
-              <a href="https://github.com/forgesworn/nostr-veil/blob/main/docs/use-case-pages/grant-funding-proposal-review.md">Worked example</a>
-              <a href="https://github.com/forgesworn/nostr-veil/blob/main/examples/use-cases.ts">Script</a>
-            </div>
-          </article>
-
-          <article class="case">
-            <div class="case-top">
-              <span class="tag">Credentials</span>
-              <span class="tag future">future profile</span>
-            </div>
-            <h3>Anonymous credential or attestation co-signing</h3>
-            <p>Today, a circle can score a credential or attestation event. A full profile needs credential semantics.</p>
-            <div class="shape">
-              <span>Today: 30383 or 30384 score</span>
-              <span>Needs: credential event format</span>
-              <span>Proof v2 strongly recommended</span>
-            </div>
-            <p class="solve">Add beside it: holder binding, selective disclosure, presentation, expiry, and revocation.</p>
-            <div class="case-links">
-              <a href="https://github.com/forgesworn/nostr-veil/blob/main/docs/use-case-pages/anonymous-credential-attestation-cosigning.md">Worked profile</a>
-              <a href="https://github.com/forgesworn/nostr-veil/blob/main/examples/use-cases.ts">Script</a>
-            </div>
-          </article>
-
-          <article class="case">
-            <div class="case-top">
-              <span class="tag">Access</span>
-              <span class="tag future">future profile</span>
-            </div>
-            <h3>Relay or community admission</h3>
-            <p>Today, a circle can publish a vouch assertion. Full anonymous admission needs a separate access handshake.</p>
-            <div class="shape">
-              <span>Today: 30382 candidate vouch</span>
-              <span>Needs: admission protocol</span>
-              <span>Proof v2 recommended</span>
-            </div>
-            <p class="solve">Add beside it: challenge/response, transport privacy, session continuity, expiry, and bans.</p>
-            <div class="case-links">
-              <a href="https://github.com/forgesworn/nostr-veil/blob/main/docs/use-case-pages/relay-community-admission.md">Worked profile</a>
-              <a href="https://github.com/forgesworn/nostr-veil/blob/main/examples/use-cases.ts">Script</a>
-            </div>
-          </article>
         </div>
       </div>
     </section>
 
-    <section id="roadmap" class="section">
+    <section id="atlas" class="section">
       <div class="wrap">
         <div class="section-head">
           <div>
-            <span class="eyebrow">Roadmap boundary</span>
-            <h2>What is shipped, and what still needs a profile.</h2>
+            <span class="eyebrow">Use-case atlas</span>
+            <h2>Pick a workflow, then open the dedicated implementation profile.</h2>
           </div>
           <p>
-            The core library ships anonymous circles, threshold aggregation,
-            strict validation, proof v2 binding, and scoped federation. Some
-            high-value workflows need additional event formats or handshakes.
+            Supported-today profiles use the current NIP-85 and proof APIs.
+            Future profiles can use nostr-veil as the proof layer, but need a
+            companion credential or admission protocol before the full workflow
+            is complete.
           </p>
         </div>
 
-        <div class="road">
-          <div class="road-item">
-            <span class="tag future">planned</span>
-            <h3>Anonymous endorsements</h3>
-            <p>A circle co-signs a credential or attestation, not only a numeric score. The profile needs holder binding, expiry, revocation, and presentation rules.</p>
-          </div>
-          <div class="road-item">
-            <span class="tag future">planned</span>
-            <h3>Anonymous gated access</h3>
-            <p>A relay or community admits a vouched member through a challenge/response flow without learning which circle member opened the door.</p>
-          </div>
-          <div class="road-item">
-            <span class="tag future">planned</span>
-            <h3>Revocation</h3>
-            <p>A contributor or circle can withdraw a vouch or mark a score stale while preserving the anonymity properties of the original proof.</p>
-          </div>
-          <div class="road-item">
-            <span class="tag future">planned</span>
-            <h3>Time-bounded trust</h3>
-            <p>Provider profiles can make expiry first-class so reputation reflects current trust rather than old participation.</p>
+        <div class="atlas">
+          <nav class="atlas-nav" aria-label="Use-case categories">
+            <a href="#people">People</a>
+            <a href="#content">Content</a>
+            <a href="#infrastructure">Infrastructure</a>
+            <a href="#markets">Markets</a>
+            <a href="#governance">Governance</a>
+            <a href="#future">Future profiles</a>
+          </nav>
+
+          <div>
+            <section id="people" class="case-group">
+              <div class="group-head">
+                <h3>People and access</h3>
+                <p>Trust signals about accounts and candidates without exposing the contributors behind the score.</p>
+              </div>
+              <div class="case-grid">
+                <article class="case-card">
+                  <div class="case-top">
+                    <span class="pill">Moderation</span>
+                    <span class="pill today">Today</span>
+                  </div>
+                  <h4>User reputation and abuse reporting</h4>
+                  <p>Publish a threshold-backed signal about an account for moderation, trust, or abuse-risk workflows.</p>
+                  <div class="case-meta">
+                    <span>Kind 30382 / user pubkey</span>
+                    <span>Helper: aggregateContributions</span>
+                  </div>
+                  <div class="requirement">Requires evidence workflow, appeals, circle admission, and timing-safe collection.</div>
+                  <div class="case-links">
+                    <a href="https://github.com/forgesworn/nostr-veil/blob/main/docs/use-case-pages/user-reputation-abuse-reporting.md">Worked example</a>
+                  </div>
+                </article>
+
+                <article class="case-card">
+                  <div class="case-top">
+                    <span class="pill">Onboarding</span>
+                    <span class="pill today">Today</span>
+                  </div>
+                  <h4>Privacy-preserving onboarding</h4>
+                  <p>An existing circle can vouch for a candidate account without naming the members who backed them.</p>
+                  <div class="case-meta">
+                    <span>Kind 30382 / candidate pubkey</span>
+                    <span>Helper: aggregateContributions</span>
+                  </div>
+                  <div class="requirement">Requires admission policy, expiry, revocation, threshold rules, and post-admission moderation.</div>
+                  <div class="case-links">
+                    <a href="https://github.com/forgesworn/nostr-veil/blob/main/docs/use-case-pages/privacy-preserving-onboarding.md">Worked example</a>
+                  </div>
+                </article>
+              </div>
+            </section>
+
+            <section id="content" class="case-group">
+              <div class="group-head">
+                <h3>Content and evidence</h3>
+                <p>Reviewer circles can score sources, claims, articles, and research artefacts while protecting reviewer identity.</p>
+              </div>
+              <div class="case-grid">
+                <article class="case-card">
+                  <div class="case-top">
+                    <span class="pill">Journalism</span>
+                    <span class="pill today">Today</span>
+                  </div>
+                  <h4>Source corroboration</h4>
+                  <p>A trusted circle can corroborate a source or document trail without publishing every person who vouched.</p>
+                  <div class="case-meta">
+                    <span>Kind 30382 or 30385</span>
+                    <span>Subject: pubkey or source identifier</span>
+                  </div>
+                  <div class="requirement">Requires editorial verification, secure contact handling, identifier hygiene, and operational security.</div>
+                  <div class="case-links">
+                    <a href="https://github.com/forgesworn/nostr-veil/blob/main/docs/use-case-pages/source-corroboration.md">Worked example</a>
+                  </div>
+                </article>
+
+                <article class="case-card">
+                  <div class="case-top">
+                    <span class="pill">Fact-checking</span>
+                    <span class="pill today">Today</span>
+                  </div>
+                  <h4>Event and claim verification</h4>
+                  <p>Score a specific note, report, announcement, or claim with a verifiable reviewer threshold.</p>
+                  <div class="case-meta">
+                    <span>Kind 30383 / event id</span>
+                    <span>Helper: aggregateEventContributions</span>
+                  </div>
+                  <div class="requirement">Requires methodology, evidence links, correction events, and supersession rules.</div>
+                  <div class="case-links">
+                    <a href="https://github.com/forgesworn/nostr-veil/blob/main/docs/use-case-pages/event-claim-verification.md">Worked example</a>
+                  </div>
+                </article>
+
+                <article class="case-card">
+                  <div class="case-top">
+                    <span class="pill">Research</span>
+                    <span class="pill today">Today</span>
+                  </div>
+                  <h4>Article, research, and long-form review</h4>
+                  <p>Let a reviewer circle score an addressable artefact without exposing reviewers to authors or sponsors.</p>
+                  <div class="case-meta">
+                    <span>Kind 30384 / NIP-33 address</span>
+                    <span>Helper: aggregateAddressableContributions</span>
+                  </div>
+                  <div class="requirement">Requires review criteria, conflict rules, revision policy, and optional review notes.</div>
+                  <div class="case-links">
+                    <a href="https://github.com/forgesworn/nostr-veil/blob/main/docs/use-case-pages/article-research-review.md">Worked example</a>
+                  </div>
+                </article>
+              </div>
+            </section>
+
+            <section id="infrastructure" class="case-group">
+              <div class="group-head">
+                <h3>Infrastructure and software</h3>
+                <p>Portable reputation for services, domains, relays, lists, packages, releases, and maintainers.</p>
+              </div>
+              <div class="case-grid">
+                <article class="case-card">
+                  <div class="case-top">
+                    <span class="pill">Relays</span>
+                    <span class="pill today">Today</span>
+                  </div>
+                  <h4>Relay and service reputation</h4>
+                  <p>Score relays, upload services, bots, label APIs, and other endpoints as external identifiers.</p>
+                  <div class="case-meta">
+                    <span>Kind 30385 / relay or service id</span>
+                    <span>Helper: aggregateIdentifierContributions</span>
+                  </div>
+                  <div class="requirement">Requires monitoring, service canonicalisation, expiry, and incident reports.</div>
+                  <div class="case-links">
+                    <a href="https://github.com/forgesworn/nostr-veil/blob/main/docs/use-case-pages/relay-service-reputation.md">Worked example</a>
+                  </div>
+                </article>
+
+                <article class="case-card">
+                  <div class="case-top">
+                    <span class="pill">Identity</span>
+                    <span class="pill today">Today</span>
+                  </div>
+                  <h4>NIP-05, domain, and service-provider trust</h4>
+                  <p>Score identity domains, NIP-05 names, upload providers, payment endpoints, or other service identifiers.</p>
+                  <div class="case-meta">
+                    <span>Kind 30385 / domain or service id</span>
+                    <span>Helper: aggregateIdentifierContributions</span>
+                  </div>
+                  <div class="requirement">Requires DNS, HTTPS, NIP-05 resolution, canonicalisation, expiry, and provider checks.</div>
+                  <div class="case-links">
+                    <a href="https://github.com/forgesworn/nostr-veil/blob/main/docs/use-case-pages/nip05-domain-service-provider-trust.md">Worked example</a>
+                  </div>
+                </article>
+
+                <article class="case-card">
+                  <div class="case-top">
+                    <span class="pill">Curation</span>
+                    <span class="pill today">Today</span>
+                  </div>
+                  <h4>List, labeler, and moderation-list reputation</h4>
+                  <p>Compare lists, labelers, moderation feeds, and filter providers without publishing a reviewer graph.</p>
+                  <div class="case-meta">
+                    <span>Kind 30384, 30382, or 30385</span>
+                    <span>Helper: match the subject kind</span>
+                  </div>
+                  <div class="requirement">Requires spot checks, list revision policy, freshness, and separate operator scoring.</div>
+                  <div class="case-links">
+                    <a href="https://github.com/forgesworn/nostr-veil/blob/main/docs/use-case-pages/list-labeler-moderation-list-reputation.md">Worked example</a>
+                  </div>
+                </article>
+
+                <article class="case-card">
+                  <div class="case-top">
+                    <span class="pill">Software</span>
+                    <span class="pill today">Today</span>
+                  </div>
+                  <h4>Release, package, and maintainer reputation</h4>
+                  <p>Security reviewers can score packages, releases, commits, or maintainers without exposing every reviewer.</p>
+                  <div class="case-meta">
+                    <span>Kind 30385 / package, release, or maintainer id</span>
+                    <span>Helper: aggregateIdentifierContributions</span>
+                  </div>
+                  <div class="requirement">Requires provenance, signatures, SBOMs, reproducible builds, CI, and audit policy.</div>
+                  <div class="case-links">
+                    <a href="https://github.com/forgesworn/nostr-veil/blob/main/docs/use-case-pages/release-package-maintainer-reputation.md">Worked example</a>
+                  </div>
+                </article>
+              </div>
+            </section>
+
+            <section id="markets" class="case-group">
+              <div class="group-head">
+                <h3>Markets and counterparties</h3>
+                <p>Trust circles can publish portable signals without revealing every customer, reviewer, or reporter.</p>
+              </div>
+              <div class="case-grid">
+                <article class="case-card">
+                  <div class="case-top">
+                    <span class="pill">Commerce</span>
+                    <span class="pill today">Today</span>
+                  </div>
+                  <h4>Vendor and marketplace signals</h4>
+                  <p>Publish counterparty reputation for sellers, buyers, vendors, and marketplaces.</p>
+                  <div class="case-meta">
+                    <span>Kind 30382 or 30385</span>
+                    <span>Subject: pubkey or vendor id</span>
+                  </div>
+                  <div class="requirement">Requires dispute handling, refunds, evidence rules, identity checks, and recovery policy.</div>
+                  <div class="case-links">
+                    <a href="https://github.com/forgesworn/nostr-veil/blob/main/docs/use-case-pages/vendor-marketplace-signals.md">Worked example</a>
+                  </div>
+                </article>
+              </div>
+            </section>
+
+            <section id="governance" class="case-group">
+              <div class="group-head">
+                <h3>Governance and coordination</h3>
+                <p>Anonymous review can reduce pressure on individual reviewers while keeping the aggregate verifiable.</p>
+              </div>
+              <div class="case-grid">
+                <article class="case-card">
+                  <div class="case-top">
+                    <span class="pill scope">Federation</span>
+                    <span class="pill today">Today</span>
+                  </div>
+                  <h4>Federated moderation</h4>
+                  <p>Count distinct contributors across several scoped circles without double-counting overlapping members.</p>
+                  <div class="case-meta">
+                    <span>Kind: any supported subject route</span>
+                    <span>Helper: verifyFederation</span>
+                  </div>
+                  <div class="requirement">Requires scope governance, overlap-risk review, disagreement policy, and federation membership rules.</div>
+                  <div class="case-links">
+                    <a href="https://github.com/forgesworn/nostr-veil/blob/main/docs/use-case-pages/federated-moderation.md">Worked example</a>
+                  </div>
+                </article>
+
+                <article class="case-card">
+                  <div class="case-top">
+                    <span class="pill">Funding</span>
+                    <span class="pill today">Today</span>
+                  </div>
+                  <h4>Grant, funding, and proposal review</h4>
+                  <p>Reviewer circles can score proposals, milestones, or deliverables without exposing individual reviewers.</p>
+                  <div class="case-meta">
+                    <span>Kind 30383 or 30384</span>
+                    <span>Subject: proposal event or address</span>
+                  </div>
+                  <div class="requirement">Requires reviewer criteria, conflict declarations, appeals, and milestone checks.</div>
+                  <div class="case-links">
+                    <a href="https://github.com/forgesworn/nostr-veil/blob/main/docs/use-case-pages/grant-funding-proposal-review.md">Worked example</a>
+                  </div>
+                </article>
+              </div>
+            </section>
+
+            <section id="future" class="case-group">
+              <div class="group-head">
+                <h3>Future profiles</h3>
+                <p>These are credible extensions of the proof layer, but the full workflow needs a companion protocol.</p>
+              </div>
+              <div class="case-grid">
+                <article class="case-card">
+                  <div class="case-top">
+                    <span class="pill">Credentials</span>
+                    <span class="pill future">Profile needed</span>
+                  </div>
+                  <h4>Anonymous credential or attestation co-signing</h4>
+                  <p>A circle can score a credential or attestation event today; a full profile needs credential semantics.</p>
+                  <div class="case-meta">
+                    <span>Today: 30383 or 30384 score</span>
+                    <span>Needs: credential event format</span>
+                  </div>
+                  <div class="requirement">Requires holder binding, selective disclosure, presentation, expiry, and revocation.</div>
+                  <div class="case-links">
+                    <a href="https://github.com/forgesworn/nostr-veil/blob/main/docs/use-case-pages/anonymous-credential-attestation-cosigning.md">Profile sketch</a>
+                  </div>
+                </article>
+
+                <article class="case-card">
+                  <div class="case-top">
+                    <span class="pill">Access</span>
+                    <span class="pill future">Profile needed</span>
+                  </div>
+                  <h4>Relay or community admission</h4>
+                  <p>A circle can publish a vouch assertion today; full anonymous admission needs an access handshake.</p>
+                  <div class="case-meta">
+                    <span>Today: 30382 candidate vouch</span>
+                    <span>Needs: challenge/response admission protocol</span>
+                  </div>
+                  <div class="requirement">Requires transport privacy, session continuity, expiry, bans, and replay protection.</div>
+                  <div class="case-links">
+                    <a href="https://github.com/forgesworn/nostr-veil/blob/main/docs/use-case-pages/relay-community-admission.md">Profile sketch</a>
+                  </div>
+                </article>
+              </div>
+            </section>
           </div>
         </div>
       </div>

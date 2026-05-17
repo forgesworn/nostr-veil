@@ -252,7 +252,7 @@ and rotated.
 The shipped primitives support more than user trust scores. See
 [docs/use-cases.md](./docs/use-cases.md) for the implementation field guide:
 one worked page per use case, subject formats, helper functions, metrics,
-proof-v2 verification, and the companion controls needed beyond the proof.
+proof-v2 verification, and the operational controls needed beyond the proof.
 
 Supported today:
 

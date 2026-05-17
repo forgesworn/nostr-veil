@@ -76,9 +76,9 @@ if (!syntax.valid || !proof.valid) throw new Error('invalid review assertion')
 - Distinct circle members contributed the signed metrics.
 - The aggregate can be recomputed by anyone.
 
-## Boundary and companion controls
+## Operational requirements
 
-| Boundary | Add this to cover it |
+| Risk to handle | Required control |
 | --- | --- |
 | The proof does not prove the research is correct. | Pair it with review criteria, reproducibility artefacts, open data where possible, and correction policy. |
 | The proof does not reveal reviewer comments. | Publish redacted review notes, structured comments, or reviewer rationale events when the workflow needs explanations. |

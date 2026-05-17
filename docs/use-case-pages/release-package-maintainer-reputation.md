@@ -79,9 +79,9 @@ if (!syntax.valid || !proof.valid) throw new Error('invalid package assertion')
 - Proof v2 prevents the package contribution being replayed as a user or event
   reputation proof.
 
-## Boundary and companion controls
+## Operational requirements
 
-| Boundary | Add this to cover it |
+| Risk to handle | Required control |
 | --- | --- |
 | nostr-veil does not scan code. | Run static analysis, dependency review, tests, malware checks, and human audit before reviewers contribute. |
 | A threshold score does not prove a package is safe. | Treat it as reviewer consensus and combine it with signatures, provenance, SBOMs, reproducible builds, and incident response. |

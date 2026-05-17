@@ -75,9 +75,9 @@ const canApplyPolicy = syntax.valid && proof.valid && proof.distinctSigners >= 3
 - How the admitted user proves continuity after admission.
 - Abuse handling after a vouched user is admitted.
 
-## Boundary and what to add
+## Operational requirements
 
-| Boundary | Add this to cover it |
+| Risk to handle | Required control |
 | --- | --- |
 | nostr-veil does not currently implement anonymous access control. | Add a relay or community challenge/response protocol that accepts a verified threshold assertion. |
 | IP address, timing, and relay metadata are outside the proof. | Add transport privacy, batching, careful relay logs, and metadata-minimising admission flows. |

@@ -73,9 +73,9 @@ if (!syntax.valid || !proof.valid) throw new Error('invalid claim assertion')
 - Proof v2 prevents the same contribution being replayed as a user,
   addressable, or identifier assertion.
 
-## Boundary and companion controls
+## Operational requirements
 
-| Boundary | Add this to cover it |
+| Risk to handle | Required control |
 | --- | --- |
 | The proof does not prove the event content is objectively true. | Publish the fact-checking method, evidence links, and correction rules. Treat the nostr-veil assertion as the verifiable reviewer signal. |
 | The proof does not explain reviewer methodology by itself. | Define a public provider profile for `rank`, quorum, eligible reviewers, conflicts, and freshness. |

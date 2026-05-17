@@ -82,9 +82,9 @@ if (!syntax.valid || !proof.valid) throw new Error('invalid relay assertion')
 - The aggregate matches the signed service metrics.
 - Proof v2 binds the assertion to kind 30385 and the chosen `k` namespace.
 
-## Boundary and companion controls
+## Operational requirements
 
-| Boundary | Add this to cover it |
+| Risk to handle | Required control |
 | --- | --- |
 | The proof does not continuously monitor relay uptime. | Pair the score with uptime probes, latency checks, incident reports, and expiry. |
 | The proof does not prove a service is honest or non-malicious. | Add audits, canary tests, operational transparency, and client-side safety checks. |

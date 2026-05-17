@@ -75,9 +75,9 @@ if (!syntax.valid || !proof.valid) throw new Error('invalid list assertion')
 - The aggregate quality signal is verifiable.
 - The reviewers are hidden inside the public circle.
 
-## Boundary and companion controls
+## Operational requirements
 
-| Boundary | Add this to cover it |
+| Risk to handle | Required control |
 | --- | --- |
 | The proof does not prove every item in the list is correct. | Use spot checks, item-level review where needed, freshness windows, and correction channels. |
 | A list score does not prove the author is trustworthy in general. | Score operator pubkeys separately when author reputation matters. Keep list quality and operator reputation distinct. |
