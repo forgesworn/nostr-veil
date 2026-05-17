@@ -31,9 +31,11 @@ circle IDs. That keeps the public relay evidence aligned with the safer
 deployment API, not only the low-level proof verifier.
 
 `production-recipes.ts` shows production-shaped verifier gates using
-`createDeploymentPolicy()` and `verifyDeploymentPolicy()`: package release
-reputation, relay preference, NIP-05/domain trust, federated moderation review,
-and relay/community admission.
+`createCircleManifest()`, `createDeploymentPolicy()`, and
+`verifyDeploymentPolicy()`: package release reputation, relay preference,
+NIP-05/domain trust, federated moderation review, and relay/community
+admission. The recipes use NIP-85 kind names such as "kind 30385 identifier
+assertion" so the subject route is explicit.
 
 `use-cases-relay.ts` is an opt-in live relay check. It signs every canonical
 use-case example as a Nostr event, publishes the events to

@@ -495,6 +495,39 @@
       font-size: 14px;
       line-height: 1.45;
     }
+    .kind-reference {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 18px;
+    }
+    .kind-reference-item {
+      min-width: 0;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--paper);
+      padding: 14px;
+    }
+    .kind-reference-item span {
+      color: var(--accent);
+      display: block;
+      font-family: "JetBrains Mono", ui-monospace, monospace;
+      font-size: 17px;
+      font-weight: 900;
+      margin-bottom: 8px;
+    }
+    .kind-reference-item strong {
+      color: var(--ink);
+      display: block;
+      font-size: 13px;
+      line-height: 1.35;
+    }
+    .kind-reference-item p {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+      margin-top: 8px;
+    }
     table {
       width: 100%;
       min-width: 640px;
@@ -574,7 +607,8 @@
       .side-nav,
       .next-grid,
       .relay-evidence dl,
-      .safety-grid { grid-template-columns: 1fr; }
+      .safety-grid,
+      .kind-reference { grid-template-columns: 1fr; }
       .code-sample-toolbar {
         align-items: stretch;
         flex-direction: column;
@@ -735,6 +769,36 @@
 <div class="table-wrap"><table><thead><tr><th>Risk to handle</th><th>Required control</th></tr></thead><tbody><tr><td>The proof does not prove domain control.</td><td>Perform DNS, HTTPS, NIP-05, LNURL, or service-specific checks before reviewers contribute.</td></tr><tr><td>The proof does not perform NIP-05 resolution.</td><td>Resolve and cache the NIP-05 result in the application; use nostr-veil only for the circle's assessment of that identifier.</td></tr><tr><td>Providers can change behaviour after review.</td><td>Use expiry, periodic re-review, incident assertions, and revocation once the profile supports it.</td></tr><tr><td>DNS, HTTPS, and provider accounts are not made anonymous.</td><td>Use normal operational security for lookups and account management; nostr-veil hides only which circle members contributed.</td></tr></tbody></table></div>
 <h2>Policy choices</h2>
 <ul><li>How are domains canonicalised: lowercase, punycode, trailing slash, scheme?</li><li>Does <code>rank</code> mean identity confidence, operational reliability, abuse risk, or provider trust?</li><li>Should a domain and a specific NIP-05 name be separate subjects?</li><li>What expiry should identity trust carry?</li></ul>
+        <h2>NIP-85 kind reference</h2>
+<p>NIP-85 defines the assertion kind by the subject being scored. The kind number is part of the proof v2 context, so deployments should verify both the number and the subject hint tag.</p>
+<div class="kind-reference">
+  <div class="kind-reference-item">
+    <span>30382</span>
+    <strong>User assertion</strong>
+    <p>Nostr pubkey subjects. Subject hint: <code>p</code>.</p>
+  </div>
+  <div class="kind-reference-item">
+    <span>30383</span>
+    <strong>Event assertion</strong>
+    <p>Nostr event id subjects. Subject hint: <code>e</code>.</p>
+  </div>
+  <div class="kind-reference-item">
+    <span>30384</span>
+    <strong>Addressable event assertion</strong>
+    <p>NIP-33 address subjects. Subject hint: <code>a</code>.</p>
+  </div>
+  <div class="kind-reference-item">
+    <span>30385</span>
+    <strong>NIP-73/external identifier assertion</strong>
+    <p>packages, relays, domains, vendors, and other identifiers. Subject hint: <code>k</code>.</p>
+  </div>
+  <div class="kind-reference-item">
+    <span>10040</span>
+    <strong>Trusted service provider declaration</strong>
+    <p>provider metadata, not a score assertion. Subject hint: <code>provider tags</code>.</p>
+  </div>
+</div>
+<p>Spec: <a href="https://nips.nostr.com/85">NIP-85 trusted assertions</a>.</p>
         <h2>Live relay test</h2>
 <p>The opt-in relay test signs this canonical example as real Nostr event data, publishes it to <code>wss://relay.trotters.cc</code>, fetches it back by id, and re-runs the application, syntax, Nostr signature, canonical tag, and proof checks.</p>
 <div class="relay-evidence pass">

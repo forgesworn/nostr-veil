@@ -1,8 +1,10 @@
 import { verifySignedEvent } from '../signing.js'
+import { resolveCircleManifests } from './manifest.js'
 import { verifyUseCaseProfile } from './verify.js'
 import type { EventTemplate } from '../nip85/types.js'
 import type { AggregateFn } from '../proof/types.js'
 import type { SignedEvent } from '../signing.js'
+import type { CircleManifest } from './manifest.js'
 import type { UseCaseProfile, UseCaseProfileVerification } from './types.js'
 
 const META_TAGS = new Set(['d', 'p', 'e', 'a', 'k'])
@@ -21,7 +23,9 @@ export interface DeploymentMetricPolicy {
 }
 
 export interface CreateDeploymentPolicyOptions {
-  acceptedCircleIds: readonly string[]
+  acceptedCircleIds?: readonly string[]
+  allowSupersededCircleIds?: boolean
+  circleManifests?: readonly CircleManifest[]
   expectedSubject: string
   expectedSubjectTagValue?: string
   id?: string
@@ -34,6 +38,8 @@ export interface CreateDeploymentPolicyOptions {
 
 export interface UseCaseDeploymentPolicy {
   acceptedCircleIds: readonly string[]
+  allowSupersededCircleIds: boolean
+  circleManifests: readonly CircleManifest[]
   expectedSubject: string
   expectedSubjectTagValue?: string
   id: string
@@ -60,6 +66,8 @@ export interface DeploymentPolicyVerification {
   }
   policy: UseCaseDeploymentPolicy
   profileVerification: UseCaseProfileVerification
+  revokedCircleIds: string[]
+  supersededCircleIds: string[]
   valid: boolean
 }
 
@@ -118,6 +126,11 @@ function acceptedCircleIds(ids: readonly string[]): readonly string[] {
   return Object.freeze(cloned)
 }
 
+function optionalAcceptedCircleIds(ids: readonly string[] | undefined): readonly string[] {
+  if (ids === undefined || ids.length === 0) return Object.freeze([])
+  return acceptedCircleIds(ids)
+}
+
 function assertPositiveInteger(value: number, label: string): void {
   if (!Number.isSafeInteger(value) || value <= 0) {
     throw new Error(`${label} must be a positive integer`)
@@ -127,6 +140,45 @@ function assertPositiveInteger(value: number, label: string): void {
 function assertNonNegativeInteger(value: number, label: string): void {
   if (!Number.isSafeInteger(value) || value < 0) {
     throw new Error(`${label} must be a non-negative integer`)
+  }
+}
+
+function resolvedAcceptedCircleIds(
+  profile: UseCaseProfile,
+  rawCircleIds: readonly string[],
+  manifests: readonly CircleManifest[],
+  allowSupersededCircleIds: boolean,
+  now?: number,
+): {
+  acceptedCircleIds: string[]
+  errors: string[]
+  revokedCircleIds: string[]
+  supersededCircleIds: string[]
+} {
+  const accepted = new Set(rawCircleIds)
+  const manifestResolution = resolveCircleManifests(manifests, {
+    allowSuperseded: allowSupersededCircleIds,
+    now,
+    profileId: profile.id,
+  })
+
+  for (const circleId of manifestResolution.acceptedCircleIds) {
+    accepted.add(circleId)
+  }
+  for (const circleId of manifestResolution.revokedCircleIds) {
+    accepted.delete(circleId)
+  }
+  if (!allowSupersededCircleIds) {
+    for (const circleId of manifestResolution.supersededCircleIds) {
+      accepted.delete(circleId)
+    }
+  }
+
+  return {
+    acceptedCircleIds: [...accepted].sort(),
+    errors: manifestResolution.errors,
+    revokedCircleIds: manifestResolution.revokedCircleIds,
+    supersededCircleIds: manifestResolution.supersededCircleIds,
   }
 }
 
@@ -140,9 +192,26 @@ export function createDeploymentPolicy(
   const minDistinctSigners = options.minDistinctSigners ?? profile.minDistinctSigners
   assertNonNegativeInteger(maxAgeSeconds, 'maxAgeSeconds')
   assertPositiveInteger(minDistinctSigners, 'minDistinctSigners')
+  const rawCircleIds = optionalAcceptedCircleIds(options.acceptedCircleIds)
+  const circleManifests = Object.freeze([...(options.circleManifests ?? [])])
+  const allowSupersededCircleIds = options.allowSupersededCircleIds ?? false
+  const circleResolution = resolvedAcceptedCircleIds(
+    profile,
+    rawCircleIds,
+    circleManifests,
+    allowSupersededCircleIds,
+  )
+  if (circleResolution.errors.length > 0) {
+    throw new Error(circleResolution.errors.join('; '))
+  }
+  if (circleResolution.acceptedCircleIds.length === 0) {
+    throw new Error('acceptedCircleIds or circleManifests must supply at least one active circle')
+  }
 
   return Object.freeze({
-    acceptedCircleIds: acceptedCircleIds(options.acceptedCircleIds),
+    acceptedCircleIds: rawCircleIds,
+    allowSupersededCircleIds,
+    circleManifests,
     expectedSubject: options.expectedSubject,
     ...(options.expectedSubjectTagValue === undefined ? {} : { expectedSubjectTagValue: options.expectedSubjectTagValue }),
     id: options.id ?? profile.id,
@@ -260,8 +329,15 @@ export function verifyDeploymentPolicy(
   options: VerifyDeploymentPolicyOptions = {},
 ): DeploymentPolicyVerification {
   const eventList = normaliseEvents(events)
+  const circleResolution = resolvedAcceptedCircleIds(
+    policy.profile,
+    policy.acceptedCircleIds,
+    policy.circleManifests ?? [],
+    policy.allowSupersededCircleIds ?? false,
+    options.now,
+  )
   const profileVerification = verifyUseCaseProfile(eventList, policy.profile, {
-    acceptedCircleIds: policy.acceptedCircleIds,
+    acceptedCircleIds: circleResolution.acceptedCircleIds,
     aggregateFn: options.aggregateFn,
     expectedSubject: policy.expectedSubject,
     expectedSubjectTagValue: policy.expectedSubjectTagValue,
@@ -272,6 +348,7 @@ export function verifyDeploymentPolicy(
   const metricVerification = verifyMetricPolicies(eventList, policy)
   const nostrSignatures = verifyNostrSignatures(eventList, policy)
   const errors = [
+    ...circleResolution.errors,
     ...profileVerification.errors,
     ...metricVerification.errors,
     ...nostrSignatures.errors,
@@ -288,6 +365,8 @@ export function verifyDeploymentPolicy(
     },
     policy,
     profileVerification,
+    revokedCircleIds: circleResolution.revokedCircleIds,
+    supersededCircleIds: circleResolution.supersededCircleIds,
     valid,
   }
 }

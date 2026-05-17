@@ -495,6 +495,39 @@
       font-size: 14px;
       line-height: 1.45;
     }
+    .kind-reference {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 18px;
+    }
+    .kind-reference-item {
+      min-width: 0;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--paper);
+      padding: 14px;
+    }
+    .kind-reference-item span {
+      color: var(--accent);
+      display: block;
+      font-family: "JetBrains Mono", ui-monospace, monospace;
+      font-size: 17px;
+      font-weight: 900;
+      margin-bottom: 8px;
+    }
+    .kind-reference-item strong {
+      color: var(--ink);
+      display: block;
+      font-size: 13px;
+      line-height: 1.35;
+    }
+    .kind-reference-item p {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+      margin-top: 8px;
+    }
     table {
       width: 100%;
       min-width: 640px;
@@ -574,7 +607,8 @@
       .side-nav,
       .next-grid,
       .relay-evidence dl,
-      .safety-grid { grid-template-columns: 1fr; }
+      .safety-grid,
+      .kind-reference { grid-template-columns: 1fr; }
       .code-sample-toolbar {
         align-items: stretch;
         flex-direction: column;
@@ -731,6 +765,36 @@
 <ul><li>Reject credential endorsements that point at the wrong artefact, unknown attestor circles, stale records, or unsupported credential classes.</li><li>Treat missing revocation or holder-binding checks as a verifier failure, not as a weak warning.</li><li>Publish superseding endorsement assertions when an attestation is corrected, revoked, or replaced.</li><li>Keep personal attributes out of the nostr-veil assertion unless the credential profile explicitly and safely discloses them.</li></ul>
 <h2>Operational requirements</h2>
 <div class="table-wrap"><table><thead><tr><th>Risk to handle</th><th>Required control</th></tr></thead><tbody><tr><td>nostr-veil does not currently issue anonymous credentials.</td><td>Define a credential or attestation event format, issuer rules, holder binding, and presentation flow.</td></tr><tr><td>Selective disclosure is not defined here.</td><td>Add a credential protocol that can reveal only the required attributes while keeping the nostr-veil proof as the anonymous endorsement signal.</td></tr><tr><td>The proof does not prove the credential subject is the presenter.</td><td>Add holder-binding keys, challenge/response presentation, and replay protection.</td></tr><tr><td>Revocation is not defined yet.</td><td>Add expiry, revocation events, revocation discovery, and client policy for stale credentials.</td></tr></tbody></table></div>
+        <h2>NIP-85 kind reference</h2>
+<p>NIP-85 defines the assertion kind by the subject being scored. The kind number is part of the proof v2 context, so deployments should verify both the number and the subject hint tag.</p>
+<div class="kind-reference">
+  <div class="kind-reference-item">
+    <span>30382</span>
+    <strong>User assertion</strong>
+    <p>Nostr pubkey subjects. Subject hint: <code>p</code>.</p>
+  </div>
+  <div class="kind-reference-item">
+    <span>30383</span>
+    <strong>Event assertion</strong>
+    <p>Nostr event id subjects. Subject hint: <code>e</code>.</p>
+  </div>
+  <div class="kind-reference-item">
+    <span>30384</span>
+    <strong>Addressable event assertion</strong>
+    <p>NIP-33 address subjects. Subject hint: <code>a</code>.</p>
+  </div>
+  <div class="kind-reference-item">
+    <span>30385</span>
+    <strong>NIP-73/external identifier assertion</strong>
+    <p>packages, relays, domains, vendors, and other identifiers. Subject hint: <code>k</code>.</p>
+  </div>
+  <div class="kind-reference-item">
+    <span>10040</span>
+    <strong>Trusted service provider declaration</strong>
+    <p>provider metadata, not a score assertion. Subject hint: <code>provider tags</code>.</p>
+  </div>
+</div>
+<p>Spec: <a href="https://nips.nostr.com/85">NIP-85 trusted assertions</a>.</p>
         <h2>Live relay test</h2>
 <p>The opt-in relay test signs this canonical example as real Nostr event data, publishes it to <code>wss://relay.trotters.cc</code>, fetches it back by id, and re-runs the application, syntax, Nostr signature, canonical tag, and proof checks.</p>
 <div class="relay-evidence pass">

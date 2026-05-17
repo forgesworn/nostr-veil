@@ -4,7 +4,7 @@ import {
   validateAssertionStrict,
   validateProviderDeclarationStrict,
 } from '../../src/nip85/validators.js'
-import { NIP85_KINDS } from '../../src/nip85/types.js'
+import { NIP85_KINDS, describeNip85Kind } from '../../src/nip85/types.js'
 
 const pubkey = 'a'.repeat(64)
 const servicePubkey = 'c'.repeat(64)
@@ -264,6 +264,16 @@ describe('validateAssertion', () => {
     const result = validateAssertionStrict(event)
     expect(result.valid).toBe(false)
     expect(result.errors.some(e => /duplicate metric/i.test(e))).toBe(true)
+  })
+})
+
+describe('describeNip85Kind', () => {
+  it('explains NIP-85 kind numbers', () => {
+    expect(describeNip85Kind(NIP85_KINDS.USER)).toBe('NIP-85 kind 30382: user assertion')
+    expect(describeNip85Kind(NIP85_KINDS.IDENTIFIER)).toBe(
+      'NIP-85 kind 30385: NIP-73/external identifier assertion',
+    )
+    expect(describeNip85Kind(1)).toBe('Nostr kind 1')
   })
 })
 

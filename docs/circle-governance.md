@@ -18,6 +18,8 @@ to act on. Production deployments need an explicit circle policy.
 - Treat a membership change as a new circle ID.
 - Keep clients on an allow-list of accepted circle IDs rather than trusting any
   ring that appears on a relay.
+- Prefer machine-readable circle manifests so verifiers can reject expired,
+  revoked, superseded, or wrong-profile circles without hand-written glue.
 
 ## Independence
 
@@ -48,7 +50,7 @@ to act on. Production deployments need an explicit circle policy.
 
 Use `createDeploymentPolicy()` and `verifyDeploymentPolicy()` with:
 
-- accepted circle IDs;
+- accepted circle IDs or circle manifests;
 - expected subject;
 - expected subject hint where it is not the subject itself;
 - proof v2 requirement;
@@ -57,3 +59,9 @@ Use `createDeploymentPolicy()` and `verifyDeploymentPolicy()` with:
 - metric bounds and required metrics;
 - Nostr event signature verification for relay-fetched events;
 - federation scope policy, when applicable.
+
+Use `createCircleManifest()` for production circles. A manifest binds the
+circle ID to the member list and records the allowed profile IDs, issue/expiry
+times, superseded circles, revoked circles, policy URI, contact, and evidence
+process. Treat manifests as signed or otherwise trusted deployment policy, not
+as self-authenticating evidence from an arbitrary relay.

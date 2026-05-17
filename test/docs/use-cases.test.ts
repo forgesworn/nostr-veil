@@ -173,6 +173,19 @@ describe('public use-case pages', () => {
       }
     }
   })
+
+  it('publishes the NIP-85 kind reference on every worked example', () => {
+    for (const slug of slugs) {
+      const page = readText(join(publicUseCasesDir, slug, 'index.html'))
+
+      expect(page, slug).toContain('<h2>NIP-85 kind reference</h2>')
+      expect(page, slug).toContain('30382')
+      expect(page, slug).toContain('User assertion')
+      expect(page, slug).toContain('30385')
+      expect(page, slug).toContain('NIP-73/external identifier assertion')
+      expect(page, slug).toContain('https://nips.nostr.com/85')
+    }
+  })
 })
 
 describe('use-case source pages', () => {

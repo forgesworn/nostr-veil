@@ -23,13 +23,23 @@ from `nostr-veil/profiles` through an explicit deployment policy:
 import {
   RELEASE_PACKAGE_MAINTAINER_REPUTATION_PROFILE,
   canonicalNpmPackageSubject,
+  createCircleManifest,
   createDeploymentPolicy,
   verifyDeploymentPolicy,
 } from 'nostr-veil/profiles'
 
 const subject = canonicalNpmPackageSubject('nostr-veil', '0.14.0')
+const reviewerPubkeys = [alicePubkey, bobPubkey, carolPubkey].sort()
+const circle = createCircleManifest({
+  issuedAt: 1778000000,
+  expiresAt: 1778000900,
+  members: reviewerPubkeys,
+  name: 'Package reviewers',
+  profileIds: [RELEASE_PACKAGE_MAINTAINER_REPUTATION_PROFILE.id],
+  purpose: 'Release safety review',
+})
 const policy = createDeploymentPolicy(RELEASE_PACKAGE_MAINTAINER_REPUTATION_PROFILE, {
-  acceptedCircleIds: ['<accepted circle id>'],
+  circleManifests: [circle],
   expectedSubject: subject,
   metricPolicies: {
     rank: { required: true, min: 0, max: 100, integer: true },
@@ -48,6 +58,20 @@ that make a circle safe to trust, and
 [production deployment](./production-deployment.md) and
 [flagship deployments](./flagship-deployments.md) for concrete production
 profiles and verifier recipes.
+
+## NIP-85 kind reference
+
+NIP-85 defines trusted assertion event kinds by subject route:
+
+| Subject route | NIP-85 kind | Meaning | Subject hint |
+| --- | --- | --- | --- |
+| User pubkey | 30382 | User assertion | `p` |
+| Event id | 30383 | Event assertion | `e` |
+| Addressable event | 30384 | Addressable event assertion | `a` |
+| NIP-73 or external identifier | 30385 | Identifier assertion | `k` |
+| Provider declaration | 10040 | Trusted service provider declaration | provider tags |
+
+See the [NIP-85 trusted assertions spec](https://nips.nostr.com/85).
 
 ## Implementation pattern
 
@@ -84,10 +108,10 @@ or provider profile.
 
 | Subject | NIP-85 kind | Helper | Subject tag |
 | --- | --- | --- | --- |
-| User pubkey | 30382 | `aggregateContributions` | `p` |
-| Event id | 30383 | `aggregateEventContributions` | `e` |
-| Addressable event, such as a long-form note or list | 30384 | `aggregateAddressableContributions` | `a` |
-| External identifier, such as a package, domain, relay, or vendor id | 30385 | `aggregateIdentifierContributions` | `k` |
+| User pubkey | 30382 user assertion | `aggregateContributions` | `p` |
+| Event id | 30383 event assertion | `aggregateEventContributions` | `e` |
+| Addressable event, such as a long-form note or list | 30384 addressable event assertion | `aggregateAddressableContributions` | `a` |
+| External identifier, such as a package, domain, relay, or vendor id | 30385 NIP-73/external identifier assertion | `aggregateIdentifierContributions` | `k` |
 
 For kind 30385, the `k` tag is a decimal namespace chosen by the application
 profile. nostr-veil validates the shape and binds it in proof v2; it does not

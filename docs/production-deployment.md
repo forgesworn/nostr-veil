@@ -9,7 +9,7 @@ Use `createDeploymentPolicy()` and `verifyDeploymentPolicy()` for production
 flows. A policy should include:
 
 - the exact expected subject;
-- the accepted circle IDs for this deployment;
+- the accepted circle manifests or explicit circle IDs for this deployment;
 - the minimum distinct signer count;
 - the freshness window;
 - metric bounds and required metrics;
@@ -20,13 +20,23 @@ flows. A policy should include:
 import {
   RELEASE_PACKAGE_MAINTAINER_REPUTATION_PROFILE,
   canonicalNpmPackageSubject,
+  createCircleManifest,
   createDeploymentPolicy,
   verifyDeploymentPolicy,
 } from 'nostr-veil/profiles'
 
 const subject = canonicalNpmPackageSubject('nostr-veil', '0.15.0')
+const reviewerPubkeys = [alicePubkey, bobPubkey, carolPubkey].sort()
+const packageReviewCircle = createCircleManifest({
+  issuedAt: 1778000000,
+  expiresAt: 1778000900,
+  members: reviewerPubkeys,
+  name: 'Package reviewers',
+  profileIds: [RELEASE_PACKAGE_MAINTAINER_REPUTATION_PROFILE.id],
+  purpose: 'Release safety review',
+})
 const policy = createDeploymentPolicy(RELEASE_PACKAGE_MAINTAINER_REPUTATION_PROFILE, {
-  acceptedCircleIds: ['<accepted circle id>'],
+  circleManifests: [packageReviewCircle],
   expectedSubject: subject,
   metricPolicies: {
     rank: { required: true, min: 0, max: 100, integer: true },
@@ -72,7 +82,8 @@ npm run test:production-recipes
 
 A production verifier should reject, or move to manual review, when:
 
-- no accepted circle list is configured;
+- no accepted circle list or manifest is configured;
+- a manifest is expired, revoked, superseded, or does not allow the profile;
 - the assertion is about a different subject;
 - the assertion is stale;
 - the proof is not v2 for a profile that requires v2;
@@ -86,3 +97,22 @@ A production verifier should reject, or move to manual review, when:
 These checks do not replace governance. Keep a separate policy for circle
 admission, rotation, revocation, evidence handling, appeals, and incident
 response. See [circle governance](./circle-governance.md).
+
+## Rotation and revocation
+
+Use manifests to rotate circles without trusting old rings forever:
+
+- publish a new manifest with a new member list and `supersedes` containing the
+  old circle ID;
+- put compromised or retired circle IDs in `revokedCircleIds`;
+- keep `expiresAt` short for high-risk workflows;
+- leave `allowSupersededCircleIds` disabled unless the deployment is explicitly
+  verifying historical evidence.
+
+Raw `acceptedCircleIds` still work for backwards compatibility, but manifests
+are safer because the verifier can reject expired, revoked, wrong-profile, and
+superseded circles automatically.
+
+A manifest is deployment configuration. Load it from a trusted release, signed
+configuration bundle, or operator-controlled policy source; do not treat an
+untrusted manifest fetched from a relay as authority to accept a circle.

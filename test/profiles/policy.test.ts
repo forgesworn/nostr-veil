@@ -11,7 +11,7 @@ import {
   signEvent,
   verifyDeploymentPolicy,
 } from '../../src/index.js'
-import type { EventTemplate } from '../../src/index.js'
+import type { EventTemplate, UseCaseDeploymentPolicy } from '../../src/index.js'
 
 function tagValue(event: EventTemplate, name: string): string {
   const value = event.tags.find(tag => tag[0] === name)?.[1]
@@ -71,6 +71,22 @@ describe('deployment policies', () => {
     expect(accepted.nostrSignatures).toEqual({ checked: true, valid: true })
     expect(rejected.valid).toBe(false)
     expect(rejected.errors.join('; ')).toContain('fully signed Nostr event')
+  })
+
+  it('keeps legacy accepted-circle policies valid without manifest fields', () => {
+    const currentPolicy = createDeploymentPolicy(RELEASE_PACKAGE_MAINTAINER_REPUTATION_PROFILE, {
+      acceptedCircleIds: [circleId(packageAssertion)],
+      expectedSubject: tagValue(packageAssertion, 'd'),
+    })
+    const legacyPolicy = { ...currentPolicy } as Partial<UseCaseDeploymentPolicy>
+    delete legacyPolicy.circleManifests
+    delete legacyPolicy.allowSupersededCircleIds
+
+    const result = verifyDeploymentPolicy(packageAssertion, legacyPolicy as UseCaseDeploymentPolicy, {
+      now: packageAssertion.created_at,
+    })
+
+    expect(result.valid, result.errors.join('; ')).toBe(true)
   })
 
   it('rejects policies without accepted circles before runtime', () => {

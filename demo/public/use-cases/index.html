@@ -618,32 +618,33 @@
           <p>
             This is the first design decision. User, event, addressable event,
             and external identifier assertions all use the same proof layer,
-            but they bind the score to different Nostr subjects.
+            but they bind the score to different Nostr subjects. See the
+            <a href="https://nips.nostr.com/85">NIP-85 trusted assertions spec</a>.
           </p>
         </div>
 
         <div class="route-grid">
           <article class="route-card">
             <span class="kind">30382</span>
-            <h3>User pubkey</h3>
+            <h3>User assertion</h3>
             <p>Accounts, onboarding candidates, moderators, vendors with a Nostr identity, and pubkey-backed sources.</p>
             <p><code>aggregateContributions</code></p>
           </article>
           <article class="route-card">
             <span class="kind">30383</span>
-            <h3>Event id</h3>
+            <h3>Event assertion</h3>
             <p>Claims, reports, announcements, grant proposals, credentials, and other single-event artefacts.</p>
             <p><code>aggregateEventContributions</code></p>
           </article>
           <article class="route-card">
             <span class="kind">30384</span>
-            <h3>Addressable event</h3>
+            <h3>Addressable event assertion</h3>
             <p>Long-form notes, research artefacts, lists, labeler profiles, moderation feeds, and NIP-33 records.</p>
             <p><code>aggregateAddressableContributions</code></p>
           </article>
           <article class="route-card">
             <span class="kind">30385</span>
-            <h3>External identifier</h3>
+            <h3>NIP-73/external identifier assertion</h3>
             <p>Relays, services, domains, NIP-05 names, packages, releases, maintainers, and marketplace identities.</p>
             <p><code>aggregateIdentifierContributions</code></p>
           </article>
@@ -670,7 +671,7 @@
             <h3>1. Canonicalise the subject</h3>
             <p>Why: proof v2 binds the exact kind and subject hint. If two clients score different strings, they are not scoring the same thing.</p>
             <ul>
-              <li>Use kind 30382 for a pubkey, 30383 for an event id, 30384 for a NIP-33 address, and 30385 for external identifiers.</li>
+              <li>Use NIP-85 kind 30382 for a user pubkey, 30383 for an event id, 30384 for a NIP-33 address, and 30385 for NIP-73/external identifiers.</li>
               <li>Define identifier normalisation before signing: domains, relays, packages, releases, vendors, and maintainers all need stable strings.</li>
               <li>Prefer digest-bound package or release identifiers when the exact artefact matters.</li>
             </ul>
@@ -679,7 +680,7 @@
             <h3>2. Publish verifier policy</h3>
             <p>Why: the cryptography proves distinct circle members signed. The client still needs to know which circle and threshold are authoritative.</p>
             <ul>
-              <li>State the accepted circle ID, member admission rules, minimum threshold, and freshness window.</li>
+              <li>State the accepted circle manifest, member admission rules, minimum threshold, and freshness window.</li>
               <li>Define what <code>rank</code> means for this profile before contributors sign.</li>
               <li>Choose the evidence or audit process that contributors must complete before adding a score.</li>
             </ul>
@@ -758,7 +759,7 @@
                   <h4>User reputation and abuse reporting</h4>
                   <p>Publish a threshold-backed signal about an account for moderation, trust, or abuse-risk workflows.</p>
                   <div class="case-meta">
-                    <span>Kind 30382 / user pubkey</span>
+                    <span>NIP-85 kind 30382 / user pubkey</span>
                     <span>Helper: aggregateContributions</span>
                   </div>
                   <div class="requirement">Requires evidence workflow, appeals, circle admission, and timing-safe collection.</div>
@@ -775,7 +776,7 @@
                   <h4>Privacy-preserving onboarding</h4>
                   <p>An existing circle can vouch for a candidate account without naming the members who backed them.</p>
                   <div class="case-meta">
-                    <span>Kind 30382 / candidate pubkey</span>
+                    <span>NIP-85 kind 30382 / candidate pubkey</span>
                     <span>Helper: aggregateContributions</span>
                   </div>
                   <div class="requirement">Requires admission policy, expiry, revocation, threshold rules, and post-admission moderation.</div>
@@ -800,7 +801,7 @@
                   <h4>Source corroboration</h4>
                   <p>A trusted circle can corroborate a source or document trail without publishing every person who vouched.</p>
                   <div class="case-meta">
-                    <span>Kind 30382 or 30385</span>
+                    <span>NIP-85 kind 30382 or 30385</span>
                     <span>Subject: pubkey or source identifier</span>
                   </div>
                   <div class="requirement">Requires editorial verification, secure contact handling, identifier hygiene, and operational security.</div>
@@ -817,7 +818,7 @@
                   <h4>Event and claim verification</h4>
                   <p>Score a specific note, report, announcement, or claim with a verifiable reviewer threshold.</p>
                   <div class="case-meta">
-                    <span>Kind 30383 / event id</span>
+                    <span>NIP-85 kind 30383 / event id</span>
                     <span>Helper: aggregateEventContributions</span>
                   </div>
                   <div class="requirement">Requires methodology, evidence links, correction events, and supersession rules.</div>
@@ -834,7 +835,7 @@
                   <h4>Article, research, and long-form review</h4>
                   <p>Let a reviewer circle score an addressable artefact without exposing reviewers to authors or sponsors.</p>
                   <div class="case-meta">
-                    <span>Kind 30384 / NIP-33 address</span>
+                    <span>NIP-85 kind 30384 / NIP-33 address</span>
                     <span>Helper: aggregateAddressableContributions</span>
                   </div>
                   <div class="requirement">Requires review criteria, conflict rules, revision policy, and optional review notes.</div>
@@ -859,7 +860,7 @@
                   <h4>Relay and service reputation</h4>
                   <p>Score relays, upload services, bots, label APIs, and other endpoints as external identifiers.</p>
                   <div class="case-meta">
-                    <span>Kind 30385 / relay or service id</span>
+                    <span>NIP-85 kind 30385 / relay or service id</span>
                     <span>Helper: aggregateIdentifierContributions</span>
                   </div>
                   <div class="requirement">Requires monitoring, service canonicalisation, expiry, and incident reports.</div>
@@ -876,7 +877,7 @@
                   <h4>NIP-05, domain, and service-provider trust</h4>
                   <p>Score identity domains, NIP-05 names, upload providers, payment endpoints, or other service identifiers.</p>
                   <div class="case-meta">
-                    <span>Kind 30385 / domain or service id</span>
+                    <span>NIP-85 kind 30385 / domain or service id</span>
                     <span>Helper: aggregateIdentifierContributions</span>
                   </div>
                   <div class="requirement">Requires DNS, HTTPS, NIP-05 resolution, canonicalisation, expiry, and provider checks.</div>
@@ -893,7 +894,7 @@
                   <h4>List, labeler, and moderation-list reputation</h4>
                   <p>Compare lists, labelers, moderation feeds, and filter providers without publishing a reviewer graph.</p>
                   <div class="case-meta">
-                    <span>Kind 30384, 30382, or 30385</span>
+                    <span>NIP-85 kind 30384, 30382, or 30385</span>
                     <span>Helper: match the subject kind</span>
                   </div>
                   <div class="requirement">Requires spot checks, list revision policy, freshness, and separate operator scoring.</div>
@@ -910,7 +911,7 @@
                   <h4>Release, package, and maintainer reputation</h4>
                   <p>Security reviewers can score packages, releases, commits, or maintainers without exposing every reviewer.</p>
                   <div class="case-meta">
-                    <span>Kind 30385 / package, release, or maintainer id</span>
+                    <span>NIP-85 kind 30385 / package, release, or maintainer id</span>
                     <span>Helper: aggregateIdentifierContributions</span>
                   </div>
                   <div class="requirement">Requires provenance, signatures, SBOMs, reproducible builds, CI, and audit policy.</div>
@@ -935,7 +936,7 @@
                   <h4>Vendor and marketplace signals</h4>
                   <p>Publish counterparty reputation for sellers, buyers, vendors, and marketplaces.</p>
                   <div class="case-meta">
-                    <span>Kind 30382 or 30385</span>
+                    <span>NIP-85 kind 30382 or 30385</span>
                     <span>Subject: pubkey or vendor id</span>
                   </div>
                   <div class="requirement">Requires dispute handling, refunds, evidence rules, identity checks, and recovery policy.</div>
@@ -977,7 +978,7 @@
                   <h4>Grant, funding, and proposal review</h4>
                   <p>Reviewer circles can score proposals, milestones, or deliverables without exposing individual reviewers.</p>
                   <div class="case-meta">
-                    <span>Kind 30383 or 30384</span>
+                    <span>NIP-85 kind 30383 or 30384</span>
                     <span>Subject: proposal event or address</span>
                   </div>
                   <div class="requirement">Requires reviewer criteria, conflict declarations, appeals, and milestone checks.</div>
@@ -1002,7 +1003,7 @@
                   <h4>Anonymous credential or attestation co-signing</h4>
                   <p>A circle can score a credential or attestation event today; a full profile needs credential semantics.</p>
                   <div class="case-meta">
-                    <span>Today: 30383 or 30384 score</span>
+                    <span>Today: NIP-85 kind 30383 or 30384 score</span>
                     <span>Needs: credential event format</span>
                   </div>
                   <div class="requirement">Requires holder binding, selective disclosure, presentation, expiry, and revocation.</div>
@@ -1019,7 +1020,7 @@
                   <h4>Relay or community admission</h4>
                   <p>A circle can publish a vouch assertion today; full anonymous admission needs an access handshake.</p>
                   <div class="case-meta">
-                    <span>Today: 30382 candidate vouch</span>
+                    <span>Today: NIP-85 kind 30382 candidate vouch</span>
                     <span>Needs: challenge/response admission protocol</span>
                   </div>
                   <div class="requirement">Requires transport privacy, session continuity, expiry, bans, and replay protection.</div>

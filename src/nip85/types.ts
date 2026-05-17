@@ -14,6 +14,19 @@ export const NIP85_KINDS = {
   PROVIDER: 10040,
 } as const
 
+/** Human-readable names for the NIP-85 event kinds. */
+export const NIP85_KIND_DESCRIPTIONS: Readonly<Record<number, string>> = {
+  [NIP85_KINDS.USER]: 'NIP-85 kind 30382: user assertion',
+  [NIP85_KINDS.EVENT]: 'NIP-85 kind 30383: event assertion',
+  [NIP85_KINDS.ADDRESSABLE]: 'NIP-85 kind 30384: addressable event assertion',
+  [NIP85_KINDS.IDENTIFIER]: 'NIP-85 kind 30385: NIP-73/external identifier assertion',
+  [NIP85_KINDS.PROVIDER]: 'NIP-85 kind 10040: trusted service provider declaration',
+}
+
+export function describeNip85Kind(kind: number): string {
+  return NIP85_KIND_DESCRIPTIONS[kind] ?? `Nostr kind ${kind}`
+}
+
 /** Kind 30382 user assertion metrics */
 export interface UserMetrics {
   followers?: number

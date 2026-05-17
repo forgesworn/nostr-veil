@@ -105,7 +105,7 @@ const circle = createTrustCircle([alicePubkey, bobPubkey, carolPubkey])
 const alice = contributeAssertion(circle, subjectPubkey, { followers: 820, rank: 74 }, alicePrivkey, 0)
 const bob   = contributeAssertion(circle, subjectPubkey, { followers: 900, rank: 80 }, bobPrivkey,   1)
 
-// 3. Aggregate into a standard NIP-85 kind 30382 event
+// 3. Aggregate into a standard NIP-85 kind 30382 user assertion
 const assertion = aggregateContributions(circle, subjectPubkey, [alice, bob])
 
 // 4. Any client verifies -- two distinct members agreed, no names attached
@@ -125,11 +125,11 @@ The resulting `assertion` is a plain `EventTemplate` you sign and publish like a
 
 | Export | Description |
 |--------|-------------|
-| `buildUserAssertion(pubkey, metrics)` | Build a kind 30382 user assertion event template |
-| `buildEventAssertion(eventId, metrics)` | Build a kind 30383 event assertion |
-| `buildAddressableAssertion(address, metrics)` | Build a kind 30384 addressable assertion |
-| `buildIdentifierAssertion(identifier, kTag, metrics)` | Build a kind 30385 identifier assertion |
-| `buildProviderDeclaration(providers, encryptedContent?)` | Build a kind 10040 provider declaration |
+| `buildUserAssertion(pubkey, metrics)` | Build a NIP-85 kind 30382 user assertion event template |
+| `buildEventAssertion(eventId, metrics)` | Build a NIP-85 kind 30383 event assertion |
+| `buildAddressableAssertion(address, metrics)` | Build a NIP-85 kind 30384 addressable event assertion |
+| `buildIdentifierAssertion(identifier, kTag, metrics)` | Build a NIP-85 kind 30385 NIP-73/external identifier assertion |
+| `buildProviderDeclaration(providers, encryptedContent?)` | Build a NIP-85 kind 10040 trusted service provider declaration |
 | `parseAssertion(event)` | Parse a raw event into a `ParsedAssertion` |
 | `parseProviderDeclaration(event, decryptFn?)` | Parse a kind 10040 provider declaration into `ParsedProvider[]` (supports optional NIP-44 decryption) |
 | `validateAssertion(event, options?)` | Validate a NIP-85 assertion -- pass `{ strict: true }` for kind-specific metric checks and optional subject-hint validation |
@@ -137,7 +137,7 @@ The resulting `assertion` is a plain `EventTemplate` you sign and publish like a
 | `validateProviderDeclarationStrict(event)` | Strict kind 10040 provider declaration validation for plaintext tags; encrypted declarations are accepted when tags are omitted |
 | `assertionFilter({ kind, subject?, provider? })` | Build a relay query filter for assertions |
 | `providerFilter(pubkey)` | Build a relay query filter for a provider declaration |
-| `NIP85_KINDS` | Kind constants: `USER`, `EVENT`, `ADDRESSABLE`, `IDENTIFIER`, `PROVIDER` |
+| `NIP85_KINDS`, `describeNip85Kind(kind)` | Kind constants and labels for the [NIP-85](https://nips.nostr.com/85) trusted assertion kinds |
 
 ### `nostr-veil/proof` -- Ring-signature proof layer
 
@@ -165,6 +165,8 @@ The resulting `assertion` is a plain `EventTemplate` you sign and publish like a
 | `USE_CASE_PROFILES` | Built-in machine-readable profiles for the documented use cases |
 | `USE_CASE_PROFILE_BY_ID` | Lookup table keyed by use-case slug |
 | `verifyUseCaseProfile(events, profile, options)` | Verify NIP-85 syntax, proof v2, subject binding, threshold, freshness, accepted circles, and federation policy |
+| `createCircleManifest(options)` | Build a machine-readable circle manifest with member list, allowed profiles, expiry, revocation, and supersession metadata |
+| `verifyCircleManifest(manifest, options?)` | Verify that a circle manifest matches its members and deployment constraints |
 | `createDeploymentPolicy(profile, options)` | Build a fail-closed deployment policy with accepted circles, expected subject, metric bounds, freshness, threshold, and signature requirements |
 | `verifyDeploymentPolicy(events, policy, options?)` | Verify a profile plus deployment-specific controls before acting on a score |
 | `canonicalRelaySubject`, `canonicalNip05Subject`, `canonicalDomainSubject`, `canonicalNpmPackageSubject` | Canonical subject helpers for common real-world identifiers |
@@ -269,11 +271,11 @@ proof-v2 verification, and the operational controls needed beyond the proof.
 
 Supported today:
 
-- User reputation and abuse reporting with kind 30382 user assertions.
-- Source corroboration and peer review, using kind 30382 for pubkeys or kind 30385 for external identifiers.
-- Event and claim verification with kind 30383 event assertions via `aggregateEventContributions`.
-- Article, long-form note, research, grant, and proposal review with kind 30384 addressable assertions via `aggregateAddressableContributions`.
-- Relay, service, vendor, marketplace, package, release, maintainer, NIP-05, and domain reputation with kind 30385 identifier assertions via `aggregateIdentifierContributions`.
+- User reputation and abuse reporting with NIP-85 kind 30382 user assertions.
+- Source corroboration and peer review, using NIP-85 kind 30382 for pubkeys or kind 30385 for NIP-73/external identifiers.
+- Event and claim verification with NIP-85 kind 30383 event assertions via `aggregateEventContributions`.
+- Article, long-form note, research, grant, and proposal review with NIP-85 kind 30384 addressable event assertions via `aggregateAddressableContributions`.
+- Relay, service, vendor, marketplace, package, release, maintainer, NIP-05, and domain reputation with NIP-85 kind 30385 identifier assertions via `aggregateIdentifierContributions`.
 - Community list, labeler, and moderation-list reputation where users can compare curation sources without mapping every reviewer.
 - Federated moderation where scoped circles count overlapping contributors once, not once per circle.
 - Privacy-preserving onboarding where an already-trusted circle can vouch for a new account without naming the individual vouchees.

@@ -108,6 +108,13 @@ const safetyChecks = [
   ['Unknown circle', 'The circle ID must be accepted by deployment policy.'],
   ['Relay mutation', 'Fetched event content and tags must match the Nostr signature.'],
 ]
+const nip85Kinds = [
+  ['30382', 'User assertion', 'Nostr pubkey subjects', 'p'],
+  ['30383', 'Event assertion', 'Nostr event id subjects', 'e'],
+  ['30384', 'Addressable event assertion', 'NIP-33 address subjects', 'a'],
+  ['30385', 'NIP-73/external identifier assertion', 'packages, relays, domains, vendors, and other identifiers', 'k'],
+  ['10040', 'Trusted service provider declaration', 'provider metadata, not a score assertion', 'provider tags'],
+]
 
 function escapeHtml(value) {
   return value
@@ -613,6 +620,19 @@ function renderSafetyMatrix() {
 <p>Use <code>verifyUseCaseProfile()</code> with accepted circle IDs, expected subject, freshness, and threshold policy so these checks are not left to application glue.</p>`
 }
 
+function renderNip85KindReference() {
+  return `<h2>NIP-85 kind reference</h2>
+<p>NIP-85 defines the assertion kind by the subject being scored. The kind number is part of the proof v2 context, so deployments should verify both the number and the subject hint tag.</p>
+<div class="kind-reference">
+  ${nip85Kinds.map(([kind, label, subject, hint]) => `<div class="kind-reference-item">
+    <span>${escapeHtml(kind)}</span>
+    <strong>${escapeHtml(label)}</strong>
+    <p>${escapeHtml(subject)}. Subject hint: <code>${escapeHtml(hint)}</code>.</p>
+  </div>`).join('\n  ')}
+</div>
+<p>Spec: <a href="https://nips.nostr.com/85">NIP-85 trusted assertions</a>.</p>`
+}
+
 function renderPage(useCase, index) {
   const previous = cases[(index - 1 + cases.length) % cases.length]
   const next = cases[(index + 1) % cases.length]
@@ -1116,6 +1136,39 @@ function renderPage(useCase, index) {
       font-size: 14px;
       line-height: 1.45;
     }
+    .kind-reference {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 18px;
+    }
+    .kind-reference-item {
+      min-width: 0;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--paper);
+      padding: 14px;
+    }
+    .kind-reference-item span {
+      color: var(--accent);
+      display: block;
+      font-family: "JetBrains Mono", ui-monospace, monospace;
+      font-size: 17px;
+      font-weight: 900;
+      margin-bottom: 8px;
+    }
+    .kind-reference-item strong {
+      color: var(--ink);
+      display: block;
+      font-size: 13px;
+      line-height: 1.35;
+    }
+    .kind-reference-item p {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+      margin-top: 8px;
+    }
     table {
       width: 100%;
       min-width: 640px;
@@ -1195,7 +1248,8 @@ function renderPage(useCase, index) {
       .side-nav,
       .next-grid,
       .relay-evidence dl,
-      .safety-grid { grid-template-columns: 1fr; }
+      .safety-grid,
+      .kind-reference { grid-template-columns: 1fr; }
       .code-sample-toolbar {
         align-items: stretch;
         flex-direction: column;
@@ -1264,6 +1318,7 @@ function renderPage(useCase, index) {
       </nav>
       <article>
         ${body.replace('<h2>Worked example', '<h2 id="worked-example">Worked example')}
+        ${renderNip85KindReference()}
         ${renderRelayEvidence(useCase, relayReport)}
         ${renderSafetyMatrix()}
         <h2>Next examples</h2>

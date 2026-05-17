@@ -1,5 +1,5 @@
 import {
-  computeCircleId,
+  describeNip85Kind,
   signEvent,
 } from 'nostr-veil'
 import type { EventTemplate } from 'nostr-veil'
@@ -11,6 +11,7 @@ import {
   RELEASE_PACKAGE_MAINTAINER_REPUTATION_PROFILE,
   canonicalNip05Subject,
   canonicalNpmPackageSubject,
+  createCircleManifest,
   createDeploymentPolicy,
   verifyDeploymentPolicy,
 } from 'nostr-veil/profiles'
@@ -23,6 +24,7 @@ import { events as moderationEvents } from './use-cases/federated-moderation.js'
 interface RecipeResult {
   action: string
   errors: string[]
+  kind: string
   name: string
   valid: boolean
 }
@@ -33,10 +35,26 @@ function tagValue(event: EventTemplate, name: string): string {
   return value
 }
 
-function circleId(event: EventTemplate): string {
-  const ring = event.tags.find(tag => tag[0] === 'veil-ring')?.slice(1)
-  if (ring === undefined) throw new Error('missing veil-ring tag')
-  return computeCircleId(ring)
+function circleMembers(event: EventTemplate): string[] {
+  const members = event.tags.find(tag => tag[0] === 'veil-ring')?.slice(1)
+  if (members === undefined) throw new Error('missing veil-ring tag')
+  return members
+}
+
+function manifestFor(
+  event: EventTemplate,
+  profileId: string,
+  name: string,
+  purpose: string,
+) {
+  return createCircleManifest({
+    issuedAt: event.created_at ?? 0,
+    expiresAt: (event.created_at ?? 0) + 900,
+    members: circleMembers(event),
+    name,
+    profileIds: [profileId],
+    purpose,
+  })
 }
 
 function firstMetric(metrics: Record<string, number[]>, name: string): number {
@@ -53,7 +71,9 @@ function packageReleaseGate(): RecipeResult {
   const subject = canonicalNpmPackageSubject('nostr-veil', '0.14.0')
   const signed = signEvent(packageAssertion, '55'.repeat(32))
   const policy = createDeploymentPolicy(RELEASE_PACKAGE_MAINTAINER_REPUTATION_PROFILE, {
-    acceptedCircleIds: [circleId(packageAssertion)],
+    circleManifests: [
+      manifestFor(packageAssertion, RELEASE_PACKAGE_MAINTAINER_REPUTATION_PROFILE.id, 'Package reviewers', 'Release safety review'),
+    ],
     expectedSubject: subject,
     metricPolicies: {
       rank: { required: true, min: 0, max: 100, integer: true },
@@ -67,6 +87,7 @@ function packageReleaseGate(): RecipeResult {
   return {
     action: result.valid && rank >= 85 ? 'surface-reviewed-release' : 'manual-review',
     errors: result.errors,
+    kind: describeNip85Kind(RELEASE_PACKAGE_MAINTAINER_REPUTATION_PROFILE.kind),
     name: 'package-release-gate',
     valid: result.valid,
   }
@@ -74,7 +95,9 @@ function packageReleaseGate(): RecipeResult {
 
 function relayServicePreference(): RecipeResult {
   const policy = createDeploymentPolicy(RELAY_SERVICE_REPUTATION_PROFILE, {
-    acceptedCircleIds: [circleId(relayReputationAssertion)],
+    circleManifests: [
+      manifestFor(relayReputationAssertion, RELAY_SERVICE_REPUTATION_PROFILE.id, 'Relay reviewers', 'Relay and service review'),
+    ],
     expectedSubject: tagValue(relayReputationAssertion, 'd'),
     expectedSubjectTagValue: '10002',
     metricPolicies: {
@@ -91,6 +114,7 @@ function relayServicePreference(): RecipeResult {
   return {
     action: result.valid && rank >= 75 ? 'prefer-relay' : 'do-not-prefer-relay',
     errors: result.errors,
+    kind: describeNip85Kind(RELAY_SERVICE_REPUTATION_PROFILE.kind),
     name: 'relay-service-preference',
     valid: result.valid,
   }
@@ -99,7 +123,9 @@ function relayServicePreference(): RecipeResult {
 function nip05DomainWarning(): RecipeResult {
   const subject = canonicalNip05Subject('alice@example.com')
   const policy = createDeploymentPolicy(NIP05_DOMAIN_SERVICE_PROVIDER_TRUST_PROFILE, {
-    acceptedCircleIds: [circleId(nip05Assertion)],
+    circleManifests: [
+      manifestFor(nip05Assertion, NIP05_DOMAIN_SERVICE_PROVIDER_TRUST_PROFILE.id, 'Provider reviewers', 'NIP-05 and domain provider review'),
+    ],
     expectedSubject: subject,
     expectedSubjectTagValue: '0',
     metricPolicies: {
@@ -113,6 +139,7 @@ function nip05DomainWarning(): RecipeResult {
   return {
     action: result.valid && rank >= 80 ? 'show-provider-trust-signal' : 'show-provider-warning',
     errors: result.errors,
+    kind: describeNip85Kind(NIP05_DOMAIN_SERVICE_PROVIDER_TRUST_PROFILE.kind),
     name: 'nip05-domain-warning',
     valid: result.valid,
   }
@@ -120,7 +147,9 @@ function nip05DomainWarning(): RecipeResult {
 
 function federatedModerationReview(): RecipeResult {
   const policy = createDeploymentPolicy(FEDERATED_MODERATION_PROFILE, {
-    acceptedCircleIds: moderationEvents.map(circleId),
+    circleManifests: moderationEvents.map((event, index) =>
+      manifestFor(event, FEDERATED_MODERATION_PROFILE.id, `Moderation circle ${index + 1}`, 'Federated moderation review'),
+    ),
     expectedSubject: tagValue(moderationEvents[0], 'd'),
     metricPolicies: {
       rank: { required: true, min: 0, max: 100, integer: true },
@@ -136,6 +165,7 @@ function federatedModerationReview(): RecipeResult {
   return {
     action: result.valid && reportCount >= 4 ? 'queue-human-moderation-review' : 'no-automatic-action',
     errors: result.errors,
+    kind: describeNip85Kind(FEDERATED_MODERATION_PROFILE.kind),
     name: 'federated-moderation-review',
     valid: result.valid,
   }
@@ -143,7 +173,9 @@ function federatedModerationReview(): RecipeResult {
 
 function relayAdmissionGate(): RecipeResult {
   const policy = createDeploymentPolicy(RELAY_COMMUNITY_ADMISSION_PROFILE, {
-    acceptedCircleIds: [circleId(relayAdmissionAssertion)],
+    circleManifests: [
+      manifestFor(relayAdmissionAssertion, RELAY_COMMUNITY_ADMISSION_PROFILE.id, 'Admission reviewers', 'Relay or community admission review'),
+    ],
     expectedSubject: tagValue(relayAdmissionAssertion, 'd'),
     metricPolicies: {
       rank: { required: true, min: 0, max: 100, integer: true },
@@ -158,6 +190,7 @@ function relayAdmissionGate(): RecipeResult {
   return {
     action: result.valid && rank >= 90 ? 'admit-with-standard-rate-limits' : 'manual-admission-review',
     errors: result.errors,
+    kind: describeNip85Kind(RELAY_COMMUNITY_ADMISSION_PROFILE.kind),
     name: 'relay-admission-gate',
     valid: result.valid,
   }
@@ -172,7 +205,7 @@ export const productionRecipeResults = [
 ]
 
 for (const result of productionRecipeResults) {
-  console.log(`${result.name}: valid=${result.valid ? 'yes' : 'no'} action=${result.action}`)
+  console.log(`${result.name}: valid=${result.valid ? 'yes' : 'no'} kind="${result.kind}" action=${result.action}`)
   if (!result.valid) {
     console.log(`  errors=${result.errors.join('; ')}`)
   }
