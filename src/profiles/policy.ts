@@ -61,7 +61,7 @@ export interface VerifyDeploymentPolicyOptions {
 export interface DeploymentPolicyVerification {
   decision: DeploymentDecision
   errors: string[]
-  issues: VerificationIssue[]
+  issues?: VerificationIssue[]
   metrics: Record<string, number[]>
   nostrSignatures: {
     checked: boolean

@@ -38,7 +38,7 @@ export interface VerifySignedDeploymentBundleOptions {
 export interface SignedDeploymentBundleVerification {
   bundle: SignedDeploymentBundle
   errors: string[]
-  issues: VerificationIssue[]
+  issues?: VerificationIssue[]
   publisherTrusted: boolean
   signatureValid: boolean
   valid: boolean
@@ -52,7 +52,7 @@ export interface DeploymentBundleVerification {
   bundle: SignedDeploymentBundleVerification
   deployment: DeploymentPolicyVerification
   errors: string[]
-  issues: VerificationIssue[]
+  issues?: VerificationIssue[]
   valid: boolean
 }
 
@@ -228,8 +228,8 @@ export function verifyDeploymentBundle(
     ...deployment.errors,
   ]
   const issues = [
-    ...bundleVerification.issues,
-    ...deployment.issues,
+    ...(bundleVerification.issues ?? issuesFromErrors(bundleVerification.errors)),
+    ...(deployment.issues ?? issuesFromErrors(deployment.errors)),
   ]
 
   return {

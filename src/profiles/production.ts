@@ -19,6 +19,7 @@ export interface VerifyProductionDeploymentOptions extends VerifyDeploymentBundl
 
 export interface ProductionDeploymentVerification extends DeploymentBundleVerification {
   decision: 'accept' | 'reject'
+  issues: VerificationIssue[]
 }
 
 function productionHardeningIssues(
@@ -61,7 +62,7 @@ export function verifyProductionDeployment(
   const base = verifyDeploymentBundle(events, bundle, options)
   const hardeningIssues = productionHardeningIssues(bundle, options)
   const issues = [
-    ...base.issues,
+    ...(base.issues ?? []),
     ...hardeningIssues,
   ]
   const errors = [

@@ -72,7 +72,7 @@ export interface VerifiedProfileEvent {
 export interface UseCaseProfileVerification {
   valid: boolean
   errors: string[]
-  issues: VerificationIssue[]
+  issues?: VerificationIssue[]
   events: VerifiedProfileEvent[]
   federation?: FederationVerification
   profile: UseCaseProfile
