@@ -1,6 +1,14 @@
 import { lsagVerify, hasDuplicateKeyImage } from '@forgesworn/ring-sig'
-import { canonicalMessage, computeCircleId, electionId, MAX_SCOPE_LENGTH, SCOPE_RE } from './circle.js'
-import type { AggregateFn, ProofVerification } from './types.js'
+import {
+  canonicalMessage,
+  canonicalMessageV2,
+  computeCircleId,
+  electionId,
+  electionIdV2,
+  MAX_SCOPE_LENGTH,
+  SCOPE_RE,
+} from './circle.js'
+import type { AggregateFn, ProofContext, ProofVerification, ProofVersion, SubjectTag } from './types.js'
 import { AGGREGATES, isAggregateName } from './aggregate.js'
 
 /**
@@ -14,23 +22,70 @@ import { AGGREGATES, isAggregateName } from './aggregate.js'
  * @param options - Optional aggregate function, needed only for events whose `veil-agg` tag is `custom`. Named aggregates are resolved from the tag automatically.
  * @returns A {@link ProofVerification} with `valid`, `circleSize`, `threshold`, `distinctSigners`, and any `errors`
  */
-const MAX_RING_SIZE = 1000
+export interface VerifyLimits {
+  /** Maximum pubkeys accepted in a veil-ring. */
+  maxRingSize: number
+  /** Maximum serialised JSON payload bytes/chars in one veil-sig tag. */
+  maxSigPayloadBytes: number
+  /** Maximum canonical signed message bytes/chars inside one signature. */
+  maxSignedMessageBytes: number
+  /** Maximum number of metric entries inside one signed message. */
+  maxMetricCount: number
+  /** Maximum metric tag name length inside one signed message. */
+  maxMetricNameLength: number
+}
+
+export const DEFAULT_VERIFY_LIMITS: VerifyLimits = {
+  maxRingSize: 1000,
+  maxSigPayloadBytes: 128_000,
+  maxSignedMessageBytes: 16_384,
+  maxMetricCount: 128,
+  maxMetricNameLength: 64,
+}
+
 const HEX64_RE = /^[0-9a-f]{64}$/
+const KEY_IMAGE_RE = /^[0-9a-f]{66}$/
 const DECIMAL_INTEGER_RE = /^(0|[1-9]\d*)$/
 const META_TAGS = new Set(['d', 'p', 'e', 'a', 'k'])
 
-type VerifyOptions = AggregateFn | { aggregateFn?: AggregateFn }
+export type VerifyOptions = AggregateFn | {
+  aggregateFn?: AggregateFn
+  limits?: Partial<VerifyLimits>
+  requireProofVersion?: ProofVersion
+}
 
-interface SignedMessage {
+interface SignedMessageV1 {
   circleId: string
   subject: string
   metrics: Record<string, number>
+  proofVersion?: undefined
 }
+
+interface SignedMessageV2 {
+  circleId: string
+  subject: string
+  metrics: Record<string, number>
+  proofVersion: 'v2'
+  kind: number
+  subjectTag: SubjectTag
+  subjectTagValue: string
+}
+
+type SignedMessage = SignedMessageV1 | SignedMessageV2
 
 function aggregateFnFromOptions(options?: VerifyOptions): AggregateFn {
   return typeof options === 'function'
     ? options
     : options?.aggregateFn ?? AGGREGATES.median
+}
+
+function limitsFromOptions(options?: VerifyOptions): VerifyLimits {
+  const override = typeof options === 'function' ? undefined : options?.limits
+  return { ...DEFAULT_VERIFY_LIMITS, ...override }
+}
+
+function requiredProofVersion(options?: VerifyOptions): ProofVersion | undefined {
+  return typeof options === 'function' ? undefined : options?.requireProofVersion
 }
 
 /**
@@ -112,7 +167,36 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
-function parseSignedMessage(message: string): SignedMessage {
+function assertSubjectTag(value: string): asserts value is SubjectTag {
+  if (value !== 'p' && value !== 'e' && value !== 'a' && value !== 'k') {
+    throw new Error(`signed message subjectTag is not supported: ${value}`)
+  }
+}
+
+function parseMetrics(rawMetrics: Record<string, unknown>, limits: VerifyLimits): Record<string, number> {
+  const entries = Object.entries(rawMetrics)
+  if (entries.length > limits.maxMetricCount) {
+    throw new Error(`signed message exceeds maximum metric count (${limits.maxMetricCount})`)
+  }
+
+  const metrics: Record<string, number> = {}
+  for (const [key, value] of entries) {
+    if (key.length === 0 || key.length > limits.maxMetricNameLength) {
+      throw new Error(`signed metric name exceeds maximum length (${limits.maxMetricNameLength})`)
+    }
+    if (typeof value !== 'number' || !Number.isFinite(value)) {
+      throw new Error(`signed metric "${key}" is not a finite number`)
+    }
+    metrics[key] = value
+  }
+  return metrics
+}
+
+function parseSignedMessage(message: string, limits: VerifyLimits): SignedMessage {
+  if (message.length > limits.maxSignedMessageBytes) {
+    throw new Error(`signed message exceeds maximum size (${limits.maxSignedMessageBytes})`)
+  }
+
   let parsed: unknown
   try {
     parsed = JSON.parse(message)
@@ -129,12 +213,41 @@ function parseSignedMessage(message: string): SignedMessage {
     throw new Error('signed message has invalid shape')
   }
 
-  const metrics: Record<string, number> = {}
-  for (const [key, value] of Object.entries(rawMetrics)) {
-    if (typeof value !== 'number' || !Number.isFinite(value)) {
-      throw new Error(`signed metric "${key}" is not a finite number`)
+  const metrics = parseMetrics(rawMetrics, limits)
+
+  if (parsed.proofVersion === 'v2') {
+    const rawKind = parsed.kind
+    const rawSubjectTag = parsed.subjectTag
+    const rawSubjectTagValue = parsed.subjectTagValue
+    if (typeof rawKind !== 'number' || !Number.isSafeInteger(rawKind) || rawKind < 0) {
+      throw new Error('signed message kind is invalid')
     }
-    metrics[key] = value
+    if (typeof rawSubjectTag !== 'string') {
+      throw new Error('signed message subjectTag is invalid')
+    }
+    assertSubjectTag(rawSubjectTag)
+    if (typeof rawSubjectTagValue !== 'string' || rawSubjectTagValue === '') {
+      throw new Error('signed message subjectTagValue is invalid')
+    }
+
+    const context = { kind: rawKind, subjectTag: rawSubjectTag, subjectTagValue: rawSubjectTagValue }
+    if (message !== canonicalMessageV2(circleId, subject, metrics, context)) {
+      throw new Error('signed message is not canonical')
+    }
+
+    return {
+      circleId,
+      kind: rawKind,
+      metrics,
+      proofVersion: 'v2',
+      subject,
+      subjectTag: rawSubjectTag,
+      subjectTagValue: rawSubjectTagValue,
+    }
+  }
+
+  if (parsed.proofVersion !== undefined) {
+    throw new Error('signed message proof version is unsupported')
   }
 
   if (message !== canonicalMessage(circleId, subject, metrics)) {
@@ -211,12 +324,178 @@ function comparePublishedMetrics(
   }
 }
 
+interface ParsedSignature {
+  fullSig: {
+    c0: string
+    electionId: string
+    keyImage: string
+    message: string
+    responses: string[]
+    ring: string[]
+    domain?: string
+  }
+  keyImage: string
+}
+
+function parseSignatureTag(
+  tag: string[],
+  ring: string[],
+  index: number,
+  limits: VerifyLimits,
+  errors: string[],
+): ParsedSignature | null {
+  const payload = tag[1]
+  if (typeof payload !== 'string') {
+    errors.push(`Signature at index ${index} missing signature payload`)
+    return null
+  }
+  if (payload.length > limits.maxSigPayloadBytes) {
+    errors.push(`Signature at index ${index} signature payload exceeds maximum size (${limits.maxSigPayloadBytes})`)
+    return null
+  }
+
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(payload)
+  } catch {
+    errors.push(`Signature at index ${index} signature payload is not valid JSON`)
+    return null
+  }
+  if (!isRecord(parsed)) {
+    errors.push(`Signature at index ${index} signature payload must be a JSON object`)
+    return null
+  }
+
+  const keyImage = tag[2]
+  if (typeof keyImage !== 'string' || !KEY_IMAGE_RE.test(keyImage)) {
+    errors.push(`Signature at index ${index} key image is invalid`)
+    return null
+  }
+
+  const { c0, electionId: eid, message, responses, domain } = parsed
+  if (typeof c0 !== 'string' || !HEX64_RE.test(c0)) {
+    errors.push(`Signature at index ${index} c0 is invalid`)
+    return null
+  }
+  if (typeof eid !== 'string' || eid === '') {
+    errors.push(`Signature at index ${index} missing electionId`)
+    return null
+  }
+  if (typeof message !== 'string') {
+    errors.push(`Signature at index ${index} missing signed message`)
+    return null
+  }
+  if (message.length > limits.maxSignedMessageBytes) {
+    errors.push(`Signature at index ${index} signed message exceeds maximum size (${limits.maxSignedMessageBytes})`)
+    return null
+  }
+  if (!Array.isArray(responses) || responses.length !== ring.length) {
+    errors.push(`Signature at index ${index} response count does not match veil-ring size`)
+    return null
+  }
+  for (let responseIndex = 0; responseIndex < responses.length; responseIndex++) {
+    if (typeof responses[responseIndex] !== 'string' || !HEX64_RE.test(responses[responseIndex])) {
+      errors.push(`Signature at index ${index} response ${responseIndex} is invalid`)
+      return null
+    }
+  }
+  if (domain !== undefined && typeof domain !== 'string') {
+    errors.push(`Signature at index ${index} domain is invalid`)
+    return null
+  }
+
+  return {
+    fullSig: {
+      c0,
+      electionId: eid,
+      keyImage,
+      message,
+      responses,
+      ring,
+      ...(domain === undefined ? {} : { domain }),
+    },
+    keyImage,
+  }
+}
+
+function declaredProofVersion(tags: string[][], errors: string[]): ProofVersion | undefined {
+  const versionTags = tags.filter(t => t[0] === 'veil-version')
+  if (versionTags.length > 1) {
+    errors.push('Multiple veil-version tags')
+    return undefined
+  }
+  if (versionTags.length === 0) return undefined
+  if (versionTags[0][1] !== '2') {
+    errors.push(`Unknown veil-version: ${versionTags[0][1]}`)
+    return undefined
+  }
+  return 'v2'
+}
+
+function proofVersionOf(message: SignedMessage): ProofVersion {
+  return message.proofVersion ?? 'v1'
+}
+
+function expectedElectionId(
+  scope: string,
+  subject: string,
+  message: SignedMessage,
+): string {
+  if (message.proofVersion !== 'v2') {
+    return electionId(scope, subject)
+  }
+  const context: Required<Pick<ProofContext, 'kind' | 'subjectTag' | 'subjectTagValue'>> = {
+    kind: message.kind,
+    subjectTag: message.subjectTag,
+    subjectTagValue: message.subjectTagValue,
+  }
+  return electionIdV2(scope, subject, context)
+}
+
+function subjectTagValue(tags: string[][], name: SubjectTag): string | undefined {
+  const values = tags.filter(t => t[0] === name).map(t => t[1]).filter((v): v is string => typeof v === 'string')
+  if (values.length !== 1) return undefined
+  return values[0]
+}
+
+function validateV2EventBinding(
+  event: { kind: number; tags: string[][] },
+  subject: string,
+  message: SignedMessageV2,
+  index: number,
+  errors: string[],
+): boolean {
+  let valid = true
+  if (message.kind !== event.kind) {
+    errors.push(`Signature at index ${index} signed message kind mismatch`)
+    valid = false
+  }
+
+  const tagValue = subjectTagValue(event.tags, message.subjectTag)
+  if (tagValue === undefined) {
+    errors.push(`Signature at index ${index} bound subject tag ${message.subjectTag} missing or duplicated`)
+    valid = false
+  } else if (tagValue !== message.subjectTagValue) {
+    errors.push(`Signature at index ${index} bound subject tag ${message.subjectTag} mismatch`)
+    valid = false
+  }
+
+  if (message.subjectTag !== 'k' && message.subjectTagValue !== subject) {
+    errors.push(`Signature at index ${index} bound subject tag value does not match d-tag`)
+    valid = false
+  }
+
+  return valid
+}
+
 export function verifyProof(event: {
   kind: number
   tags: string[][]
   content: string
 }, options?: VerifyOptions): ProofVerification {
   const errors: string[] = []
+  const limits = limitsFromOptions(options)
+  const requiredVersion = requiredProofVersion(options)
 
   // Require d tag -- without it the electionId check cannot bind signatures to a subject
   const dTag = event.tags.find(t => t[0] === 'd')
@@ -239,8 +518,8 @@ export function verifyProof(event: {
   }
 
   // Guard against relay-supplied DoS: unbounded ring inflates memory + verification time
-  if (ring.length > MAX_RING_SIZE) {
-    return { valid: false, circleSize: ring.length, threshold: 0, distinctSigners: 0, errors: [`veil-ring exceeds maximum size (${MAX_RING_SIZE})`] }
+  if (ring.length > limits.maxRingSize) {
+    return { valid: false, circleSize: ring.length, threshold: 0, distinctSigners: 0, errors: [`veil-ring exceeds maximum size (${limits.maxRingSize})`] }
   }
 
   // Validate ring members are valid hex pubkeys in sorted order
@@ -291,68 +570,69 @@ export function verifyProof(event: {
   if (scope === null) {
     return { valid: false, circleSize, threshold, distinctSigners: 0, errors }
   }
-  const expectedElectionId = electionId(scope, subject)
+  const declaredVersion = declaredProofVersion(event.tags, errors)
+  if (errors.length > 0) {
+    return { valid: false, circleSize, threshold, distinctSigners: 0, errors }
+  }
 
   const keyImages: string[] = []
   const signedMessages: SignedMessage[] = []
   let validSigs = 0
 
   for (let i = 0; i < sigTags.length; i++) {
+    const parsedSig = parseSignatureTag(sigTags[i], ring, i, limits, errors)
+    if (parsedSig === null) continue
+
+    let signedMessage: SignedMessage
     try {
-      const sigData = JSON.parse(sigTags[i][1])
-      const keyImage = sigTags[i][2]
-      const fullSig = { ...sigData, keyImage, ring }
-
-      if (!lsagVerify(fullSig)) {
-        errors.push(`Invalid LSAG signature at index ${i}`)
-        continue
-      }
-
-      // Bind the signature to this event's subject: the electionId must match
-      // veil:v1:<scope>:<subject>, where scope is the veil-scope tag value or,
-      // absent that tag, the circleId derived from the ring. Without this check,
-      // valid signatures could be transplanted between events. Missing electionId
-      // is treated as failure -- stripping it is the simplest bypass.
-      if (typeof sigData.electionId !== 'string') {
-        errors.push(`Signature at index ${i} missing electionId`)
-        continue
-      }
-      if (sigData.electionId !== expectedElectionId) {
-        errors.push(`Signature at index ${i} electionId mismatch`)
-        continue
-      }
-      if (typeof sigData.message !== 'string') {
-        errors.push(`Signature at index ${i} missing signed message`)
-        continue
-      }
-
-      let signedMessage: SignedMessage
-      try {
-        signedMessage = parseSignedMessage(sigData.message)
-      } catch (e) {
-        errors.push(`Signature at index ${i} ${(e as Error).message}`)
-        continue
-      }
-      if (signedMessage.circleId !== expectedCircleId) {
-        errors.push(`Signature at index ${i} signed message circleId mismatch`)
-        continue
-      }
-      if (signedMessage.subject !== subject) {
-        errors.push(`Signature at index ${i} signed message subject mismatch`)
-        continue
-      }
-
-      if (hasDuplicateKeyImage(keyImage, keyImages)) {
-        errors.push(`Duplicate key image at index ${i}`)
-        continue
-      }
-
-      keyImages.push(keyImage)
-      signedMessages.push(signedMessage)
-      validSigs++
+      signedMessage = parseSignedMessage(parsedSig.fullSig.message, limits)
     } catch (e) {
-      errors.push(`Failed to process signature at index ${i}`)
+      errors.push(`Signature at index ${i} ${(e as Error).message}`)
+      continue
     }
+
+    const messageVersion = proofVersionOf(signedMessage)
+    if (requiredVersion !== undefined && messageVersion !== requiredVersion) {
+      errors.push(`Signature at index ${i} proof version mismatch: expected ${requiredVersion}`)
+      continue
+    }
+    if (declaredVersion !== undefined && messageVersion !== declaredVersion) {
+      errors.push(`Signature at index ${i} proof version does not match veil-version tag`)
+      continue
+    }
+
+    // Bind the signature to this event's subject and semantic context. v1 keeps
+    // the historical electionId, while v2 also binds kind and subject hint tag.
+    const expectedEid = expectedElectionId(scope, subject, signedMessage)
+    if (parsedSig.fullSig.electionId !== expectedEid) {
+      errors.push(`Signature at index ${i} electionId mismatch`)
+      continue
+    }
+    if (signedMessage.circleId !== expectedCircleId) {
+      errors.push(`Signature at index ${i} signed message circleId mismatch`)
+      continue
+    }
+    if (signedMessage.subject !== subject) {
+      errors.push(`Signature at index ${i} signed message subject mismatch`)
+      continue
+    }
+    if (signedMessage.proofVersion === 'v2' && !validateV2EventBinding(event, subject, signedMessage, i, errors)) {
+      continue
+    }
+
+    if (!lsagVerify(parsedSig.fullSig)) {
+      errors.push(`Invalid LSAG signature at index ${i}`)
+      continue
+    }
+
+    if (hasDuplicateKeyImage(parsedSig.keyImage, keyImages)) {
+      errors.push(`Duplicate key image at index ${i}`)
+      continue
+    }
+
+    keyImages.push(parsedSig.keyImage)
+    signedMessages.push(signedMessage)
+    validSigs++
   }
 
   if (validSigs !== threshold) {

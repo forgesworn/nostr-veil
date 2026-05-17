@@ -1,6 +1,6 @@
 import { sha256 } from '@noble/hashes/sha2.js'
 import { bytesToHex } from '@noble/hashes/utils.js'
-import type { TrustCircle } from './types.js'
+import type { ProofContext, SubjectTag, TrustCircle } from './types.js'
 
 /** Maximum length of a federation scope string (and of a `veil-scope` tag value). */
 export const MAX_SCOPE_LENGTH = 128
@@ -46,6 +46,55 @@ export function electionId(scope: string, subject: string): string {
 }
 
 /**
+ * Build the v2 LSAG electionId. v2 scopes the key image to the assertion kind
+ * and subject hint tag as well as the d-tag subject, preventing cross-kind or
+ * cross-tag replay without changing the v1 default.
+ */
+export function electionIdV2(
+  scope: string,
+  subject: string,
+  context: Required<Pick<ProofContext, 'kind' | 'subjectTag' | 'subjectTagValue'>>
+): string {
+  return `veil:v2:${scope}:${context.kind}:${context.subjectTag}:${context.subjectTagValue}:${subject}`
+}
+
+function assertFiniteMetrics(metrics: Record<string, number>): void {
+  for (const [key, value] of Object.entries(metrics)) {
+    if (!Number.isFinite(value)) {
+      throw new Error(`Metric "${key}" must be a finite number, got ${value}`)
+    }
+  }
+}
+
+function sortedMetrics(metrics: Record<string, number>): Record<string, number> {
+  assertFiniteMetrics(metrics)
+  const sorted: Record<string, number> = {}
+  for (const key of Object.keys(metrics).sort()) {
+    sorted[key] = metrics[key]
+  }
+  return sorted
+}
+
+function stableStringify(value: Record<string, unknown>): string {
+  return JSON.stringify(value, (_key: string, child: unknown) => {
+    if (child !== null && typeof child === 'object' && !Array.isArray(child)) {
+      const sorted: Record<string, unknown> = {}
+      for (const k of Object.keys(child as Record<string, unknown>).sort()) {
+        sorted[k] = (child as Record<string, unknown>)[k]
+      }
+      return sorted
+    }
+    return child
+  })
+}
+
+function assertSubjectTag(value: string): asserts value is SubjectTag {
+  if (value !== 'p' && value !== 'e' && value !== 'a' && value !== 'k') {
+    throw new Error(`Invalid subject tag: ${value}`)
+  }
+}
+
+/**
  * Produce the canonical JSON message that contributors sign with LSAG.
  *
  * All object keys (top-level and within metrics) are explicitly sorted to
@@ -69,29 +118,44 @@ export function canonicalMessage(
   subject: string,
   metrics: Record<string, number>
 ): string {
-  for (const [key, value] of Object.entries(metrics)) {
-    if (!Number.isFinite(value)) {
-      throw new Error(`Metric "${key}" must be a finite number, got ${value}`)
-    }
-  }
-  const sortedMetrics: Record<string, number> = {}
-  for (const key of Object.keys(metrics).sort()) {
-    sortedMetrics[key] = metrics[key]
-  }
   // Top-level keys are explicitly alphabetical: circleId < metrics < subject.
   // Using a replacer function to sort keys at every nesting level, ensuring
   // deterministic output independent of object literal insertion order.
-  const obj = { circleId, metrics: sortedMetrics, subject }
-  return JSON.stringify(obj, (_key: string, value: unknown) => {
-    if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
-      const sorted: Record<string, unknown> = {}
-      for (const k of Object.keys(value as Record<string, unknown>).sort()) {
-        sorted[k] = (value as Record<string, unknown>)[k]
-      }
-      return sorted
-    }
-    return value
-  })
+  const obj = { circleId, metrics: sortedMetrics(metrics), subject }
+  return stableStringify(obj)
+}
+
+/**
+ * Produce the canonical JSON message for opt-in proof v2.
+ *
+ * v2 adds semantic context to the signed message: the NIP-85 kind and the
+ * subject hint tag/value (`p`, `e`, `a`, or `k`). That makes the contribution
+ * non-transferable across assertion classes even when the same d-tag value is
+ * reused.
+ */
+export function canonicalMessageV2(
+  circleId: string,
+  subject: string,
+  metrics: Record<string, number>,
+  context: Required<Pick<ProofContext, 'kind' | 'subjectTag' | 'subjectTagValue'>>
+): string {
+  if (!Number.isSafeInteger(context.kind) || context.kind < 0) {
+    throw new Error('v2 proof kind must be a non-negative safe integer')
+  }
+  assertSubjectTag(context.subjectTag)
+  if (typeof context.subjectTagValue !== 'string' || context.subjectTagValue === '') {
+    throw new Error('v2 proof subjectTagValue must be a non-empty string')
+  }
+  const obj = {
+    circleId,
+    kind: context.kind,
+    metrics: sortedMetrics(metrics),
+    proofVersion: 'v2',
+    subject,
+    subjectTag: context.subjectTag,
+    subjectTagValue: context.subjectTagValue,
+  }
+  return stableStringify(obj)
 }
 
 /**

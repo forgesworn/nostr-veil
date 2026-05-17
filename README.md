@@ -9,7 +9,7 @@
 
 A privacy layer for Nostr reputation systems. A group of people can collectively score someone's trustworthiness, and anyone can verify the result -- but nobody can tell which group members actually contributed. Built for abuse reporting, whistleblowing, journalism, and anonymous peer review.
 
-**New here?** The [**use-case overview**](https://veil.forgesworn.dev/use-cases/) covers what nostr-veil is, the problem it solves, and seven things you can build on it today.
+**New here?** The [**use-case overview**](https://veil.forgesworn.dev/use-cases/) covers what nostr-veil is, the problem it solves, and practical things you can build on it today.
 
 ---
 
@@ -37,9 +37,9 @@ Today's Nostr trust scores (NIP-85) ask you to pick two:
 | Private     | ✗   | ✓  |
 | Portable    | ✓   | ✓  |
 
-Anyone who can see the scores can see exactly who gave them. That works fine for benign social signals. It fails completely the moment the subject matter is sensitive -- abuse reporting, whistleblowing, political dissent. The people who need reputation systems most are the ones who cannot afford to be identified.
+Anyone who can see an ordinary score can see who published it, and multi-party reputation usually creates a visible contributor graph. That works fine for benign social signals. It fails the moment the subject matter is sensitive -- abuse reporting, whistleblowing, political dissent. The people who need reputation systems most are the ones who cannot afford to be identified.
 
-nostr-veil solves all three. The output is a standard NIP-85 event that any existing Nostr app can display. Apps that understand nostr-veil can go further and verify the cryptographic proofs that back the scores.
+nostr-veil solves all three for group assertions. The output is a standard NIP-85 event that NIP-85-aware apps can display. Apps that understand nostr-veil can go further and verify the cryptographic proofs that back the scores.
 
 ---
 
@@ -132,7 +132,9 @@ The resulting `assertion` is a plain `EventTemplate` you sign and publish like a
 | `buildProviderDeclaration(providers, encryptedContent?)` | Build a kind 10040 provider declaration |
 | `parseAssertion(event)` | Parse a raw event into a `ParsedAssertion` |
 | `parseProviderDeclaration(event, decryptFn?)` | Parse a kind 10040 provider declaration into `ParsedProvider[]` (supports optional NIP-44 decryption) |
-| `validateAssertion(event)` | Validate a NIP-85 assertion -- returns `{ valid, errors }` |
+| `validateAssertion(event, options?)` | Validate a NIP-85 assertion -- pass `{ strict: true }` for kind-specific metric checks and optional subject-hint validation |
+| `validateAssertionStrict(event)` | Strict NIP-85 assertion validation shortcut |
+| `validateProviderDeclarationStrict(event)` | Strict kind 10040 provider declaration validation for plaintext tags; encrypted declarations are accepted when tags are omitted |
 | `assertionFilter({ kind, subject?, provider? })` | Build a relay query filter for assertions |
 | `providerFilter(pubkey)` | Build a relay query filter for a provider declaration |
 | `NIP85_KINDS` | Kind constants: `USER`, `EVENT`, `ADDRESSABLE`, `IDENTIFIER`, `PROVIDER` |
@@ -142,11 +144,18 @@ The resulting `assertion` is a plain `EventTemplate` you sign and publish like a
 | Export | Description |
 |--------|-------------|
 | `createTrustCircle(memberPubkeys, options?)` | Create a trust circle from an array of pubkeys; pass `{ scope }` to federate circles for [cross-circle deduplication](#cross-circle-deduplication) |
-| `contributeAssertion(circle, subject, metrics, privateKey, memberIndex)` | Produce an anonymous ring-signed `Contribution` |
-| `aggregateContributions(circle, subject, contributions, options?)` | Aggregate contributions into a NIP-85 event with veil tags (default aggregation: median) |
-| `verifyProof(event, options?)` | Verify ring signatures, threshold metadata, and signed metric aggregation |
+| `contributeAssertion(circle, subject, metrics, privateKey, memberIndex, options?)` | Produce an anonymous ring-signed `Contribution`; v1 by default, v2 when `{ proofVersion: 'v2', kind, subjectTag, subjectTagValue }` is supplied |
+| `contributeEventAssertion(circle, eventId, metrics, privateKey, memberIndex, options?)` | Produce a contribution for a kind 30383 event assertion |
+| `contributeAddressableAssertion(circle, address, metrics, privateKey, memberIndex, options?)` | Produce a contribution for a kind 30384 addressable assertion |
+| `contributeIdentifierAssertion(circle, identifier, kTag, metrics, privateKey, memberIndex, options?)` | Produce a contribution for a kind 30385 identifier assertion |
+| `aggregateContributions(circle, subject, contributions, options?)` | Aggregate user-score contributions into a kind 30382 NIP-85 event with veil tags (default aggregation: median) |
+| `aggregateEventContributions(circle, eventId, contributions, options?)` | Aggregate into a kind 30383 event assertion with `d`/`e` tags |
+| `aggregateAddressableContributions(circle, address, contributions, options?)` | Aggregate into a kind 30384 addressable assertion with `d`/`a` tags |
+| `aggregateIdentifierContributions(circle, identifier, kTag, contributions, options?)` | Aggregate into a kind 30385 identifier assertion with `d`/`k` tags |
+| `verifyProof(event, options?)` | Verify ring signatures, threshold metadata, signed metric aggregation, and optional proof-version requirements |
 | `verifyFederation(events, options?)` | Verify several scoped events together and count distinct contributors across circles ([cross-circle deduplication](#cross-circle-deduplication)) |
 | `canonicalMessage(circleId, subject, metrics)` | Compute the canonical message signed by contributors |
+| `canonicalMessageV2(circleId, subject, metrics, context)` | Compute the opt-in v2 canonical message that binds kind and subject hint tag |
 | `computeCircleId(sortedPubkeys)` | Compute the deterministic circle ID (SHA-256 of colon-joined pubkeys) |
 
 ### Signing utility (root export)
@@ -168,6 +177,7 @@ The published event carries extra tags on top of the standard NIP-85 format:
 - `veil-threshold` -- how many members actually contributed vs. total circle size
 - `veil-agg` -- which aggregate function produced the metric tags (median by default)
 - `veil-sig` (one per contributor) -- the ring signature and a duplicate-detection token
+- `veil-version` -- present only for opt-in proof v2 events
 - `veil-scope` -- present only for a federated circle; see [Cross-circle deduplication](#cross-circle-deduplication)
 
 A verifier calls `verifyProof`, which:
@@ -177,9 +187,76 @@ A verifier calls `verifyProof`, which:
 3. Confirms the threshold metadata matches the ring and distinct signatures
 4. Confirms the published metric tags match the aggregate of the signed contributions
 
-At no point does verification require knowing which member produced which signature. The group membership is public. The identities of the actual contributors are not.
+At no point does verification require knowing which member produced which signature. The group membership is public. The identities of the actual contributors are not. The signed metric values are public inside the proof, so nostr-veil hides contributor identity, not the fact that an anonymous contributor submitted a particular score.
 
 By default, verification expects the same median aggregation used by `aggregateContributions`. If you pass a custom `aggregateFn` to `aggregateContributions`, pass the same function to `verifyProof`.
+
+### Proof v2
+
+The original proof format remains the default. It signs the circle ID, the `d`-tag subject, and numeric metrics, and it uses `veil:v1:<scope-or-circleId>:<subject>` as the LSAG election ID.
+
+Proof v2 is additive and opt-in. It signs the same data plus the NIP-85 assertion kind and the subject hint tag/value (`p`, `e`, `a`, or `k`), and derives the key image from that semantic context. That prevents a valid contribution for one assertion class being replayed as another when a subject string is reused.
+
+```ts
+import { contributeEventAssertion, aggregateEventContributions, verifyProof } from 'nostr-veil'
+
+const contribution = contributeEventAssertion(
+  circle,
+  eventId,
+  { rank: 90 },
+  alicePrivkey,
+  circle.members.indexOf(alicePubkey),
+  { proofVersion: 'v2' },
+)
+
+const assertion = aggregateEventContributions(circle, eventId, [contribution], { proofVersion: 'v2' })
+const result = verifyProof(assertion, { requireProofVersion: 'v2' })
+```
+
+Old v1 events still verify without changes. Use `requireProofVersion: 'v2'` only when your application policy wants to reject legacy proofs for that workflow.
+
+---
+
+## Threat model
+
+nostr-veil is a privacy layer for already-defined trust circles. It gives you:
+
+- Anonymous membership proof: each contribution was signed by some member of the public ring, without revealing which member.
+- Duplicate detection: one member cannot contribute twice within the same circle/scope and subject without reusing the same LSAG key image.
+- Signed metric integrity: `verifyProof` checks the published metric tags against the aggregate of the signed contribution messages.
+- Optional semantic binding: proof v2 binds the assertion kind and subject hint tag into the signed message and election ID.
+- Standard NIP-85 output: non-veil clients can still read the aggregate score.
+
+It does not claim to solve every trust problem by itself:
+
+- It does not hide the circle membership list; the ring is public.
+- It does not hide individual anonymous metric values; they are needed so anyone can recompute the aggregate.
+- It does not hide network, timing, relay, or collector metadata.
+- It does not decide whether the circle members are trustworthy, human, independent, or correctly selected.
+- A shared federation `scope` intentionally reveals cross-circle overlap by key image, while still hiding the contributor's identity.
+
+For sensitive deployments, combine nostr-veil with careful collection, transport privacy, key hygiene, and a clear policy for how circles are admitted and rotated.
+
+---
+
+## Use cases
+
+The shipped primitives support more than user trust scores:
+
+- User reputation and abuse reporting with kind 30382 user assertions.
+- Source corroboration and peer review where contributors need protection from retaliation.
+- Event and claim verification with kind 30383 event assertions via `aggregateEventContributions`.
+- Article, long-form note, or research review with kind 30384 addressable assertions via `aggregateAddressableContributions`.
+- Relay, service, vendor, marketplace, or external identifier reputation with kind 30385 identifier assertions via `aggregateIdentifierContributions`.
+- Release, package, and maintainer reputation where reviewers can flag compromised releases or risky maintainership without exposing themselves.
+- NIP-05, domain, and service-provider trust where communities can score identifiers outside a single Nostr pubkey.
+- Community list, labeler, and moderation-list reputation where users can compare curation sources without mapping every reviewer.
+- Federated moderation where scoped circles count overlapping contributors once, not once per circle.
+- Privacy-preserving onboarding where an already-trusted circle can vouch for a new account without naming the individual vouchees.
+- Future anonymous credential or attestation co-signing, once endorsement event formats are agreed: a circle can prove enough members backed a credential without naming which members.
+- Future relay or community admission, once gated-access handshakes exist: a verifier can require a threshold-backed proof without learning which trusted member opened the door.
+
+nostr-veil proves that distinct keys from a public trust circle contributed. Trust-circle formation, Sybil policy, revocation, and anonymous access control are separate application-layer decisions.
 
 ---
 

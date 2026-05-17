@@ -1,3 +1,24 @@
+## 0.13.0 (2026-05-17)
+
+
+### Features
+
+* add opt-in proof v2 semantic binding for assertion kind and subject hint tags
+* add typed contribution helpers for event, addressable, and identifier assertions
+* add strict provider declaration validation for kind 10040
+
+
+### Security
+
+* harden `verifyProof` with signature payload, signed message, metric count, and metric name limits
+* allow applications to require proof v2 with `verifyProof(event, { requireProofVersion: 'v2' })`
+
+
+### Documentation
+
+* document proof v2 as backwards-compatible and opt-in
+* expand use-case guidance for package, domain, service-provider, labeler, moderation-list, credential, and admission workflows
+
 ## 0.12.1 (2026-05-16)
 
 

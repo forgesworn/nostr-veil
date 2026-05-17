@@ -1,8 +1,9 @@
 # nostr-veil
 
-> Nostr has a standard for publishing trust scores (NIP-85), but those scores
-> reveal who contributed them -- making reputation systems unusable for sensitive
-> contexts like whistleblowing, abuse reporting, or political dissent.
+> Nostr has a standard for publishing trust scores (NIP-85), but ordinary
+> assertions name the provider and multi-party reputation can expose a visible
+> contributor graph -- making sensitive contexts like whistleblowing, abuse
+> reporting, or political dissent hard to support safely.
 > nostr-veil adds ring-signature privacy so scores are verifiable without
 > exposing contributors.
 
@@ -11,7 +12,7 @@ wraps standard NIP-85 trust score events in ring signatures -- a cryptographic
 technique where a verifier can confirm "someone in this group signed" without
 knowing who. The output is a standard NIP-85 event that any Nostr app reads
 unchanged -- privacy-aware apps can additionally verify the cryptographic
-proofs via three extra tags: `veil-ring`, `veil-threshold`, and `veil-sig`.
+proofs via additive `veil-*` tags.
 
 ## Getting Started
 
@@ -41,10 +42,10 @@ const result = verifyProof(assertion)
 
 - **Trust circle**: A fixed group of public keys that can contribute scores anonymously. Created with `createTrustCircle()`. Minimum 2 members, maximum 1000.
 - **Contribution**: A single member's anonymous vote, wrapped in a ring signature. A duplicate-detection token (key image) prevents double-voting without revealing the voter.
-- **Aggregation**: Contributions are combined (median by default) into a standard NIP-85 event with `veil-ring`, `veil-threshold`, and `veil-sig` tags.
-- **Verification**: `verifyProof()` confirms each ring signature is valid, duplicate-detection tokens are distinct, election IDs match, and the threshold is met -- all without learning who signed.
+- **Aggregation**: Contributions are combined (median by default) into a standard NIP-85 event with `veil-ring`, `veil-threshold`, `veil-agg`, and `veil-sig` tags. Use `aggregateContributions` for kind 30382 user assertions, `aggregateEventContributions` for kind 30383 event assertions, `aggregateAddressableContributions` for kind 30384 addressable assertions, and `aggregateIdentifierContributions` for kind 30385 identifier assertions. Pass `{ proofVersion: 'v2' }` to typed contribution and aggregation helpers to bind kind and subject hint tags.
+- **Verification**: `verifyProof()` confirms each ring signature is valid, duplicate-detection tokens are distinct, election IDs match, and the threshold is met -- all without learning who signed. Pass `{ requireProofVersion: 'v2' }` when a workflow must reject legacy v1 proofs.
 - **Federation scope**: Circles sharing a `scope` (set via `createTrustCircle(members, { scope })`) produce matching key images for members they have in common, so `verifyFederation()` can verify several scoped events about one subject and count distinct contributors across circles without double-counting anyone in more than one.
-- **Election ID**: Format `veil:v1:<scope-or-circleId>:<subject>`. Binds signatures to a specific circle (or federation scope) and subject, preventing transplant attacks.
+- **Election ID**: v1 format `veil:v1:<scope-or-circleId>:<subject>`. Opt-in v2 adds assertion kind and subject hint tag/value to prevent cross-kind replay.
 - **Signing**: `signEvent(template, privateKey)` is exported from the root package. It computes the event ID, signs with Schnorr, and returns a complete `SignedEvent`.
 
 ## API Surface
@@ -52,10 +53,17 @@ const result = verifyProof(assertion)
 Two subpath exports, plus a root that re-exports everything:
 
 **`nostr-veil/nip85`** -- NIP-85 foundation (kinds 30382-30385 + 10040):
-`buildUserAssertion(pubkey, metrics)`, `buildEventAssertion(eventId, metrics)`, `buildAddressableAssertion(address, metrics)`, `buildIdentifierAssertion(identifier, kTag, metrics)`, `buildProviderDeclaration(providers, encryptedContent?)` where providers is `{ kind, metric, servicePubkey, relayHint }[]`, `parseAssertion(event)`, `parseProviderDeclaration(event, decryptFn?)`, `validateAssertion(event)`, `assertionFilter({ kind, subject?, provider? })`, `providerFilter(pubkey)`, `NIP85_KINDS`
+`buildUserAssertion(pubkey, metrics)`, `buildEventAssertion(eventId, metrics)`, `buildAddressableAssertion(address, metrics)`, `buildIdentifierAssertion(identifier, kTag, metrics)`, `buildProviderDeclaration(providers, encryptedContent?)` where providers is `{ kind, metric, servicePubkey, relayHint }[]`, `parseAssertion(event)`, `parseProviderDeclaration(event, decryptFn?)`, `validateAssertion(event, options?)`, `validateAssertionStrict(event)`, `validateProviderDeclarationStrict(event)`, `assertionFilter({ kind, subject?, provider? })`, `providerFilter(pubkey)`, `NIP85_KINDS`
 
 **`nostr-veil/proof`** -- Ring-signature proof layer:
-`createTrustCircle`, `contributeAssertion`, `aggregateContributions`, `verifyProof`, `verifyFederation`, `canonicalMessage`, `computeCircleId`
+`createTrustCircle`, `contributeAssertion`, `contributeEventAssertion`, `contributeAddressableAssertion`, `contributeIdentifierAssertion`, `aggregateContributions`, `aggregateEventContributions`, `aggregateAddressableContributions`, `aggregateIdentifierContributions`, `verifyProof`, `verifyFederation`, `canonicalMessage`, `canonicalMessageV2`, `computeCircleId`
+
+## Limits
+
+nostr-veil hides which public ring member contributed. It does not hide the ring
+membership list, individual anonymous metric values, network/timing metadata, or
+whether the circle was socially well-chosen. Shared federation scopes intentionally
+reveal cross-circle overlap by key image while still hiding the contributor's identity.
 
 ## Companion Libraries
 

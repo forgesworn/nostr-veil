@@ -1,6 +1,36 @@
 import { lsagSign } from '@forgesworn/ring-sig'
-import type { TrustCircle, Contribution } from './types.js'
-import { canonicalMessage, electionId } from './circle.js'
+import { NIP85_KINDS } from '../nip85/types.js'
+import type { Contribution, ProofContext, ProofVersion, TrustCircle } from './types.js'
+import { canonicalMessage, canonicalMessageV2, electionId, electionIdV2 } from './circle.js'
+
+export type ContributionOptions = ProofContext
+export type TypedContributionOptions = { proofVersion?: ProofVersion }
+
+function v2Context(
+  subject: string,
+  options: ContributionOptions | undefined,
+): Required<Pick<ProofContext, 'kind' | 'subjectTag' | 'subjectTagValue'>> {
+  return {
+    kind: options?.kind ?? NIP85_KINDS.USER,
+    subjectTag: options?.subjectTag ?? 'p',
+    subjectTagValue: options?.subjectTagValue ?? subject,
+  }
+}
+
+function typedOptions(
+  options: TypedContributionOptions | undefined,
+  kind: number,
+  subjectTag: Required<ProofContext>['subjectTag'],
+  subjectTagValue: string,
+): ContributionOptions | undefined {
+  if (options?.proofVersion !== 'v2') return options
+  return {
+    proofVersion: 'v2',
+    kind,
+    subjectTag,
+    subjectTagValue,
+  }
+}
 
 /**
  * Produce an anonymous contribution to a trust circle assertion.
@@ -23,10 +53,18 @@ export function contributeAssertion(
   subject: string,
   metrics: Record<string, number>,
   privateKey: string,
-  memberIndex: number
+  memberIndex: number,
+  options?: ContributionOptions,
 ): Contribution {
-  const message = canonicalMessage(circle.circleId, subject, metrics)
-  const eid = electionId(circle.scope ?? circle.circleId, subject)
+  const proofVersion = options?.proofVersion ?? 'v1'
+  const context = proofVersion === 'v2' ? v2Context(subject, options) : undefined
+  const message = context === undefined
+    ? canonicalMessage(circle.circleId, subject, metrics)
+    : canonicalMessageV2(circle.circleId, subject, metrics, context)
+  const scope = circle.scope ?? circle.circleId
+  const eid = context === undefined
+    ? electionId(scope, subject)
+    : electionIdV2(scope, subject, context)
 
   const signature = lsagSign(message, circle.members, memberIndex, privateKey, eid)
 
@@ -35,4 +73,62 @@ export function contributeAssertion(
     keyImage: signature.keyImage,
     metrics: { ...metrics },
   }
+}
+
+/** Produce an anonymous contribution for a kind 30383 event assertion. */
+export function contributeEventAssertion(
+  circle: TrustCircle,
+  eventId: string,
+  metrics: Record<string, number>,
+  privateKey: string,
+  memberIndex: number,
+  options?: TypedContributionOptions,
+): Contribution {
+  return contributeAssertion(
+    circle,
+    eventId,
+    metrics,
+    privateKey,
+    memberIndex,
+    typedOptions(options, NIP85_KINDS.EVENT, 'e', eventId),
+  )
+}
+
+/** Produce an anonymous contribution for a kind 30384 addressable event assertion. */
+export function contributeAddressableAssertion(
+  circle: TrustCircle,
+  address: string,
+  metrics: Record<string, number>,
+  privateKey: string,
+  memberIndex: number,
+  options?: TypedContributionOptions,
+): Contribution {
+  return contributeAssertion(
+    circle,
+    address,
+    metrics,
+    privateKey,
+    memberIndex,
+    typedOptions(options, NIP85_KINDS.ADDRESSABLE, 'a', address),
+  )
+}
+
+/** Produce an anonymous contribution for a kind 30385 identifier assertion. */
+export function contributeIdentifierAssertion(
+  circle: TrustCircle,
+  identifier: string,
+  kTag: string,
+  metrics: Record<string, number>,
+  privateKey: string,
+  memberIndex: number,
+  options?: TypedContributionOptions,
+): Contribution {
+  return contributeAssertion(
+    circle,
+    identifier,
+    metrics,
+    privateKey,
+    memberIndex,
+    typedOptions(options, NIP85_KINDS.IDENTIFIER, 'k', kTag),
+  )
 }

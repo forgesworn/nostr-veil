@@ -245,18 +245,18 @@
           <p>
             Nostr already has a standard for publishing trust scores: <strong>NIP-85</strong>,
             the Trusted Assertions spec. A provider publishes a score about someone, and you
-            either trust the provider or you don't. But the scores are fully transparent.
-            Anyone who can see a score can see exactly who gave it.
+            either trust the provider or you don't. Ordinary assertions expose who published
+            the score, and multi-party reputation usually leaves a visible contributor graph.
           </p>
           <p>
-            That is fine for benign signals like follower counts. It fails completely the
+            That is fine for benign signals like follower counts. It fails the
             moment the subject is sensitive. <strong>Whistleblowers, journalists, abuse
             reporters, political dissidents</strong>: the people who need reputation systems
             most are the ones who cannot afford to be identified.
           </p>
           <p>
-            The reason web-of-trust has never worked for sensitive contexts is not missing
-            cryptography. It is that nobody built the layer that makes taking part safe.
+            The reason web-of-trust struggles in sensitive contexts is not only missing
+            cryptography. It is that taking part often creates evidence against the participant.
             <strong>nostr-veil is that layer.</strong>
           </p>
         </div>
@@ -269,7 +269,7 @@
         <div class="sec-head">
           <span class="kicker">The trust trilemma</span>
           <h2>Verifiable. Private. Portable.</h2>
-          <p>Standard NIP-85 makes you pick two. nostr-veil is the layer that delivers all three.</p>
+          <p>Standard NIP-85 gives you portable signed assertions. nostr-veil adds contributor privacy for group assertions.</p>
         </div>
         <div class="tri">
           <div class="tri-card">
@@ -280,12 +280,12 @@
           <div class="tri-card">
             <h3>Private</h3>
             <div class="verdict">NIP-85 <span class="no">no</span> &nbsp;/&nbsp; veil <span class="yes">yes</span></div>
-            <p>Standard NIP-85 reveals exactly who gave every score. veil hides each contributor inside the circle. This is the property nothing else delivers.</p>
+            <p>Standard NIP-85 names the provider. veil hides each contributor inside a public circle, while keeping the aggregate checkable.</p>
           </div>
           <div class="tri-card">
             <h3>Portable</h3>
             <div class="verdict">NIP-85 <span class="yes">yes</span> &nbsp;/&nbsp; veil <span class="yes">yes</span></div>
-            <p>The output is an ordinary NIP-85 event on ordinary relays. Any Nostr client reads it, today, unchanged.</p>
+            <p>The output is an ordinary NIP-85 event on ordinary relays. NIP-85-aware clients can read the score, while veil-aware clients verify the proof.</p>
           </div>
         </div>
       </div>
@@ -312,7 +312,7 @@
           <div class="step">
             <span class="num">03</span>
             <h3>Aggregate into a standard event</h3>
-            <p>Contributions combine, median by default, into an ordinary NIP-85 event. Every Nostr client reads it as a normal trust score.</p>
+            <p>Contributions combine, median by default, into an ordinary NIP-85 event. NIP-85-aware clients read it as a normal trust score.</p>
           </div>
           <div class="step">
             <span class="num">04</span>
@@ -364,8 +364,8 @@
       <div class="wrap">
         <div class="sec-head">
           <span class="kicker">What it unlocks</span>
-          <h2>Seven things you can build on it today.</h2>
-          <p>Every one of these runs on shipped code. None of them is possible with reputation that names its contributors.</p>
+          <h2>Practical things you can build on it today.</h2>
+          <p>These use the shipped primitives: anonymous circles, signed aggregation, kind-specific NIP-85 assertions, optional proof v2 binding, and scoped federation.</p>
         </div>
         <div class="cases">
           <div class="case">
@@ -385,8 +385,8 @@
           </div>
           <div class="case">
             <span class="kicker">Onboarding</span>
-            <h3>Sybil-resistant vouching</h3>
-            <p>Established members co-sign that a new account is a real person. The newcomer carries a portable proof that enough members vouched, without anyone publishing a follow graph that maps the whole community.</p>
+            <h3>Privacy-preserving vouching</h3>
+            <p>Established members co-sign that a new account passed the community's admission policy. The newcomer carries a portable proof that enough members vouched, without anyone publishing a follow graph that maps the whole community.</p>
           </div>
           <div class="case">
             <span class="kicker">Communities</span>
@@ -403,6 +403,36 @@
             <h3>Real-world trade reputation</h3>
             <p>Past counterparties of a trader rate how the deal actually went. A new counterparty sees a verifiable track record. The people who left honest, critical marks cannot be identified and retaliated against.</p>
           </div>
+          <div class="case">
+            <span class="kicker">Relays</span>
+            <h3>Relay and service reputation</h3>
+            <p>A circle scores relays, moderation services, bots, or algorithm providers. Clients can compare portable NIP-85 assertions without forcing operators or reviewers to publish a social graph.</p>
+          </div>
+          <div class="case">
+            <span class="kicker">Funding</span>
+            <h3>Grant and funding review</h3>
+            <p>Reviewers score proposals, maintainers, or deliverables. The fund can show that a threshold of qualified reviewers agreed, while protecting reviewers from pressure by applicants or sponsors.</p>
+          </div>
+          <div class="case">
+            <span class="kicker">Markets</span>
+            <h3>Scam and vendor signals</h3>
+            <p>Market participants flag recurring scammers, risky vendors, or reliable counterparties. The signal is portable and verifiable, while individual reviewers are not singled out by the subject.</p>
+          </div>
+          <div class="case">
+            <span class="kicker">Software</span>
+            <h3>Release and maintainer reputation</h3>
+            <p>Security reviewers score packages, releases, or maintainers after compromise reports or audit work. Users see a threshold-backed signal without exposing every reviewer to pressure from a project or sponsor.</p>
+          </div>
+          <div class="case">
+            <span class="kicker">Identity</span>
+            <h3>NIP-05 and domain trust</h3>
+            <p>A circle rates domains, NIP-05 identifiers, or service providers. The subject can be an external identifier, so trust signals are not limited to a single Nostr pubkey.</p>
+          </div>
+          <div class="case">
+            <span class="kicker">Curation</span>
+            <h3>List and labeler reputation</h3>
+            <p>Users score community lists, labelers, moderation feeds, and filter providers. Clients can choose better curation sources without forcing reviewers to publish a map of who monitors whom.</p>
+          </div>
         </div>
       </div>
     </section>
@@ -413,7 +443,7 @@
         <div class="sec-head">
           <span class="kicker">On the roadmap</span>
           <h2>What is shipped, and what is next.</h2>
-          <p>Shipped today is the core: anonymous circles, threshold aggregation, signed-metric verification, and cross-circle federation. Next, honestly labelled:</p>
+          <p>Shipped today is the core: anonymous circles, threshold aggregation, signed-metric verification, kind-specific assertions, optional proof v2 binding, and cross-circle federation. Next, honestly labelled:</p>
         </div>
         <div class="road">
           <div class="road-item">
@@ -430,7 +460,7 @@
           </div>
           <div class="road-item">
             <span class="tag">planned</span>
-            <span class="body"><strong>Anonymous gated access.</strong> <span>A trust circle doubles as an anonymous membership group, so a relay or community can admit members without learning which member just arrived.</span></span>
+            <span class="body"><strong>Anonymous gated access.</strong> <span>An actual admission handshake where a relay or community can admit an endorsed member without learning which member just arrived.</span></span>
           </div>
         </div>
       </div>

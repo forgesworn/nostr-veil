@@ -2,8 +2,14 @@ import { describe, it, expect } from 'vitest'
 import { schnorr } from '@noble/curves/secp256k1.js'
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js'
 import { createTrustCircle } from '../../src/proof/circle.js'
-import { contributeAssertion } from '../../src/proof/contribute.js'
-import { aggregateContributions } from '../../src/proof/aggregate.js'
+import { contributeAssertion, contributeEventAssertion } from '../../src/proof/contribute.js'
+import {
+  aggregateAddressableContributions,
+  aggregateContributions,
+  aggregateEventContributions,
+  aggregateIdentifierContributions,
+} from '../../src/proof/aggregate.js'
+import { verifyProof } from '../../src/proof/verify.js'
 import { NIP85_KINDS } from '../../src/nip85/types.js'
 import type { AggregateName } from '../../src/proof/types.js'
 
@@ -205,5 +211,64 @@ describe('aggregateContributions', () => {
     // Same members, different scope -- the signed electionId no longer matches
     const otherCircle = createTrustCircle(pubKeys, { scope: 'fed-2' })
     expect(() => aggregateContributions(otherCircle, subject, contributions)).toThrow(/electionId/i)
+  })
+
+  it('aggregates event assertions with a matching e-tag and no user p-tag', () => {
+    const eventId = 'e1'.repeat(32)
+    const contributions = privKeys.map((pk, i) =>
+      contributeAssertion(circle, eventId, { rank: 70 + i * 10 }, pk, circle.members.indexOf(pubKeys[i])),
+    )
+    const event = aggregateEventContributions(circle, eventId, contributions)
+    expect(event.kind).toBe(NIP85_KINDS.EVENT)
+    expect(event.tags).toContainEqual(['d', eventId])
+    expect(event.tags).toContainEqual(['e', eventId])
+    expect(event.tags.find(t => t[0] === 'p')).toBeUndefined()
+    expect(verifyProof(event).valid).toBe(true)
+  })
+
+  it('aggregates addressable assertions with a matching a-tag', () => {
+    const address = `30023:${subject}:article`
+    const contributions = privKeys.map((pk, i) =>
+      contributeAssertion(circle, address, { rank: 80 + i * 5 }, pk, circle.members.indexOf(pubKeys[i])),
+    )
+    const event = aggregateAddressableContributions(circle, address, contributions)
+    expect(event.kind).toBe(NIP85_KINDS.ADDRESSABLE)
+    expect(event.tags).toContainEqual(['d', address])
+    expect(event.tags).toContainEqual(['a', address])
+    expect(event.tags.find(t => t[0] === 'p')).toBeUndefined()
+    expect(verifyProof(event).valid).toBe(true)
+  })
+
+  it('aggregates identifier assertions with a k-tag', () => {
+    const identifier = 'relay:wss://relay.example.com'
+    const contributions = privKeys.map((pk, i) =>
+      contributeAssertion(circle, identifier, { rank: 80 + i * 5 }, pk, circle.members.indexOf(pubKeys[i])),
+    )
+    const event = aggregateIdentifierContributions(circle, identifier, '10002', contributions)
+    expect(event.kind).toBe(NIP85_KINDS.IDENTIFIER)
+    expect(event.tags).toContainEqual(['d', identifier])
+    expect(event.tags).toContainEqual(['k', '10002'])
+    expect(event.tags.find(t => t[0] === 'p')).toBeUndefined()
+    expect(verifyProof(event).valid).toBe(true)
+  })
+
+  it('aggregates v2 event assertions with a version marker and verifies them', () => {
+    const eventId = 'e1'.repeat(32)
+    const contributions = privKeys.map((pk, i) =>
+      contributeEventAssertion(
+        circle,
+        eventId,
+        { rank: 70 + i * 10 },
+        pk,
+        circle.members.indexOf(pubKeys[i]),
+        { proofVersion: 'v2' },
+      ),
+    )
+    const event = aggregateEventContributions(circle, eventId, contributions, { proofVersion: 'v2' })
+    expect(event.kind).toBe(NIP85_KINDS.EVENT)
+    expect(event.tags).toContainEqual(['veil-version', '2'])
+    expect(event.tags).toContainEqual(['e', eventId])
+    expect(verifyProof(event).valid).toBe(true)
+    expect(verifyProof(event, { requireProofVersion: 'v2' }).valid).toBe(true)
   })
 })

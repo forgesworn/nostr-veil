@@ -2,7 +2,12 @@ import { describe, it, expect } from 'vitest'
 import { schnorr } from '@noble/curves/secp256k1.js'
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js'
 import { createTrustCircle } from '../../src/proof/circle.js'
-import { contributeAssertion } from '../../src/proof/contribute.js'
+import {
+  contributeAssertion,
+  contributeEventAssertion,
+  contributeIdentifierAssertion,
+} from '../../src/proof/contribute.js'
+import { NIP85_KINDS } from '../../src/nip85/types.js'
 
 describe('contributeAssertion', () => {
   const privKeys = [
@@ -64,5 +69,58 @@ describe('contributeAssertion', () => {
     const a = contributeAssertion(circleA, subject, metrics, privKeys[0], circleA.members.indexOf(pubKeys[0]))
     const b = contributeAssertion(circleB, subject, metrics, privKeys[0], circleB.members.indexOf(pubKeys[0]))
     expect(a.keyImage).not.toBe(b.keyImage)
+  })
+
+  it('can bind a v2 event contribution to kind and e-tag context', () => {
+    const eventId = 'e1'.repeat(32)
+    const result = contributeEventAssertion(
+      circle,
+      eventId,
+      metrics,
+      privKeys[0],
+      circle.members.indexOf(pubKeys[0]),
+      { proofVersion: 'v2' },
+    )
+
+    const signed = JSON.parse(result.signature.message)
+    expect(signed).toMatchObject({
+      circleId: circle.circleId,
+      kind: NIP85_KINDS.EVENT,
+      metrics,
+      proofVersion: 'v2',
+      subject: eventId,
+      subjectTag: 'e',
+      subjectTagValue: eventId,
+    })
+    expect(result.signature.electionId).toBe(
+      `veil:v2:${circle.circleId}:${NIP85_KINDS.EVENT}:e:${eventId}:${eventId}`,
+    )
+  })
+
+  it('can bind a v2 identifier contribution to the identifier kind tag', () => {
+    const identifier = 'relay:wss://relay.example.com'
+    const result = contributeIdentifierAssertion(
+      circle,
+      identifier,
+      '10002',
+      metrics,
+      privKeys[0],
+      circle.members.indexOf(pubKeys[0]),
+      { proofVersion: 'v2' },
+    )
+
+    const signed = JSON.parse(result.signature.message)
+    expect(signed).toMatchObject({
+      circleId: circle.circleId,
+      kind: NIP85_KINDS.IDENTIFIER,
+      metrics,
+      proofVersion: 'v2',
+      subject: identifier,
+      subjectTag: 'k',
+      subjectTagValue: '10002',
+    })
+    expect(result.signature.electionId).toBe(
+      `veil:v2:${circle.circleId}:${NIP85_KINDS.IDENTIFIER}:k:10002:${identifier}`,
+    )
   })
 })

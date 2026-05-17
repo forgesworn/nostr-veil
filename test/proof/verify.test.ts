@@ -2,9 +2,10 @@ import { describe, it, expect } from 'vitest'
 import { schnorr } from '@noble/curves/secp256k1.js'
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js'
 import { createTrustCircle, MAX_SCOPE_LENGTH } from '../../src/proof/circle.js'
-import { contributeAssertion } from '../../src/proof/contribute.js'
-import { aggregateContributions } from '../../src/proof/aggregate.js'
+import { contributeAssertion, contributeEventAssertion } from '../../src/proof/contribute.js'
+import { aggregateContributions, aggregateEventContributions } from '../../src/proof/aggregate.js'
 import { verifyProof } from '../../src/proof/verify.js'
+import { NIP85_KINDS } from '../../src/nip85/types.js'
 
 describe('verifyProof', () => {
   const privKeys = [
@@ -22,6 +23,21 @@ describe('verifyProof', () => {
       return contributeAssertion(circle, subject, { rank: 85 }, pk, memberIndex)
     })
     return aggregateContributions(circle, subject, contributions)
+  }
+
+  function makeV2Event() {
+    const eventId = 'e1'.repeat(32)
+    const contributions = privKeys.map((pk, i) =>
+      contributeEventAssertion(
+        circle,
+        eventId,
+        { rank: 85 },
+        pk,
+        circle.members.indexOf(pubKeys[i]),
+        { proofVersion: 'v2' },
+      ),
+    )
+    return aggregateEventContributions(circle, eventId, contributions, { proofVersion: 'v2' })
   }
 
   it('returns valid for a correctly constructed event', () => {
@@ -258,5 +274,47 @@ describe('verifyProof', () => {
     const result = verifyProof(event)
     expect(result.valid).toBe(false)
     expect(result.errors.some(e => /slug/.test(e))).toBe(true)
+  })
+
+  it('verifies v2 proofs and rejects v1 proofs when v2 is required', () => {
+    expect(verifyProof(makeV2Event(), { requireProofVersion: 'v2' }).valid).toBe(true)
+
+    const v1Result = verifyProof(makeEvent(), { requireProofVersion: 'v2' })
+    expect(v1Result.valid).toBe(false)
+    expect(v1Result.errors.some(e => /proof version/i.test(e))).toBe(true)
+  })
+
+  it('rejects a v2 proof if the event kind is changed', () => {
+    const event = makeV2Event()
+    event.kind = NIP85_KINDS.USER
+    const result = verifyProof(event)
+    expect(result.valid).toBe(false)
+    expect(result.errors.some(e => /kind mismatch/i.test(e))).toBe(true)
+  })
+
+  it('rejects a v2 proof if the bound subject tag is changed', () => {
+    const event = makeV2Event()
+    const eIdx = event.tags.findIndex(t => t[0] === 'e')
+    event.tags[eIdx] = ['e', 'f1'.repeat(32)]
+    const result = verifyProof(event)
+    expect(result.valid).toBe(false)
+    expect(result.errors.some(e => /subject tag/i.test(e))).toBe(true)
+  })
+
+  it('rejects a v2 proof if the bound subject tag is missing', () => {
+    const event = makeV2Event()
+    event.tags = event.tags.filter(t => t[0] !== 'e')
+    const result = verifyProof(event)
+    expect(result.valid).toBe(false)
+    expect(result.errors.some(e => /subject tag/i.test(e))).toBe(true)
+  })
+
+  it('rejects an oversized veil-sig payload before processing the signature', () => {
+    const event = makeEvent()
+    const sigIdx = event.tags.findIndex(t => t[0] === 'veil-sig')
+    event.tags[sigIdx][1] = 'x'.repeat(200_000)
+    const result = verifyProof(event)
+    expect(result.valid).toBe(false)
+    expect(result.errors.some(e => /signature payload/i.test(e))).toBe(true)
   })
 })

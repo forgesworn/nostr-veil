@@ -36,7 +36,25 @@ export interface Contribution {
 /** Aggregation function type */
 export type AggregateFn = (values: number[]) => number
 
-/**
+/** Supported proof wire formats. v1 is the historical default; v2 is opt-in. */
+export type ProofVersion = 'v1' | 'v2'
+
+/** Subject hint tags that can be bound into a v2 proof. */
+export type SubjectTag = 'p' | 'e' | 'a' | 'k'
+
+/** Optional semantic context for proof construction and verification. */
+export interface ProofContext {
+  /** Proof wire format to emit or require. Omit for the v1 default. */
+  proofVersion?: ProofVersion
+  /** NIP-85 assertion kind being signed, required for v2 proofs. */
+  kind?: number
+  /** Subject hint tag bound by the v2 proof. */
+  subjectTag?: SubjectTag
+  /** Subject hint tag value bound by the v2 proof. */
+  subjectTagValue?: string
+}
+
+/** 
  * Names of the built-in aggregate functions. The `veil-agg` tag on an
  * aggregated event records which one produced the metric tags, so a verifier
  * can recompute the aggregate without the function being supplied out-of-band.
