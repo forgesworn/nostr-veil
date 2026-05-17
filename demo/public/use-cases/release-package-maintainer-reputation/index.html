@@ -878,7 +878,7 @@
     <p>Fetched event content and tags must match the Nostr signature.</p>
   </div>
 </div>
-<p>Use <code>verifyProductionDeployment()</code> with trusted bundle publishers, signed relay events, accepted circle manifests, expected subject, freshness, and threshold policy so these checks are not left to application glue.</p>
+<p>Use <code>verifyProductionDeployment()</code> with trusted bundle publishers, signed relay events, accepted circle manifests, expected subject, freshness, and threshold policy so these checks are not left to application glue. When a gate fails, pass <code>result.issues</code> to <code>explainVerificationIssue()</code> or <code>remediationForIssue()</code> so the operator sees the corrective action.</p>
         <h2>Next examples</h2>
         <div class="next-grid">
           <a class="next-card" href="../list-labeler-moderation-list-reputation/">

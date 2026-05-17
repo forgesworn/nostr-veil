@@ -618,7 +618,7 @@ function renderSafetyMatrix() {
     <p>${escapeHtml(detail)}</p>
   </div>`).join('\n  ')}
 </div>
-<p>Use <code>verifyProductionDeployment()</code> with trusted bundle publishers, signed relay events, accepted circle manifests, expected subject, freshness, and threshold policy so these checks are not left to application glue.</p>`
+<p>Use <code>verifyProductionDeployment()</code> with trusted bundle publishers, signed relay events, accepted circle manifests, expected subject, freshness, and threshold policy so these checks are not left to application glue. When a gate fails, pass <code>result.issues</code> to <code>explainVerificationIssue()</code> or <code>remediationForIssue()</code> so the operator sees the corrective action.</p>`
 }
 
 function renderNip85KindReference() {

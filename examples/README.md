@@ -35,8 +35,10 @@ deployment API, not only the low-level proof verifier.
 `createSignedDeploymentBundle()`, and `verifyProductionDeployment()`: package
 release reputation, relay preference, NIP-05/domain trust, federated moderation
 review, and relay/community admission. The recipes use stable issue codes for
-audit/error handling, and NIP-85 kind names such as "kind 30385 identifier
-assertion" so the subject route is explicit.
+audit/error handling. Production apps can pass those codes to
+`explainVerificationIssue()` or `remediationForIssue()` to show the corrective
+operator action. The recipes also use NIP-85 kind names such as "kind 30385
+identifier assertion" so the subject route is explicit.
 
 `use-cases-relay.ts` is an opt-in live relay check. It signs every canonical
 use-case example as a Nostr event, publishes the events to

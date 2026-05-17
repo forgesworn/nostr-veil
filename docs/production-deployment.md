@@ -25,6 +25,7 @@ import {
   createCircleManifest,
   createDeploymentPolicy,
   createSignedDeploymentBundle,
+  explainVerificationIssue,
   verifyProductionDeployment,
 } from 'nostr-veil/profiles'
 
@@ -61,7 +62,10 @@ const result = verifyProductionDeployment(assertionFromRelay, bundle, {
 })
 
 if (!result.valid) {
-  audit(result.issues.map(issue => issue.code))
+  audit(result.issues.map(issue => ({
+    ...issue,
+    ...explainVerificationIssue(issue),
+  })))
   throw new Error(result.errors.join('; '))
 }
 ```
@@ -78,6 +82,11 @@ machine-readable codes such as `bundle.trusted_publishers_missing`,
 `bundle.signer_untrusted`, `bundle.expired`, `event.signature_invalid`,
 `circle.unaccepted`, `metric.below_min`, and `policy.nostr_signature_not_required`.
 Use those codes for audit logs, alerts, retry decisions, and fail-closed policy.
+Use `explainVerificationIssue(issue)` or `remediationForIssue(issue)` when the
+operator or application needs the next action as well as the code. For example,
+`bundle.trusted_publishers_missing` tells the deployer to pin trusted publisher
+keys, while `event.signature_invalid` tells the verifier to reject the fetched
+event and optionally retry from another relay.
 
 ## Recipe patterns
 

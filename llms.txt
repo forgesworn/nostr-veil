@@ -63,10 +63,12 @@ Two subpath exports, plus a root that re-exports everything:
 `createCircleManifest`, `verifyCircleManifest`, `createDeploymentPolicy`,
 `verifyDeploymentPolicy`, `createSignedDeploymentBundle`,
 `verifyDeploymentBundle`, `verifyProductionDeployment`, `VerificationIssue`,
-`VerificationIssueCode`, and canonical subject helpers. Use
-`verifyProductionDeployment` with pinned trusted publisher pubkeys for
-production relay-fetched assertions; it also requires expiring bundles and
-signed events by default.
+`VerificationIssueCode`, `explainVerificationIssue`, `remediationForIssue`, and
+canonical subject helpers. Use `verifyProductionDeployment` with pinned trusted
+publisher pubkeys for production relay-fetched assertions; it also requires
+expiring bundles and signed events by default. Use issue explanations to turn
+failures into concrete operator actions instead of only showing negative
+results.
 
 ## Limits
 

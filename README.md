@@ -173,6 +173,7 @@ The resulting `assertion` is a plain `EventTemplate` you sign and publish like a
 | `verifyDeploymentBundle(events, bundle, options?)` | Verify a signed bundle from trusted publishers, then verify the bundled deployment policy |
 | `verifyProductionDeployment(events, bundle, options?)` | One-call production gate that also requires an expiring bundle and signed relay-fetched events by default |
 | `VerificationIssue`, `VerificationIssueCode` | Stable machine-readable issue codes returned alongside human-readable errors |
+| `explainVerificationIssue(issueOrCode)`, `remediationForIssue(issueOrCode)` | Turn stable issue codes into concrete operator or verifier remediation guidance |
 | `canonicalRelaySubject`, `canonicalNip05Subject`, `canonicalDomainSubject`, `canonicalNpmPackageSubject` | Canonical subject helpers for common real-world identifiers |
 | `canonicalPubkeySubject`, `canonicalEventSubject`, `canonicalAddressSubject` | Canonical subject helpers for Nostr-native subjects |
 
@@ -267,7 +268,9 @@ and rotated.
 Production verifiers should prefer `verifyProductionDeployment()` over manually
 composing lower-level checks. It returns the existing human-readable `errors`
 plus stable `issues[].code` values such as `bundle.signer_untrusted`,
-`event.signature_invalid`, `circle.unaccepted`, and `metric.below_min`.
+`event.signature_invalid`, `circle.unaccepted`, and `metric.below_min`. Use
+`explainVerificationIssue()` or `remediationForIssue()` to show the exact
+operator action for each failure.
 
 ---
 

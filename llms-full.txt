@@ -161,7 +161,9 @@ interface VerificationIssue {
 
 Deployment/profile verifiers keep human-readable `errors` for compatibility and
 also return stable `issues[].code` values for application policy, logging, and
-alerts.
+alerts. Use `explainVerificationIssue(issueOrCode)` or
+`remediationForIssue(issueOrCode)` to turn a stable code into the concrete next
+operator or verifier action.
 
 ### `EventTemplate`
 
@@ -675,6 +677,11 @@ const result = verifyProductionDeployment(assertionFromRelay, bundle, {
 })
 if (!result.valid) audit(result.issues.map(issue => issue.code))
 ```
+
+Use `explainVerificationIssue(issue)` when presenting failures to an operator.
+For example, `bundle.trusted_publishers_missing` means the verifier has no
+pinned publisher keys, while `event.signature_invalid` means the fetched event
+must be rejected and can optionally be retried from another relay.
 
 ---
 
