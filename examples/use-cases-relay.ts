@@ -15,11 +15,14 @@ import { schnorr } from '@noble/curves/secp256k1.js'
 import { sha256 } from '@noble/hashes/sha2.js'
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js'
 import {
+  USE_CASE_PROFILE_BY_ID,
+  computeCircleId,
   computeEventId,
   signEvent,
   validateAssertionStrict,
   verifyFederation,
   verifyProof,
+  verifyUseCaseProfile,
 } from 'nostr-veil'
 import type { EventTemplate, SignedEvent } from 'nostr-veil'
 import { useCaseResults } from './use-cases/_all.js'
@@ -72,6 +75,7 @@ interface RelayUseCaseReport {
     canonicalTags: boolean
     syntax: boolean
     proof: boolean
+    profile: boolean
   }
   proof: RelayProofSummary
   publishMessages: string[]
@@ -321,6 +325,12 @@ function tagsMatch(template: EventTemplate, event: SignedEvent): boolean {
   return template.kind === event.kind && JSON.stringify(template.tags) === JSON.stringify(event.tags)
 }
 
+function circleId(event: EventTemplate): string {
+  const ring = event.tags.find(tag => tag[0] === 'veil-ring')?.slice(1)
+  if (ring === undefined) throw new Error('missing veil-ring tag')
+  return computeCircleId(ring)
+}
+
 function assertionProof(events: SignedEvent[]): RelayProofSummary {
   const proof = verifyProof(events[0], { requireProofVersion: proofVersion })
   return {
@@ -347,6 +357,16 @@ function proofFor(result: UseCaseResult, events: SignedEvent[]): RelayProofSumma
   return isAssertionResult(result) ? assertionProof(events) : federationProof(events)
 }
 
+function verifyProfile(slug: string, templates: EventTemplate[], events: SignedEvent[]): boolean {
+  const profile = USE_CASE_PROFILE_BY_ID[slug]
+  if (profile === undefined || events.length !== templates.length) return false
+
+  return verifyUseCaseProfile(events, profile, {
+    acceptedCircleIds: templates.map(circleId),
+    now: Math.max(...events.map(event => event.created_at)),
+  }).valid
+}
+
 function reportForUseCase(
   result: UseCaseResult,
   prepared: PreparedUseCase,
@@ -367,6 +387,7 @@ function reportForUseCase(
     canonicalTags: fetched.every((event, index) => tagsMatch(prepared.templates[index], event)),
     syntax,
     proof: proof.valid,
+    profile: verifyProfile(result.slug, prepared.templates, fetched),
   }
   const status = Object.values(checks).every(Boolean) ? 'pass' : 'fail'
   const publishMessages = prepared.signedEvents
@@ -428,7 +449,8 @@ function printDryRun(prepared: PreparedUseCase[]): void {
     const proofValid = useCase.signedEvents.length === 1
       ? assertionProof(useCase.signedEvents).valid
       : federationProof(useCase.signedEvents).valid
-    console.log(`${useCase.slug}: local=${useCase.localProofValid ? 'yes' : 'no'} signed=${signaturesValid ? 'yes' : 'no'} tags=${tagsValid ? 'yes' : 'no'} proof=${proofValid ? 'yes' : 'no'}`)
+    const profileValid = verifyProfile(useCase.slug, useCase.templates, useCase.signedEvents)
+    console.log(`${useCase.slug}: local=${useCase.localProofValid ? 'yes' : 'no'} signed=${signaturesValid ? 'yes' : 'no'} tags=${tagsValid ? 'yes' : 'no'} proof=${proofValid ? 'yes' : 'no'} profile=${profileValid ? 'yes' : 'no'}`)
   }
 }
 

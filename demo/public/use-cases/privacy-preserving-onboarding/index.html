@@ -469,6 +469,32 @@
       color: var(--muted);
       font-size: 14px;
     }
+    .safety-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 18px;
+    }
+    .safety-item {
+      min-width: 0;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--paper);
+      padding: 14px;
+    }
+    .safety-item span {
+      display: block;
+      color: var(--ink);
+      font-family: "JetBrains Mono", ui-monospace, monospace;
+      font-size: 12px;
+      font-weight: 800;
+    }
+    .safety-item p {
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.45;
+    }
     table {
       width: 100%;
       min-width: 640px;
@@ -547,7 +573,8 @@
       .side-nav { order: 2; }
       .side-nav,
       .next-grid,
-      .relay-evidence dl { grid-template-columns: 1fr; }
+      .relay-evidence dl,
+      .safety-grid { grid-template-columns: 1fr; }
       .code-sample-toolbar {
         align-items: stretch;
         flex-direction: column;
@@ -711,7 +738,7 @@
 <div class="relay-evidence pass">
   <div class="relay-evidence-head">
     <span>Passed</span>
-    <strong>2026-05-17T14:07:53.000Z</strong>
+    <strong>2026-05-17T15:38:26.000Z</strong>
   </div>
   <dl>
     <div>
@@ -724,7 +751,7 @@
     </div>
     <div>
       <dt>Run</dt>
-      <dd><code>tf6px5-f6fa87cf8c</code></dd>
+      <dd><code>tf6u42-47f88104a2</code></dd>
     </div>
   </dl>
   <ul class="relay-checks">
@@ -734,12 +761,54 @@
     <li class="pass"><span aria-hidden="true"></span>Fetched tags match the canonical example</li>
     <li class="pass"><span aria-hidden="true"></span>NIP-85 syntax validation passes</li>
     <li class="pass"><span aria-hidden="true"></span>nostr-veil proof verification passes</li>
+    <li class="pass"><span aria-hidden="true"></span>Deployment profile verifier passes</li>
   </ul>
   <div class="relay-event-ids">
-    <code title="93aa925c865fc3fbcd5fd2110493f6644f6d34066b424fc6932b7338d8ab3a0d">93aa925c865f...d8ab3a0d</code>
+    <code title="e40a786add4a3d6e53fb523fedd6a19b993461de6753cef0efca188a79c3b30d">e40a786add4a...79c3b30d</code>
   </div>
   <p class="relay-command">Run the same check with <code>npm run test:use-cases:relay -- --write docs/use-case-relay-checks.json</code>.</p>
 </div>
+        <h2>Safety checks</h2>
+<p>Each canonical use-case example is also exercised by an adversarial test harness. These are the failure modes a production verifier should reject before acting on the score.</p>
+<div class="safety-grid">
+  <div class="safety-item">
+    <span>Tampered metric</span>
+    <p>Published scores must still match the signed contribution aggregate.</p>
+  </div>
+  <div class="safety-item">
+    <span>Wrong subject</span>
+    <p>The d tag and subject hint must stay bound to the signed v2 proof.</p>
+  </div>
+  <div class="safety-item">
+    <span>Wrong kind</span>
+    <p>The assertion kind must match the profile and the signed v2 context.</p>
+  </div>
+  <div class="safety-item">
+    <span>Proof downgrade</span>
+    <p>New deployment profiles require proof v2.</p>
+  </div>
+  <div class="safety-item">
+    <span>Duplicate signer</span>
+    <p>Repeated key images must not increase the signer count.</p>
+  </div>
+  <div class="safety-item">
+    <span>Insufficient threshold</span>
+    <p>Removing a signature must fail the profile threshold.</p>
+  </div>
+  <div class="safety-item">
+    <span>Stale assertion</span>
+    <p>created_at must remain inside the freshness window.</p>
+  </div>
+  <div class="safety-item">
+    <span>Unknown circle</span>
+    <p>The circle ID must be accepted by deployment policy.</p>
+  </div>
+  <div class="safety-item">
+    <span>Relay mutation</span>
+    <p>Fetched event content and tags must match the Nostr signature.</p>
+  </div>
+</div>
+<p>Use <code>verifyUseCaseProfile()</code> with accepted circle IDs, expected subject, freshness, and threshold policy so these checks are not left to application glue.</p>
         <h2>Next examples</h2>
         <div class="next-grid">
           <a class="next-card" href="../user-reputation-abuse-reporting/">

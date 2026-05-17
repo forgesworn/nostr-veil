@@ -16,6 +16,31 @@ Each worked page is written as an implementation profile: choose the subject,
 pick the helper, define the metric meaning, require the right proof version,
 then add the operational controls that sit outside the cryptographic proof.
 
+For production deployments, use the machine-readable profiles and safe verifier
+from `nostr-veil/profiles`:
+
+```ts
+import {
+  RELEASE_PACKAGE_MAINTAINER_REPUTATION_PROFILE,
+  canonicalNpmPackageSubject,
+  verifyUseCaseProfile,
+} from 'nostr-veil/profiles'
+
+const subject = canonicalNpmPackageSubject('nostr-veil', '0.14.0')
+const result = verifyUseCaseProfile(assertion, RELEASE_PACKAGE_MAINTAINER_REPUTATION_PROFILE, {
+  acceptedCircleIds: ['<accepted circle id>'],
+  expectedSubject: subject,
+  now: Math.floor(Date.now() / 1000),
+})
+
+if (!result.valid) throw new Error(result.errors.join('; '))
+```
+
+See [circle governance](./circle-governance.md) for the operational controls
+that make a circle safe to trust, and
+[flagship deployments](./flagship-deployments.md) for concrete production
+profiles.
+
 ## Implementation pattern
 
 For any supported use case:

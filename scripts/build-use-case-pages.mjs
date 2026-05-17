@@ -97,6 +97,17 @@ const cases = [
 ]
 
 const caseByDoc = new Map(cases.map((useCase) => [useCase.file, useCase]))
+const safetyChecks = [
+  ['Tampered metric', 'Published scores must still match the signed contribution aggregate.'],
+  ['Wrong subject', 'The d tag and subject hint must stay bound to the signed v2 proof.'],
+  ['Wrong kind', 'The assertion kind must match the profile and the signed v2 context.'],
+  ['Proof downgrade', 'New deployment profiles require proof v2.'],
+  ['Duplicate signer', 'Repeated key images must not increase the signer count.'],
+  ['Insufficient threshold', 'Removing a signature must fail the profile threshold.'],
+  ['Stale assertion', 'created_at must remain inside the freshness window.'],
+  ['Unknown circle', 'The circle ID must be accepted by deployment policy.'],
+  ['Relay mutation', 'Fetched event content and tags must match the Nostr signature.'],
+]
 
 function escapeHtml(value) {
   return value
@@ -556,6 +567,7 @@ function renderRelayEvidence(useCase, relayReport) {
     ['Fetched tags match the canonical example', relayCheck.checks.canonicalTags],
     ['NIP-85 syntax validation passes', relayCheck.checks.syntax],
     ['nostr-veil proof verification passes', relayCheck.checks.proof],
+    ['Deployment profile verifier passes', relayCheck.checks.profile],
   ]
 
   return `<h2>Live relay test</h2>
@@ -587,6 +599,18 @@ function renderRelayEvidence(useCase, relayReport) {
   </div>
   <p class="relay-command">Run the same check with <code>${escapeHtml(relayReport.command)}</code>.</p>
 </div>`
+}
+
+function renderSafetyMatrix() {
+  return `<h2>Safety checks</h2>
+<p>Each canonical use-case example is also exercised by an adversarial test harness. These are the failure modes a production verifier should reject before acting on the score.</p>
+<div class="safety-grid">
+  ${safetyChecks.map(([name, detail]) => `<div class="safety-item">
+    <span>${escapeHtml(name)}</span>
+    <p>${escapeHtml(detail)}</p>
+  </div>`).join('\n  ')}
+</div>
+<p>Use <code>verifyUseCaseProfile()</code> with accepted circle IDs, expected subject, freshness, and threshold policy so these checks are not left to application glue.</p>`
 }
 
 function renderPage(useCase, index) {
@@ -1066,6 +1090,32 @@ function renderPage(useCase, index) {
       color: var(--muted);
       font-size: 14px;
     }
+    .safety-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 18px;
+    }
+    .safety-item {
+      min-width: 0;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--paper);
+      padding: 14px;
+    }
+    .safety-item span {
+      display: block;
+      color: var(--ink);
+      font-family: "JetBrains Mono", ui-monospace, monospace;
+      font-size: 12px;
+      font-weight: 800;
+    }
+    .safety-item p {
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.45;
+    }
     table {
       width: 100%;
       min-width: 640px;
@@ -1144,7 +1194,8 @@ function renderPage(useCase, index) {
       .side-nav { order: 2; }
       .side-nav,
       .next-grid,
-      .relay-evidence dl { grid-template-columns: 1fr; }
+      .relay-evidence dl,
+      .safety-grid { grid-template-columns: 1fr; }
       .code-sample-toolbar {
         align-items: stretch;
         flex-direction: column;
@@ -1214,6 +1265,7 @@ function renderPage(useCase, index) {
       <article>
         ${body.replace('<h2>Worked example', '<h2 id="worked-example">Worked example')}
         ${renderRelayEvidence(useCase, relayReport)}
+        ${renderSafetyMatrix()}
         <h2>Next examples</h2>
         <div class="next-grid">
           <a class="next-card" href="../${previous.slug}/">

@@ -158,6 +158,16 @@ The resulting `assertion` is a plain `EventTemplate` you sign and publish like a
 | `canonicalMessageV2(circleId, subject, metrics, context)` | Compute the opt-in v2 canonical message that binds kind and subject hint tag |
 | `computeCircleId(sortedPubkeys)` | Compute the deterministic circle ID (SHA-256 of colon-joined pubkeys) |
 
+### `nostr-veil/profiles` -- safer deployment profiles
+
+| Export | Description |
+|--------|-------------|
+| `USE_CASE_PROFILES` | Built-in machine-readable profiles for the documented use cases |
+| `USE_CASE_PROFILE_BY_ID` | Lookup table keyed by use-case slug |
+| `verifyUseCaseProfile(events, profile, options)` | Verify NIP-85 syntax, proof v2, subject binding, threshold, freshness, accepted circles, and federation policy |
+| `canonicalRelaySubject`, `canonicalNip05Subject`, `canonicalDomainSubject`, `canonicalNpmPackageSubject` | Canonical subject helpers for common real-world identifiers |
+| `canonicalPubkeySubject`, `canonicalEventSubject`, `canonicalAddressSubject` | Canonical subject helpers for Nostr-native subjects |
+
 ### Signing utility (root export)
 
 | Export | Description |

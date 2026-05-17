@@ -24,6 +24,11 @@ Requires [tsx](https://github.com/privatenumber/tsx) (`npx tsx` works without in
 render those same files, so the public snippets drift only when the executable
 examples drift.
 
+The live relay harness also runs the fetched events through the built-in
+`verifyUseCaseProfile()` verifier, using the example circles as the accepted
+circle IDs. That keeps the public relay evidence aligned with the safer
+deployment API, not only the low-level proof verifier.
+
 `use-cases-relay.ts` is an opt-in live relay check. It signs every canonical
 use-case example as a Nostr event, publishes the events to
 `wss://relay.trotters.cc`, fetches them back by id, and verifies the fetched

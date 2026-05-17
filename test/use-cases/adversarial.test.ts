@@ -2,32 +2,20 @@ import { describe, expect, it } from 'vitest'
 import { schnorr } from '@noble/curves/secp256k1.js'
 import { hexToBytes } from '@noble/hashes/utils.js'
 import { useCaseResults } from '../../examples/use-cases/_all.js'
-import { proofVersion } from '../../examples/use-cases/_shared.js'
 import type { UseCaseResult } from '../../examples/use-cases/_shared.js'
 import {
   NIP85_KINDS,
+  USE_CASE_PROFILE_BY_ID,
   computeCircleId,
   computeEventId,
   signEvent,
-  validateAssertionStrict,
-  verifyFederation,
-  verifyProof,
+  verifyUseCaseProfile,
 } from '../../src/index.js'
 import type { EventTemplate, SignedEvent } from '../../src/index.js'
+import type { UseCaseProfile, VerifyUseCaseProfileOptions } from '../../src/profiles/index.js'
 
 const META_TAGS = new Set(['d', 'p', 'e', 'a', 'k'])
 const RELAY_PUBLISHER_KEY = '55'.repeat(32)
-
-interface DeploymentPolicy {
-  acceptedCircleIds: Set<string>
-  freshAfter: number
-  minDistinctSigners: number
-}
-
-interface DeploymentResult {
-  valid: boolean
-  errors: string[]
-}
 
 function isAssertionResult(result: UseCaseResult): result is UseCaseResult & { assertion: EventTemplate } {
   return 'assertion' in result
@@ -115,66 +103,30 @@ function stableStringify(value: Record<string, unknown>): string {
   })
 }
 
-function policyFor(result: UseCaseResult): DeploymentPolicy {
-  const events = eventsFor(result)
-  const createdAt = events.map(event => event.created_at ?? 0)
+function profileFor(result: UseCaseResult): UseCaseProfile {
+  const profile = USE_CASE_PROFILE_BY_ID[result.slug]
+  if (profile === undefined) throw new Error(`missing use-case profile for ${result.slug}`)
+  return profile
+}
 
-  return {
-    acceptedCircleIds: new Set(events.map(circleId)),
-    freshAfter: Math.min(...createdAt) - 300,
-    minDistinctSigners: result.proof.distinctSigners,
-  }
+function nowFor(result: UseCaseResult): number {
+  return Math.max(...eventsFor(result).map(event => event.created_at ?? 0))
+}
+
+function acceptedCircleIdsFor(result: UseCaseResult): string[] {
+  return eventsFor(result).map(circleId)
 }
 
 function verifyDeployment(
   result: UseCaseResult,
   events: EventTemplate[],
-  policy: DeploymentPolicy = policyFor(result),
-): DeploymentResult {
-  const errors: string[] = []
-
-  for (const [index, event] of events.entries()) {
-    const syntax = validateAssertionStrict(event)
-    if (!syntax.valid) {
-      errors.push(...syntax.errors.map(error => `event[${index}] syntax: ${error}`))
-    }
-
-    const proof = verifyProof(event, { requireProofVersion: proofVersion })
-    if (!proof.valid) {
-      errors.push(...proof.errors.map(error => `event[${index}] proof: ${error}`))
-    }
-
-    if ((event.created_at ?? 0) < policy.freshAfter) {
-      errors.push(`event[${index}] stale assertion`)
-    }
-
-    const eventCircleId = circleId(event)
-    if (!policy.acceptedCircleIds.has(eventCircleId)) {
-      errors.push(`event[${index}] circle is not accepted by deployment policy`)
-    }
-  }
-
-  if (isAssertionResult(result)) {
-    if (events.length !== 1) {
-      errors.push('single-assertion use case must contain exactly one event')
-    }
-    const proof = events[0] === undefined
-      ? undefined
-      : verifyProof(events[0], { requireProofVersion: proofVersion })
-    if ((proof?.distinctSigners ?? 0) < policy.minDistinctSigners) {
-      errors.push('assertion has fewer distinct signers than policy requires')
-    }
-  } else {
-    const federation = verifyFederation(events)
-    if (!federation.valid) {
-      errors.push(...federation.errors.map(error => `federation: ${error}`))
-    }
-    if (federation.distinctSigners < policy.minDistinctSigners) {
-      errors.push('federation has fewer distinct signers than policy requires')
-    }
-  }
-
-  return { valid: errors.length === 0, errors }
+  options: VerifyUseCaseProfileOptions = {},
+) {
+  return verifyUseCaseProfile(events, profileFor(result), {
+    acceptedCircleIds: acceptedCircleIdsFor(result),
+    now: nowFor(result),
+    ...options,
+  })
 }
 
 function tamperPublishedMetric(events: EventTemplate[]): EventTemplate[] {
@@ -251,15 +203,8 @@ function removeSigner(events: EventTemplate[]): EventTemplate[] {
 }
 
 function staleEvents(result: UseCaseResult): EventTemplate[] {
-  const policy = policyFor(result)
-  return cloneEvents(result).map(event => ({ ...event, created_at: policy.freshAfter - 1 }))
-}
-
-function unknownCirclePolicy(result: UseCaseResult): DeploymentPolicy {
-  return {
-    ...policyFor(result),
-    acceptedCircleIds: new Set(['0'.repeat(64)]),
-  }
+  const profile = profileFor(result)
+  return cloneEvents(result).map(event => ({ ...event, created_at: nowFor(result) - profile.maxAgeSeconds - 1 }))
 }
 
 function signedEventIsValid(event: SignedEvent): boolean {
@@ -310,10 +255,12 @@ describe('adversarial use-case deployment checks', () => {
   it('rejects stale assertions and otherwise-valid proofs from unknown circles', { timeout: 30_000 }, () => {
     for (const result of useCaseResults) {
       const stale = verifyDeployment(result, staleEvents(result))
-      const unknownCircle = verifyDeployment(result, cloneEvents(result), unknownCirclePolicy(result))
+      const unknownCircle = verifyDeployment(result, cloneEvents(result), {
+        acceptedCircleIds: ['0'.repeat(64)],
+      })
 
       expect(stale.valid, `${result.slug} accepted a stale assertion`).toBe(false)
-      expect(stale.errors.join('; '), result.slug).toContain('stale assertion')
+      expect(stale.errors.join('; '), result.slug).toContain('freshness window')
       expect(unknownCircle.valid, `${result.slug} accepted an unknown circle`).toBe(false)
       expect(unknownCircle.errors.join('; '), result.slug).toContain('circle is not accepted')
     }

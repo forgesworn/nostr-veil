@@ -17,6 +17,10 @@
     "./proof": {
       "types": "./dist/proof/index.d.ts",
       "import": "./dist/proof/index.js"
+    },
+    "./profiles": {
+      "types": "./dist/profiles/index.d.ts",
+      "import": "./dist/profiles/index.js"
     }
   },
   "bin": {

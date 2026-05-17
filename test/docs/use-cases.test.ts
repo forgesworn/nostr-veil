@@ -130,7 +130,7 @@ describe('public use-case pages', () => {
       relay: string
       checkedAt: string
       summary: { useCases: number, passed: number }
-      useCases: Array<{ slug: string, status: string, eventIds: string[] }>
+      useCases: Array<{ slug: string, status: string, eventIds: string[], checks: { profile: boolean } }>
     }
 
     expect(report.relay).toBe('wss://relay.trotters.cc')
@@ -144,10 +144,33 @@ describe('public use-case pages', () => {
 
       expect(check, `${slug} is missing live relay evidence`).toBeDefined()
       expect(check?.status, slug).toBe('pass')
+      expect(check?.checks.profile, slug).toBe(true)
       expect(check?.eventIds.every(id => /^[0-9a-f]{64}$/.test(id)), slug).toBe(true)
       expect(page, slug).toContain('<h2>Live relay test</h2>')
       expect(page, slug).toContain('wss://relay.trotters.cc')
+      expect(page, slug).toContain('Deployment profile verifier passes')
       expect(page, slug).toContain(check!.eventIds[0].slice(0, 12))
+    }
+  })
+
+  it('publishes the adversarial safety matrix on every worked example', () => {
+    const requiredChecks = [
+      'Tampered metric',
+      'Wrong subject',
+      'Proof downgrade',
+      'Duplicate signer',
+      'Unknown circle',
+      'Relay mutation',
+      'verifyUseCaseProfile()',
+    ]
+
+    for (const slug of slugs) {
+      const page = readText(join(publicUseCasesDir, slug, 'index.html'))
+
+      expect(page, slug).toContain('<h2>Safety checks</h2>')
+      for (const check of requiredChecks) {
+        expect(page, `${slug} is missing ${check}`).toContain(check)
+      }
     }
   })
 })
@@ -196,6 +219,7 @@ describe('executable use-case examples', () => {
 
     for (const slug of slugs) {
       expect(output).toContain(`${slug}: local=yes signed=yes`)
+      expect(output).toContain(`${slug}: local=yes signed=yes tags=yes proof=yes profile=yes`)
     }
   })
 })
