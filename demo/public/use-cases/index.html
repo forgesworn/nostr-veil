@@ -169,6 +169,13 @@
       line-height: 1.55;
       color: var(--text-muted);
     }
+    .case .case-link {
+      display: inline-block;
+      margin-top: 16px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      color: var(--accent-amber);
+    }
 
     /* ---- roadmap ---- */
     .road { margin-top: 36px; display: flex; flex-direction: column; gap: 1px; background: var(--border-subtle); border: 1px solid var(--border-subtle); border-radius: 8px; overflow: hidden; }
@@ -372,7 +379,7 @@
         <div class="sec-head">
           <span class="kicker">What it unlocks</span>
           <h2>Practical things you can build on it today.</h2>
-          <p>These use the shipped primitives: anonymous circles, signed aggregation, kind-specific NIP-85 assertions, optional proof v2 binding, and scoped federation. Identifier namespaces are application-profile choices; the implementation catalogue and individual worked pages are in <a href="https://github.com/forgesworn/nostr-veil/blob/main/docs/use-cases.md">docs/use-cases.md</a>.</p>
+          <p>These use the shipped primitives: anonymous circles, signed aggregation, kind-specific NIP-85 assertions, optional proof v2 binding, and scoped federation. Identifier namespaces are application-profile choices; the implementation catalogue, individual worked pages, and <a href="https://github.com/forgesworn/nostr-veil/blob/main/examples/use-cases.ts">runnable example script</a> are linked from each case below.</p>
         </div>
         <div class="cases">
           <div class="case">
@@ -380,78 +387,91 @@
             <h3>Anonymous abuse reporting</h3>
             <p>A moderation circle flags a serial harasser. The platform sees that five distinct moderators agreed, enough to act on, but no moderator's name is attached. None of them can be singled out for reprisal.</p>
             <p class="case-meta">Kind 30382. Subject is the account pubkey. Use rank and supported user metrics such as reports_cnt_recd.</p>
+            <a class="case-link" href="https://github.com/forgesworn/nostr-veil/blob/main/docs/use-case-pages/user-reputation-abuse-reporting.md">Worked example</a>
           </div>
           <div class="case">
             <span class="kicker">Journalism</span>
             <h3>Source corroboration</h3>
             <p>Several contacts who have dealt with a would-be source independently vouch that they are who they claim. An editor confirms the threshold was met. The list of who vouched is never written down, so it cannot be subpoenaed.</p>
             <p class="case-meta">Kind 30382 for source pubkeys, or 30385 for agreed external source identifiers.</p>
+            <a class="case-link" href="https://github.com/forgesworn/nostr-veil/blob/main/docs/use-case-pages/source-corroboration.md">Worked example</a>
           </div>
           <div class="case">
             <span class="kicker">Research</span>
             <h3>Anonymous peer review</h3>
             <p>A circle of reviewers scores a paper or a researcher. The verdict is verifiable and it stands. A junior reviewer can rate a powerful figure honestly without their next grant depending on it.</p>
             <p class="case-meta">Kind 30384 for addressable papers; kind 30382 when the subject is a researcher pubkey.</p>
+            <a class="case-link" href="https://github.com/forgesworn/nostr-veil/blob/main/docs/use-case-pages/article-research-review.md">Worked example</a>
           </div>
           <div class="case">
             <span class="kicker">Onboarding</span>
             <h3>Privacy-preserving vouching</h3>
             <p>Established members co-sign that a new account passed the community's admission policy. The newcomer carries a portable proof that enough members vouched, without anyone publishing a follow graph that maps the whole community.</p>
             <p class="case-meta">Kind 30382. Subject is the candidate pubkey. This is a vouch assertion, not a full gated-access handshake.</p>
+            <a class="case-link" href="https://github.com/forgesworn/nostr-veil/blob/main/docs/use-case-pages/privacy-preserving-onboarding.md">Worked example</a>
           </div>
           <div class="case">
             <span class="kicker">Communities</span>
             <h3>Federated moderation</h3>
             <p>Moderation circles across several communities assess the same bad actor. A shared scope lets a verifier count the distinct moderators who flagged them across all of them. Someone in three circles counts once, not three times, still with no names.</p>
             <p class="case-meta">Use createTrustCircle(..., { scope }) and verifyFederation. Same subject and scope are required.</p>
+            <a class="case-link" href="https://github.com/forgesworn/nostr-veil/blob/main/docs/use-case-pages/federated-moderation.md">Worked example</a>
           </div>
           <div class="case">
             <span class="kicker">Fact-checking</span>
             <h3>Claim and content verification</h3>
             <p>A circle of fact-checkers scores a specific post. Readers see a verifiable "nine of twelve checkers rated this accurate" on the note itself. A checker who contradicts a popular claim is not left exposed to the pile-on.</p>
             <p class="case-meta">Kind 30383. Subject is the event id in d and e. Proof v2 binds the proof to that event assertion.</p>
+            <a class="case-link" href="https://github.com/forgesworn/nostr-veil/blob/main/docs/use-case-pages/event-claim-verification.md">Worked example</a>
           </div>
           <div class="case">
             <span class="kicker">Commerce</span>
             <h3>Real-world trade reputation</h3>
             <p>Past counterparties of a trader rate how the deal actually went. A new counterparty sees a verifiable track record. The people who left honest, critical marks cannot be identified and retaliated against.</p>
             <p class="case-meta">Kind 30382 for trader pubkeys, or 30385 for external vendor and marketplace identifiers.</p>
+            <a class="case-link" href="https://github.com/forgesworn/nostr-veil/blob/main/docs/use-case-pages/vendor-marketplace-signals.md">Worked example</a>
           </div>
           <div class="case">
             <span class="kicker">Relays</span>
             <h3>Relay and service reputation</h3>
             <p>A circle scores relays, moderation services, bots, or algorithm providers. Clients can compare portable NIP-85 assertions without forcing operators or reviewers to publish a social graph.</p>
             <p class="case-meta">Kind 30385. Subject examples: relay:wss://relay.example.com or service:blossom:example.com.</p>
+            <a class="case-link" href="https://github.com/forgesworn/nostr-veil/blob/main/docs/use-case-pages/relay-service-reputation.md">Worked example</a>
           </div>
           <div class="case">
             <span class="kicker">Funding</span>
             <h3>Grant and funding review</h3>
             <p>Reviewers score proposals, maintainers, or deliverables. The fund can show that a threshold of qualified reviewers agreed, while protecting reviewers from pressure by applicants or sponsors.</p>
             <p class="case-meta">Kind 30383 for proposal events, or 30384 for addressable proposal records.</p>
+            <a class="case-link" href="https://github.com/forgesworn/nostr-veil/blob/main/docs/use-case-pages/grant-funding-proposal-review.md">Worked example</a>
           </div>
           <div class="case">
             <span class="kicker">Markets</span>
             <h3>Scam and vendor signals</h3>
             <p>Market participants flag recurring scammers, risky vendors, or reliable counterparties. The signal is portable and verifiable, while individual reviewers are not singled out by the subject.</p>
             <p class="case-meta">Kind 30382 for pubkeys, or 30385 for vendor:market:id style external identifiers.</p>
+            <a class="case-link" href="https://github.com/forgesworn/nostr-veil/blob/main/docs/use-case-pages/vendor-marketplace-signals.md">Worked example</a>
           </div>
           <div class="case">
             <span class="kicker">Software</span>
             <h3>Release and maintainer reputation</h3>
             <p>Security reviewers score packages, releases, or maintainers after compromise reports or audit work. Users see a threshold-backed signal without exposing every reviewer to pressure from a project or sponsor.</p>
             <p class="case-meta">Kind 30385. Subject examples: npm:package@version, git:repo@commit, maintainer:github:name.</p>
+            <a class="case-link" href="https://github.com/forgesworn/nostr-veil/blob/main/docs/use-case-pages/release-package-maintainer-reputation.md">Worked example</a>
           </div>
           <div class="case">
             <span class="kicker">Identity</span>
             <h3>NIP-05 and domain trust</h3>
             <p>A circle rates domains, NIP-05 identifiers, or service providers. The subject can be an external identifier, so trust signals are not limited to a single Nostr pubkey.</p>
             <p class="case-meta">Kind 30385. Subject examples: nip05:alice@example.com, domain:example.com, nip96:https://upload.example.com.</p>
+            <a class="case-link" href="https://github.com/forgesworn/nostr-veil/blob/main/docs/use-case-pages/nip05-domain-service-provider-trust.md">Worked example</a>
           </div>
           <div class="case">
             <span class="kicker">Curation</span>
             <h3>List and labeler reputation</h3>
             <p>Users score community lists, labelers, moderation feeds, and filter providers. Clients can choose better curation sources without forcing reviewers to publish a map of who monitors whom.</p>
             <p class="case-meta">Kind 30384 for addressable lists, 30382 for operator pubkeys, or 30385 for external feeds.</p>
+            <a class="case-link" href="https://github.com/forgesworn/nostr-veil/blob/main/docs/use-case-pages/list-labeler-moderation-list-reputation.md">Worked example</a>
           </div>
         </div>
       </div>
@@ -476,11 +496,11 @@
           </div>
           <div class="road-item">
             <span class="tag">planned</span>
-            <span class="body"><strong>Anonymous endorsements.</strong> <span>A circle co-signs a credential or attestation, not only a numeric score.</span></span>
+            <span class="body"><strong>Anonymous endorsements.</strong> <span>A circle co-signs a credential or attestation, not only a numeric score. <a href="https://github.com/forgesworn/nostr-veil/blob/main/docs/use-case-pages/anonymous-credential-attestation-cosigning.md">Worked profile</a>.</span></span>
           </div>
           <div class="road-item">
             <span class="tag">planned</span>
-            <span class="body"><strong>Anonymous gated access.</strong> <span>An actual admission handshake where a relay or community can admit an endorsed member without learning which member just arrived.</span></span>
+            <span class="body"><strong>Anonymous gated access.</strong> <span>An actual admission handshake where a relay or community can admit an endorsed member without learning which member just arrived. <a href="https://github.com/forgesworn/nostr-veil/blob/main/docs/use-case-pages/relay-community-admission.md">Worked profile</a>.</span></span>
           </div>
         </div>
       </div>
