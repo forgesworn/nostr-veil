@@ -16,6 +16,27 @@ members who appear in more than one circle.
   underscore.
 - Proof version: v2 recommended.
 
+## Subject design
+
+- Use federation when several circles score the same subject and a verifier
+  must deduplicate contributors who are members of more than one circle.
+- Create each circle with the same `scope` before collecting contributions.
+  Scoped key images are what make cross-circle deduplication possible.
+- Keep the subject route identical across events. Do not federate a user
+  assertion with an event assertion or an identifier assertion.
+- Use unscoped circles when overlap privacy matters more than deduplication.
+
+## What to publish
+
+- One normal nostr-veil assertion per circle, all for the same subject and
+  assertion kind.
+- A shared `veil-scope` value emitted by circles created with that scope.
+- A federation policy explaining participating circles, minimum per-circle
+  thresholds, overall distinct-signer threshold, weighting, and disagreement
+  handling.
+- No attempt to merge raw signatures into one event; verifiers should verify the
+  separate events and then call `verifyFederation`.
+
 ## Implementation recipe
 
 1. Agree the federation `scope` before any circle publishes assertions.
@@ -67,12 +88,44 @@ if (!federation.valid) throw new Error(federation.errors.join('; '))
 console.log(federation.distinctSigners, federation.totalSignatures)
 ```
 
+## What to verify
+
+- Each event verifies independently with `verifyProof`, using proof v2 for new
+  deployments.
+- `verifyFederation(events).valid` is true, with one shared subject and one
+  shared scope.
+- Each participating circle is accepted by the federation policy.
+- The federation-level `distinctSigners` count and any per-circle thresholds
+  meet the action threshold.
+- Clients understand that repeated scoped key images reveal cross-circle
+  membership overlap for an otherwise anonymous contributor.
+
 ## What this proves
 
 - Each event independently verifies.
 - All events agree on subject and scope.
 - Matching scoped key images are counted once across circles.
 - A member who contributed in multiple circles does not inflate the total.
+
+## What not to claim
+
+- Do not claim scoped federation proves the circles are independent. It only
+  deduplicates overlapping contributors.
+- Do not claim unscoped events can be deduplicated later. The scope must be part
+  of contribution creation.
+- Do not claim overlap is private. Shared scoped key images intentionally reveal
+  that the same unknown member contributed in more than one circle.
+
+## Failure handling
+
+- Reject federations with mixed subjects, mixed scopes, mixed assertion kinds,
+  unknown circles, or invalid per-event proofs.
+- Fall back to showing separate circle results when overlap privacy is more
+  important than deduplication.
+- Escalate disagreement between circles according to the federation policy
+  rather than averaging away a meaningful split.
+- Rotate or remove captured circles through governance; the proof layer cannot
+  repair bad federation membership.
 
 ## Operational requirements
 

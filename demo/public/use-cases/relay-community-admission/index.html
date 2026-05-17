@@ -454,6 +454,10 @@
         <p>This is a future profile. nostr-veil can already publish a threshold-backed vouch assertion about a candidate, but a full anonymous admission system needs a separate access handshake and transport privacy.</p>
 <h2>Fit</h2>
 <ul><li>Status: future profile, with a supported vouch assertion today.</li><li>Current NIP-85 shape: kind 30382 user assertion for the candidate pubkey.</li><li>Subject: candidate account pubkey.</li><li>Helpers today: <code>contributeAssertion</code>, <code>aggregateContributions</code>, <code>verifyProof</code>.</li><li>Proof version: v2 recommended.</li><li>Useful metric today: <code>rank</code> as admission confidence.</li></ul>
+<h2>Subject design</h2>
+<ul><li>Today, the subject is the candidate pubkey and the output is a portable vouch assertion.</li><li>Use kind 30382 with <code>d</code> and <code>p</code> equal to the candidate pubkey.</li><li>Do not treat that public vouch as anonymous relay entry. Anonymous admission needs a separate challenge/response and transport design.</li><li>A full profile must decide whether the admitted identity is a pubkey, credential presentation, session key, relay account, or community-specific capability.</li></ul>
+<h2>What to publish</h2>
+<ul><li>Today: a kind 30382 vouch assertion created with <code>aggregateContributions</code>.</li><li>A <code>rank</code> profile such as admission confidence, sponsor confidence, or policy completeness.</li><li>Proof v2 tags, accepted admission-circle policy, threshold, expiry, and revocation or ban rules.</li><li>Future profile data for challenge/response, replay protection, session continuity, transport privacy, and post-admission abuse handling.</li></ul>
 <h2>Implementation recipe for today's building block</h2>
 <ol><li>Publish a threshold-backed vouch assertion about the candidate pubkey.</li><li>Have the relay or community verify the expected circle, threshold, subject, and freshness.</li><li>Apply ordinary access policy based on that verified assertion.</li><li>Keep transport privacy, account creation, session continuity, revocation, and abuse handling outside nostr-veil until a full admission profile exists.</li></ol>
 <h2 id="worked-example">Worked example for today's building block</h2>
@@ -490,10 +494,16 @@ const assertion = aggregateContributions(
 const syntax = validateAssertionStrict(assertion)
 const proof = verifyProof(assertion, { requireProofVersion: 'v2' })
 const canApplyPolicy = syntax.valid &amp;&amp; proof.valid &amp;&amp; proof.distinctSigners &gt;= 3</code></pre>
+<h2>What to verify</h2>
+<ul><li>Today: strict syntax and a valid proof v2.</li><li>Kind 30382, with <code>d</code> and <code>p</code> equal to the applicant pubkey.</li><li>The admission circle is accepted by the relay or community and has enough distinct signers.</li><li>The vouch is fresh, not revoked, and has a documented <code>rank</code> meaning.</li><li>For full anonymous admission, also verify the admission challenge, replay protection, session binding, and transport requirements defined by the future profile.</li></ul>
 <h2>What this proves today</h2>
 <ul><li>Enough distinct members vouched for the candidate pubkey.</li><li>No individual member is named.</li><li>A relay or community can use the assertion as one policy input.</li></ul>
 <h2>What a full admission profile still needs</h2>
 <ul><li>A challenge/response handshake for the relay or community.</li><li>Rules for presenting a proof without leaking equivalent metadata.</li><li>Expiry and revocation.</li><li>How the admitted user proves continuity after admission.</li><li>Abuse handling after a vouched user is admitted.</li></ul>
+<h2>What not to claim</h2>
+<ul><li>Do not claim nostr-veil currently implements anonymous access control.</li><li>Do not claim the vouch hides the candidate pubkey; today's building block is a public assertion about that pubkey.</li><li>Do not claim a valid vouch overrides relay policy, bans, rate limits, or abuse response.</li></ul>
+<h2>Failure handling</h2>
+<ul><li>Reject vouches for the wrong pubkey, unknown admission circles, stale assertions, missing revocation checks, or insufficient thresholds.</li><li>Fall back to manual or non-anonymous admission when the full handshake is not implemented.</li><li>Publish revocation or expiry state for admitted users who later violate community rules.</li><li>Design the future profile so failed presentations do not reveal more metadata than a normal denied admission attempt.</li></ul>
 <h2>Operational requirements</h2>
 <div class="table-wrap"><table><thead><tr><th>Risk to handle</th><th>Required control</th></tr></thead><tbody><tr><td>nostr-veil does not currently implement anonymous access control.</td><td>Add a relay or community challenge/response protocol that accepts a verified threshold assertion.</td></tr><tr><td>IP address, timing, and relay metadata are outside the proof.</td><td>Add transport privacy, batching, careful relay logs, and metadata-minimising admission flows.</td></tr><tr><td>A user cannot enter a relay without relay policy.</td><td>Define policy for accepted circles, threshold, freshness, and what happens after admission.</td></tr><tr><td>Revocation and ban evasion are separate problems.</td><td>Add expiry, revocation, session continuity, abuse response, and re-admission rules.</td></tr></tbody></table></div>
         <h2>Next examples</h2>

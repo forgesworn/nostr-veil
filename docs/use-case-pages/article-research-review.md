@@ -15,6 +15,27 @@ grant applications, proposals, and other NIP-33-style records.
 - Useful metrics: `rank`, `comment_cnt`, `quote_cnt`, `repost_cnt`,
   `reaction_cnt`, `zap_cnt`, `zap_amount`.
 
+## Subject design
+
+- Use kind 30384 when the reviewed artefact is addressable by
+  `kind:pubkey:d-tag`.
+- Decide whether the subject is a fixed revision, a living article, a proposal
+  record, or a review docket. That decision controls expiry and supersession.
+- Keep author reputation separate from artefact quality unless the profile says
+  the score intentionally combines them.
+- Use a new address or a clear revision policy when material changes alter what
+  reviewers actually evaluated.
+
+## What to publish
+
+- A kind 30384 assertion created with `aggregateAddressableContributions`.
+- A documented `rank` meaning: review quality, technical confidence, relevance,
+  safety, acceptance likelihood, or another venue-specific score.
+- Optional count metrics such as `comment_cnt` only when they correspond to
+  defined review activity.
+- Separate review notes, conflict declarations, datasets, replication logs, and
+  correction records when readers need explanation beyond the aggregate.
+
 ## Implementation recipe
 
 1. Decide whether the scored object is the work as a whole, a specific
@@ -69,12 +90,43 @@ const proof = verifyProof(assertion, { requireProofVersion: 'v2' })
 if (!syntax.valid || !proof.valid) throw new Error('invalid review assertion')
 ```
 
+## What to verify
+
+- Strict syntax and a valid proof v2.
+- Kind 30384, with `d` and `a` equal to the addressable artefact under review.
+- The reviewer ring is approved for this venue, subject area, or funding
+  programme.
+- The score has enough distinct signers and uses the venue's documented metric
+  direction.
+- The assertion is still valid for the current revision or has a clear
+  supersession path.
+
 ## What this proves
 
 - The review signal is tied to a specific addressable event, not merely to the
   author.
 - Distinct circle members contributed the signed metrics.
 - The aggregate can be recomputed by anyone.
+
+## What not to claim
+
+- Do not claim the proof proves the research is correct. It proves a reviewer
+  circle's aggregate assessment.
+- Do not claim hidden reviewers supplied no conflicts. Conflict declarations and
+  recusal rules sit outside the proof.
+- Do not claim a score survives material revisions unless the profile treats the
+  address as a living record and defines expiry.
+
+## Failure handling
+
+- Reject assertions for the wrong address, untrusted circles, unknown metric
+  meanings, or insufficient signer counts.
+- When an artefact changes, either publish a new assertion for the revised
+  address or mark the older score as stale in the client.
+- Handle contested reviews with a companion rationale, appeal process, or
+  independent second circle.
+- Keep private reviewer notes outside the public assertion and publish redacted
+  summaries only when the venue requires them.
 
 ## Operational requirements
 

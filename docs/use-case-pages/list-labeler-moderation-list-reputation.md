@@ -15,6 +15,28 @@ publishing a graph of everyone who reviews labelers, lists, or filter feeds.
 - Proof version: v2 recommended for typed helper workflows.
 - Useful metrics: `rank`, and supported event/addressable count metrics.
 
+## Subject design
+
+- Use kind 30384 for a Nostr list, labeler profile, moderation feed, or other
+  addressable curation object.
+- Use kind 30382 when the score is about the operator pubkey rather than a
+  specific list.
+- Use kind 30385 when the subject is an external label API, feed URL, or
+  service identifier.
+- Decide whether revisions inherit scores. For high-impact lists, treat each
+  material list revision as a separate reviewed subject or apply a short expiry.
+
+## What to publish
+
+- The assertion kind that matches the thing clients will consume: list event,
+  operator pubkey, or external feed.
+- A `rank` profile that says whether the score measures accuracy, coverage,
+  freshness, abuse resistance, operational reliability, or community alignment.
+- Proof v2 tags and a policy describing accepted curator circles, thresholds,
+  review sampling, correction channels, and expiry.
+- Optional item-level review events when clients need to understand why a list
+  or labeler scored well or poorly.
+
 ## Implementation recipe
 
 1. Decide whether the subject is the list event, the list author, the labeler
@@ -69,11 +91,40 @@ const proof = verifyProof(assertion, { requireProofVersion: 'v2' })
 if (!syntax.valid || !proof.valid) throw new Error('invalid list assertion')
 ```
 
+## What to verify
+
+- Strict syntax and a valid proof v2.
+- The assertion kind and subject tag match the object the client is about to
+  use: `a` for addressable lists, `p` for operators, or `k` for external feeds.
+- The curator circle is trusted for this curation domain and the threshold is
+  high enough for the action.
+- The list or labeler revision being used is the one that was reviewed, or the
+  profile explicitly allows living-list inheritance.
+- The metric direction is known before comparing scores across circles.
+
 ## What this proves
 
 - Distinct curators scored the exact addressable list or labeler profile.
 - The aggregate quality signal is verifiable.
 - The reviewers are hidden inside the public circle.
+
+## What not to claim
+
+- Do not claim the proof proves every item in the list is correct.
+- Do not claim a list score proves the operator is trustworthy in every
+  context. Score operator reputation separately when that matters.
+- Do not claim one community's curation score is politically or socially
+  neutral. Clients should choose circles aligned with their policy.
+
+## Failure handling
+
+- Reject assertions for the wrong list revision, unknown curator circles,
+  mismatched subject route, stale review, or undocumented metric meaning.
+- Re-review or expire list scores after material list changes.
+- Publish item-level corrections or a superseding assertion when a list or
+  labeler is found to include harmful, stale, or manipulated entries.
+- Show disagreement between circles as disagreement, especially where curation
+  goals differ by community.
 
 ## Operational requirements
 

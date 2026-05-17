@@ -15,6 +15,13 @@ const slugs = readdirSync(docsDir)
 
 const detailPagePaths = slugs.map(slug => join(publicUseCasesDir, slug, 'index.html'))
 const publicPagePaths = [join(publicUseCasesDir, 'index.html'), ...detailPagePaths]
+const requiredImplementationSections = [
+  'Subject design',
+  'What to publish',
+  'What to verify',
+  'What not to claim',
+  'Failure handling',
+]
 
 describe('public use-case pages', () => {
   it('publishes a generated detail page for every use-case source', () => {
@@ -53,6 +60,28 @@ describe('public use-case pages', () => {
       expect(page).toContain('html, body { overflow-x: hidden; }')
       expect(page).toContain('article { order: 1; padding: 22px; }')
       expect(page).toContain('.side-nav { order: 2; }')
+    }
+  })
+
+  it('publishes implementation sections on every generated detail page', () => {
+    for (const pagePath of detailPagePaths) {
+      const page = readText(pagePath)
+
+      for (const section of requiredImplementationSections) {
+        expect(page, `${pagePath} is missing ${section}`).toContain(`<h2>${section}</h2>`)
+      }
+    }
+  })
+})
+
+describe('use-case source pages', () => {
+  it('answers the implementation questions developers need on every page', () => {
+    for (const slug of slugs) {
+      const page = readText(join(docsDir, `${slug}.md`))
+
+      for (const section of requiredImplementationSections) {
+        expect(page, `${slug} is missing ${section}`).toContain(`## ${section}`)
+      }
     }
   })
 })

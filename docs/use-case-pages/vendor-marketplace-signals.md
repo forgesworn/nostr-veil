@@ -15,6 +15,30 @@ marketplace counterparties, or recurring scam patterns.
 - Proof version: v2 recommended.
 - Useful metrics: `rank`, `comment_cnt`, `reaction_cnt`.
 
+## Subject design
+
+- Use kind 30382 when the vendor, buyer, escrow agent, or marketplace actor is
+  a Nostr pubkey.
+- Use kind 30385 when the subject is a marketplace account, listing, order
+  pattern, payment handle, or recurring scam identifier.
+- Keep vendor identity, trade fulfilment, dispute behaviour, fraud reports, and
+  marketplace reliability as separate subjects where clients need different
+  actions.
+- Decide whether identifiers are market-local or intentionally portable across
+  markets before publishing them.
+
+## What to publish
+
+- A kind 30382 user assertion or kind 30385 identifier assertion, depending on
+  the subject.
+- A `rank` profile that says whether the score represents fulfilment
+  reliability, dispute risk, fraud risk, communication quality, or overall
+  counterparty confidence.
+- Proof v2 tags, accepted circle policy, evidence standard, minimum threshold,
+  expiry, recovery, and appeal rules.
+- Separate dispute records, escrow outcomes, refund decisions, or moderator
+  notes when the marketplace needs a complete case history.
+
 ## Implementation recipe
 
 1. Decide whether the subject is a Nostr pubkey, a marketplace-specific vendor
@@ -75,11 +99,42 @@ const proof = verifyProof(assertion, { requireProofVersion: 'v2' })
 if (!syntax.valid || !proof.valid) throw new Error('invalid vendor assertion')
 ```
 
+## What to verify
+
+- Strict syntax and a valid proof v2.
+- The assertion route matches the marketplace subject: `p` for Nostr pubkeys or
+  `k` for marketplace identifiers.
+- The counterparty-review circle is trusted for this market and has enough
+  distinct signers for the value at risk.
+- The `rank` meaning matches the UI action: warning, escrow requirement,
+  search ranking, suspension, or manual review.
+- The assertion is fresh and not superseded by a dispute resolution, recovery
+  assertion, or fraud incident.
+
 ## What this proves
 
 - Distinct members of the counterparty circle contributed the trade signal.
 - The final metric tags match the signed anonymous contributions.
 - The signal is portable as a Nostr event.
+
+## What not to claim
+
+- Do not claim the proof adjudicates disputes or proves fraud by itself.
+- Do not claim an external vendor identifier proves real-world identity unless
+  the marketplace separately verified it.
+- Do not claim old negative scores should last forever. Reputation needs
+  expiry, recovery, and re-review policy.
+
+## Failure handling
+
+- Reject assertions with weak evidence, unknown circles, wrong subject routes,
+  stale scores, or unclear metric direction.
+- Send high-value or contested cases to dispute review before applying automatic
+  marketplace penalties.
+- Publish recovery, refund, or correction assertions when a case is resolved or
+  an account is restored.
+- Keep market-local identifiers local unless cross-market linking is a stated
+  safety feature.
 
 ## Operational requirements
 

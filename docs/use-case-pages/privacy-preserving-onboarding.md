@@ -15,6 +15,27 @@ admission or onboarding policy without naming which members vouched.
 This is not anonymous gated access by itself. It creates a verifiable vouch
 event that another client, relay, or community can use as an input to policy.
 
+## Subject design
+
+- Use the candidate pubkey as the subject when the vouch should be portable
+  across clients or communities.
+- Put the candidate pubkey in both `d` and `p`; proof v2 binds the vouch to that
+  candidate, not to a future session or account-creation flow.
+- Keep onboarding vouches separate from later behaviour scores. A good
+  admission signal should not permanently override moderation outcomes.
+- If the candidate pubkey itself must stay private, this profile is not enough;
+  use the future admission profile with a separate presentation handshake.
+
+## What to publish
+
+- A kind 30382 assertion created with `aggregateContributions`.
+- A `rank` value with a clear meaning such as admission confidence, community
+  fit, or verified-sponsor confidence.
+- Proof v2 tags and a public policy for accepted circles, minimum threshold,
+  expiry, revocation, and re-review.
+- No private application notes or onboarding evidence in the assertion content;
+  keep those in the community's internal workflow.
+
 ## Implementation recipe
 
 1. Define the admission policy and the threshold needed before a vouch is
@@ -65,11 +86,40 @@ const proof = verifyProof(assertion, { requireProofVersion: 'v2' })
 const accepted = syntax.valid && proof.valid && proof.distinctSigners >= 3
 ```
 
+## What to verify
+
+- Strict NIP-85 syntax and a valid proof v2.
+- Kind 30382, with `d` and `p` equal to the candidate pubkey being considered.
+- The `veil-ring` belongs to an accepted admission circle and
+  `proof.distinctSigners` meets the community threshold.
+- The `rank` meaning matches the community's onboarding policy.
+- The assertion is not expired or superseded by a revocation, ban, or later
+  re-review.
+
 ## What this proves
 
 - Enough distinct circle members vouched for the candidate.
 - The candidate subject is bound to the proof.
 - No individual vouching member is identified.
+
+## What not to claim
+
+- Do not claim the user was admitted anonymously. The candidate pubkey is public
+  in the assertion.
+- Do not claim the assertion grants relay access by itself. A relay or community
+  still needs policy code that accepts or rejects the verified vouch.
+- Do not claim a vouch predicts future behaviour. It is an admission signal at
+  a point in time.
+
+## Failure handling
+
+- Reject vouches from unknown circles, below-threshold circles, expired
+  assertions, or assertions about the wrong pubkey.
+- Expire onboarding vouches by default and require re-review for sensitive
+  communities.
+- Publish a revocation or updated assertion when a sponsor withdraws support or
+  the candidate later violates policy.
+- Fall back to manual review when independent circles disagree.
 
 ## Operational requirements
 

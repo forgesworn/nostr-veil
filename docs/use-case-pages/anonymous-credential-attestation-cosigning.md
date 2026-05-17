@@ -16,6 +16,26 @@ presentation rules.
 - Proof version: v2 strongly recommended.
 - Useful metric today: `rank` as endorsement confidence.
 
+## Subject design
+
+- Today, score the credential or attestation event, not the holder in general.
+- Use kind 30383 when the attestation is a fixed event id.
+- Use kind 30384 when the credential record is addressable and the profile
+  defines how revisions, expiry, and revocation work.
+- Do not use a generic holder pubkey score as a credential. Holder binding,
+  presentation, and selective disclosure are separate protocol work.
+
+## What to publish
+
+- Today: a normal event or addressable assertion that says an attestor circle
+  endorsed a specific credential artefact.
+- A `rank` profile such as endorsement confidence, issuer-confidence score, or
+  review completeness.
+- Proof v2 tags, accepted attestor-circle policy, threshold, expiry, and the
+  credential class being reviewed.
+- Future profile data for holder binding, presentation challenge, disclosed
+  attributes, revocation lookup, and verifier discovery.
+
 ## Implementation recipe for today's building block
 
 1. Publish or identify the credential or attestation event to be scored.
@@ -65,6 +85,19 @@ const proof = verifyProof(assertion, { requireProofVersion: 'v2' })
 if (!syntax.valid || !proof.valid) throw new Error('invalid attestation score')
 ```
 
+## What to verify
+
+- Today: strict syntax and a valid proof v2 for the attestation event or
+  addressable credential record.
+- The subject tag points to the exact credential artefact being considered.
+- The attestor circle is accepted for that credential class and has enough
+  distinct signers.
+- The credential profile supplies holder binding, challenge/response,
+  revocation, expiry, and disclosure checks before the verifier treats the
+  presenter as credentialed.
+- The assertion has not been superseded by revocation or a later credential
+  revision.
+
 ## What this proves today
 
 - A circle scored a specific attestation event.
@@ -78,6 +111,26 @@ if (!syntax.valid || !proof.valid) throw new Error('invalid attestation score')
 - Expiry and revocation semantics.
 - Whether endorsements are binary, ranked, weighted, or scoped.
 - How a verifier discovers the right circle for the credential class.
+
+## What not to claim
+
+- Do not claim nostr-veil currently issues anonymous credentials. It can score
+  or endorse a credential artefact today.
+- Do not claim a scored credential proves the presenter is the holder without a
+  holder-binding and presentation protocol.
+- Do not claim selective disclosure, revocation, or expiry semantics exist until
+  a credential profile defines them.
+
+## Failure handling
+
+- Reject credential endorsements that point at the wrong artefact, unknown
+  attestor circles, stale records, or unsupported credential classes.
+- Treat missing revocation or holder-binding checks as a verifier failure, not
+  as a weak warning.
+- Publish superseding endorsement assertions when an attestation is corrected,
+  revoked, or replaced.
+- Keep personal attributes out of the nostr-veil assertion unless the credential
+  profile explicitly and safely discloses them.
 
 ## Operational requirements
 

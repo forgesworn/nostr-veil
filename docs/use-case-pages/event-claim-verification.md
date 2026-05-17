@@ -13,6 +13,26 @@ report, moderation item, or fact-check target.
 - Useful metrics: `rank`, `comment_cnt`, `quote_cnt`, `repost_cnt`,
   `reaction_cnt`, `zap_cnt`, `zap_amount`.
 
+## Subject design
+
+- Use this profile when the verifier will act on one immutable event id.
+- Put the event id in both `d` and `e`; proof v2 binds the reviewer score to
+  that exact event and assertion kind.
+- Do not reuse the score for a quoted note, screenshot, edit, correction, or
+  paraphrase. Those are different subjects.
+- If the claim has a long-running review record, score the addressable review
+  record with kind 30384 and link it to the event separately.
+
+## What to publish
+
+- A kind 30383 assertion created with `aggregateEventContributions`.
+- A `rank` profile that says whether the value represents accuracy,
+  confidence, harm, priority, or review quality.
+- Optional count metrics only when the profile explains what they count, such
+  as reviewed reactions or substantive comments.
+- Separate evidence, correction, and methodology events for humans; the
+  nostr-veil event should carry the verifiable aggregate signal.
+
 ## Implementation recipe
 
 1. Treat the event id as immutable: the score is about that exact event, not a
@@ -66,12 +86,45 @@ const proof = verifyProof(assertion, { requireProofVersion: 'v2' })
 if (!syntax.valid || !proof.valid) throw new Error('invalid claim assertion')
 ```
 
+## What to verify
+
+- Strict syntax and a valid proof v2.
+- Kind 30383, with `d` and `e` equal to the event id currently being displayed
+  or acted on.
+- The reviewer ring is one the client trusts for this claim class, and the
+  threshold is high enough for the UI action.
+- The `rank` profile is known before display; do not compare scores from
+  circles that use different meanings.
+- The event has not been superseded by a correction, later review, or local
+  freshness policy.
+
 ## What this proves
 
 - Distinct members of the fact-checking circle scored that exact event id.
 - The aggregate metric tags match the signed contribution messages.
 - Proof v2 prevents the same contribution being replayed as a user,
   addressable, or identifier assertion.
+
+## What not to claim
+
+- Do not claim the proof makes the event objectively true or false. It proves a
+  threshold reviewer signal.
+- Do not claim the proof includes the evidence. Evidence links and rationale
+  must be separate events or application records.
+- Do not claim later edits, corrections, or reposts inherit the score unless the
+  profile explicitly scores a living review record.
+
+## Failure handling
+
+- Reject wrong-event assertions, unknown circles, stale reviews, and assertions
+  whose `rank` method is not published.
+- If a reviewed event is corrected, publish a new assertion for the correction
+  or link a supersession event so clients can stop showing the old result as
+  current.
+- Show disagreement between independent review circles instead of collapsing it
+  into one unexplained score.
+- Escalate high-impact or low-quorum claims to human review before applying
+  automatic visibility changes.
 
 ## Operational requirements
 

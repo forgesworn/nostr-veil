@@ -14,6 +14,29 @@ payment endpoint, or other service identifier outside a single Nostr pubkey.
 - Proof version: v2 recommended.
 - Useful metrics: `rank`.
 
+## Subject design
+
+- Use kind 30385 because the subject is an identifier outside one Nostr pubkey.
+- Decide whether the subject is a whole domain, a specific NIP-05 name, an
+  LNURL/payment identifier, an upload endpoint, or a provider account.
+- Canonicalise host names, schemes, trailing slashes, punycode, and case rules
+  before anyone signs.
+- Keep domain trust, NIP-05 name confidence, provider behaviour, and payment
+  endpoint risk as separate subjects unless the profile deliberately combines
+  them.
+
+## What to publish
+
+- A kind 30385 assertion with the canonical identifier in `d` and the profile
+  namespace in `k`.
+- A `rank` profile explaining whether the score means identity confidence,
+  domain-control confidence, provider reliability, abuse risk, or operational
+  trust.
+- Proof v2 tags, accepted circle policy, threshold, freshness, and revocation or
+  incident rules.
+- Evidence references only when safe; DNS, HTTPS, NIP-05, and payment checks
+  should happen before review, not inside the nostr-veil proof.
+
 ## Implementation recipe
 
 1. Canonicalise the identifier before signing: lowercase host names, agreed
@@ -67,11 +90,43 @@ const proof = verifyProof(assertion, { requireProofVersion: 'v2' })
 if (!syntax.valid || !proof.valid) throw new Error('invalid identity assertion')
 ```
 
+## What to verify
+
+- Strict syntax and a valid proof v2.
+- Kind 30385, with `d` equal to the exact canonical identifier and `k` equal to
+  the identity/provider profile namespace.
+- The circle is trusted for identity or provider review, not merely any
+  reputation circle.
+- The assertion is fresh enough for domain or provider risk and has not been
+  superseded by an incident signal.
+- The application has independently resolved the underlying NIP-05, DNS, HTTPS,
+  LNURL, or service check when that check matters.
+
 ## What this proves
 
 - A circle rated the exact identifier string.
 - The threshold and aggregate can be verified from the event.
 - Proof v2 binds the contribution to the identifier assertion namespace.
+
+## What not to claim
+
+- Do not claim the proof itself performs NIP-05, DNS, HTTPS, or LNURL
+  resolution.
+- Do not claim a domain-level score proves every name or endpoint on that domain
+  is safe.
+- Do not claim provider trust is permanent. Domains and hosted identities can
+  change owner or behaviour quickly.
+
+## Failure handling
+
+- Reject assertions for non-canonical names, wrong namespaces, unknown circles,
+  stale reviews, or unresolved service checks.
+- Split a broad domain assertion into specific NIP-05, endpoint, or provider
+  assertions when clients need precision.
+- Publish incident, revocation, or downgraded assertions when ownership,
+  hosting, TLS, or service behaviour changes.
+- Fall back to direct resolution and local policy when no trusted circle has
+  reviewed the identifier.
 
 ## Operational requirements
 
