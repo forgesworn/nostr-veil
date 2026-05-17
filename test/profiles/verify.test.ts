@@ -75,6 +75,37 @@ describe('verifyUseCaseProfile', () => {
     ])
   })
 
+  it('publishes machine-readable safety boundaries for every built-in profile', () => {
+    for (const profile of USE_CASE_PROFILES) {
+      expect(profile.proofClaims?.length, `${profile.id} proof claims`).toBeGreaterThanOrEqual(3)
+      expect(profile.proofLimitations?.length, `${profile.id} proof limitations`).toBeGreaterThanOrEqual(3)
+      expect(profile.recommendedActions?.length, `${profile.id} recommended actions`).toBeGreaterThanOrEqual(1)
+      expect(profile.requiredControls?.length, `${profile.id} required controls`).toBeGreaterThanOrEqual(4)
+
+      for (const value of [
+        ...(profile.proofClaims ?? []),
+        ...(profile.proofLimitations ?? []),
+        ...(profile.recommendedActions ?? []),
+      ]) {
+        expect(value.trim(), profile.id).not.toBe('')
+      }
+
+      for (const control of profile.requiredControls ?? []) {
+        expect(control.risk.trim(), profile.id).not.toBe('')
+        expect(control.control.trim(), profile.id).not.toBe('')
+      }
+    }
+  })
+
+  it('keeps supply-chain and relay profiles honest about their real-world controls', () => {
+    expect(RELEASE_PACKAGE_MAINTAINER_REPUTATION_PROFILE.proofLimitations?.join(' ')).toContain('safe')
+    expect(RELEASE_PACKAGE_MAINTAINER_REPUTATION_PROFILE.requiredControls?.map(control => control.control).join(' '))
+      .toContain('SBOMs')
+    expect(RELAY_SERVICE_REPUTATION_PROFILE.proofLimitations?.join(' ')).toContain('live uptime')
+    expect(RELAY_SERVICE_REPUTATION_PROFILE.requiredControls?.map(control => control.control).join(' '))
+      .toContain('uptime probes')
+  })
+
   it('fails closed when accepted circle ids are not supplied', () => {
     const result = useCaseResults[0]
     const profile = profileFor(result)

@@ -38,6 +38,11 @@ export interface FederationProfile {
   requireScope: boolean
 }
 
+export interface UseCaseRequiredControl {
+  risk: string
+  control: string
+}
+
 export interface UseCaseProfile {
   id: string
   title: string
@@ -53,6 +58,10 @@ export interface UseCaseProfile {
   metrics: MetricProfile[]
   federation?: FederationProfile
   failurePolicy: string[]
+  proofClaims?: string[]
+  proofLimitations?: string[]
+  recommendedActions?: string[]
+  requiredControls?: UseCaseRequiredControl[]
 }
 
 export interface VerifyUseCaseProfileOptions {

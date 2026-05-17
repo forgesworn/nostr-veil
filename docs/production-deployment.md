@@ -90,7 +90,10 @@ For application UI and audit logs, prefer `verifyProductionDeploymentReport()`
 or pass an existing `verifyProductionDeployment()` result to
 `createProductionDecisionReport()`. The report keeps the accept/reject decision,
 adds `recommendedAction`, expands every issue with summary and remediation text,
-and names the controls that passed, failed, or were explicitly relaxed.
+names the controls that passed, failed, or were explicitly relaxed, and carries
+the profile's `proofClaims`, `proofLimitations`, `requiredControls`, and
+`recommendedActions` so the UI can explain the proof boundary without inventing
+its own copy.
 
 ## Recipe patterns
 

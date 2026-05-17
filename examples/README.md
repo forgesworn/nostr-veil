@@ -42,6 +42,11 @@ decision, control status, and remediation text in one object. The recipes also
 use NIP-85 kind names such as "kind 30385 identifier assertion" so the subject
 route is explicit.
 
+The built-in profiles also expose `proofClaims`, `proofLimitations`,
+`requiredControls`, and `recommendedActions`. Use those fields when rendering a
+production decision so the UI says what the proof supports and which real-world
+checks still have to run.
+
 For real deployments, canonicalise subjects before signing. The profile helpers
 cover relays, service endpoints, NIP-05, domains, LNURLp, NIP-96, npm packages,
 git repositories, GitHub repositories, maintainers, vendors, and sources, so

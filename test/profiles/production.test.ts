@@ -151,6 +151,7 @@ describe('production deployment verifier', () => {
     expect(report.recommendedAction).toBe('accept')
     expect(report.bundle.id).toBe('package-release-gate')
     expect(report.profile.id).toBe(RELEASE_PACKAGE_MAINTAINER_REPUTATION_PROFILE.id)
+    expect(report.profile.requiredControls.map(control => control.control).join(' ')).toContain('SBOMs')
     expect(report.subject).toBe(tagValue(packageAssertion, 'd'))
     expect(report.controls.every(control => control.status === 'pass')).toBe(true)
     expect(report.issues).toEqual([])

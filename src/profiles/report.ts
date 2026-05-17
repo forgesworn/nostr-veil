@@ -45,6 +45,13 @@ export interface ProductionDecisionProfileSummary {
   subjectTagValue?: string
   subjectFormats: readonly UseCaseProfile['subjectFormats'][number][]
   proofVersion: UseCaseProfile['proofVersion']
+  proofClaims: readonly string[]
+  proofLimitations: readonly string[]
+  recommendedActions: readonly string[]
+  requiredControls: readonly {
+    risk: string
+    control: string
+  }[]
 }
 
 export interface ProductionDecisionBundleSummary {
@@ -249,6 +256,10 @@ function profileSummary(profile: UseCaseProfile): ProductionDecisionProfileSumma
     ...(profile.subjectTagValue === undefined ? {} : { subjectTagValue: profile.subjectTagValue }),
     subjectFormats: Object.freeze([...profile.subjectFormats]),
     proofVersion: profile.proofVersion,
+    proofClaims: Object.freeze([...(profile.proofClaims ?? [])]),
+    proofLimitations: Object.freeze([...(profile.proofLimitations ?? [])]),
+    recommendedActions: Object.freeze([...(profile.recommendedActions ?? [])]),
+    requiredControls: Object.freeze((profile.requiredControls ?? []).map(control => Object.freeze({ ...control }))),
   })
 }
 

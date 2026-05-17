@@ -106,6 +106,9 @@ verifier action, proof boundary, and the operational controls needed beyond
 nostr-veil. Caveats should be paired with a concrete control such as evidence
 workflow, canonicalisation, expiry, revocation, transport privacy, Sybil policy,
 or a companion protocol.
+Built-in `USE_CASE_PROFILES` also expose `proofClaims`, `proofLimitations`,
+`requiredControls`, and `recommendedActions` so applications and agents can
+present the safety boundary without inventing their own copy.
 
 ## Type Definitions
 
@@ -622,7 +625,9 @@ Produce the deterministic proof-v2 message. The context must include `kind`,
 
 Use this layer when an application wants to act on a score. It adds profile
 checks, deployment policy, circle manifests, and signed policy bundles on top of
-the low-level proof verifier.
+the low-level proof verifier. Built-in profiles carry machine-readable safety
+metadata: `proofClaims`, `proofLimitations`, `requiredControls`, and
+`recommendedActions`.
 
 #### `verifyUseCaseProfile(events, profile, options) → UseCaseProfileVerification`
 

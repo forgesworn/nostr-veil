@@ -169,6 +169,10 @@ describe('public use-case pages', () => {
       const page = readText(join(publicUseCasesDir, slug, 'index.html'))
 
       expect(page, slug).toContain('<h2>Safety checks</h2>')
+      expect(page, slug).toContain('proofClaims')
+      expect(page, slug).toContain('proofLimitations')
+      expect(page, slug).toContain('requiredControls')
+      expect(page, slug).toContain('recommendedActions')
       for (const check of requiredChecks) {
         expect(page, `${slug} is missing ${check}`).toContain(check)
       }

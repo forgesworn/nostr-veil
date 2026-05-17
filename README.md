@@ -162,7 +162,7 @@ The resulting `assertion` is a plain `EventTemplate` you sign and publish like a
 
 | Export | Description |
 |--------|-------------|
-| `USE_CASE_PROFILES` | Built-in machine-readable profiles for the documented use cases |
+| `USE_CASE_PROFILES` | Built-in machine-readable profiles for the documented use cases, including proof claims, limitations, required controls, and recommended actions |
 | `USE_CASE_PROFILE_BY_ID` | Lookup table keyed by use-case slug |
 | `verifyUseCaseProfile(events, profile, options)` | Verify NIP-85 syntax, proof v2, subject binding, threshold, freshness, accepted circles, and federation policy |
 | `createCircleManifest(options)` | Build a machine-readable circle manifest with member list, allowed profiles, expiry, revocation, and supersession metadata |
@@ -177,6 +177,11 @@ The resulting `assertion` is a plain `EventTemplate` you sign and publish like a
 | `explainVerificationIssue(issueOrCode)`, `remediationForIssue(issueOrCode)` | Turn stable issue codes into concrete operator or verifier remediation guidance |
 | `canonicalRelaySubject`, `canonicalServiceSubject`, `canonicalNip05Subject`, `canonicalDomainSubject`, `canonicalLnurlpSubject`, `canonicalNip96Subject`, `canonicalNpmPackageSubject`, `canonicalGitRepositorySubject`, `canonicalGithubRepositorySubject`, `canonicalMaintainerSubject` | Canonical subject helpers for common real-world identifiers |
 | `canonicalPubkeySubject`, `canonicalEventSubject`, `canonicalAddressSubject` | Canonical subject helpers for Nostr-native subjects |
+
+The built-in profiles include safety metadata for production UX and agentic
+integrations: `proofClaims`, `proofLimitations`, `requiredControls`, and
+`recommendedActions`. Use those fields to show what the proof actually supports
+and which real-world checks must still happen outside nostr-veil.
 
 ### Signing utility (root export)
 

@@ -15,6 +15,9 @@ should act on the score. Those are application policy decisions.
 Each worked page is written as an implementation profile: choose the subject,
 pick the helper, define the metric meaning, require the right proof version,
 then add the operational controls that sit outside the cryptographic proof.
+The built-in `USE_CASE_PROFILES` expose the same safety boundary as
+machine-readable metadata: `proofClaims`, `proofLimitations`,
+`requiredControls`, and `recommendedActions`.
 
 For production deployments, use the machine-readable profiles and safe verifier
 from `nostr-veil/profiles` through an explicit deployment policy:
@@ -61,6 +64,10 @@ const report = verifyProductionDeploymentReport(assertion, bundle, {
 })
 
 if (!report.valid) throw new Error(report.issues.map(issue => issue.code).join(', '))
+
+for (const control of report.profile.requiredControls) {
+  auditControl(control.risk, control.control)
+}
 ```
 
 See [circle governance](./circle-governance.md) for the operational controls
