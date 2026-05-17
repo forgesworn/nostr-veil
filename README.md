@@ -227,25 +227,32 @@ nostr-veil is a privacy layer for already-defined trust circles. It gives you:
 - Optional semantic binding: proof v2 binds the assertion kind and subject hint tag into the signed message and election ID.
 - Standard NIP-85 output: non-veil clients can still read the aggregate score.
 
-It does not claim to solve every trust problem by itself:
+The boundary is deliberately narrow. Pair each limitation with the right
+application control:
 
-- It does not hide the circle membership list; the ring is public.
-- It does not hide individual anonymous metric values; they are needed so anyone can recompute the aggregate.
-- It does not hide network, timing, relay, or collector metadata.
-- It does not decide whether the circle members are trustworthy, human, independent, or correctly selected.
-- A shared federation `scope` intentionally reveals cross-circle overlap by key image, while still hiding the contributor's identity.
+- The ring membership list is public; use a cover set large enough for the risk
+  and avoid circles that reveal vulnerable participants by membership alone.
+- Anonymous metric values are public so anyone can recompute the aggregate;
+  publish only metrics your workflow is comfortable exposing.
+- Network, timing, relay, and collector metadata are outside the proof; use
+  batching, transport privacy, and careful logging for sensitive collection.
+- Circle quality is social policy; publish admission, rotation, Sybil, and
+  conflict rules for circles that drive real decisions.
+- A shared federation `scope` intentionally reveals cross-circle overlap by key
+  image; use scoped federation only when deduplication is worth that signal.
 
-For sensitive deployments, combine nostr-veil with careful collection, transport privacy, key hygiene, and a clear policy for how circles are admitted and rotated.
+For sensitive deployments, combine nostr-veil with careful collection,
+transport privacy, key hygiene, and a clear policy for how circles are admitted
+and rotated.
 
 ---
 
 ## Use cases
 
 The shipped primitives support more than user trust scores. See
-[docs/use-cases.md](./docs/use-cases.md) for a concrete implementation map,
-including one worked page per use case, subject formats, helper functions,
-metrics, and the boundary between what ships today and what needs a future
-profile.
+[docs/use-cases.md](./docs/use-cases.md) for the implementation field guide:
+one worked page per use case, subject formats, helper functions, metrics,
+proof-v2 verification, and the companion controls needed beyond the proof.
 
 Supported today:
 

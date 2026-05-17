@@ -16,6 +16,17 @@ members who appear in more than one circle.
   underscore.
 - Proof version: v2 recommended.
 
+## Implementation recipe
+
+1. Agree the federation `scope` before any circle publishes assertions.
+2. Use the same subject and assertion kind across all participating circles.
+3. Verify each event independently, then call `verifyFederation` to count
+   scoped key images once.
+4. Decide whether every circle must meet its own threshold before the
+   federation-level count is accepted.
+5. Use isolated circles instead of a shared scope if cross-circle overlap would
+   create unacceptable privacy risk.
+
 ## Worked example
 
 ```ts
@@ -63,12 +74,14 @@ console.log(federation.distinctSigners, federation.totalSignatures)
 - Matching scoped key images are counted once across circles.
 - A member who contributed in multiple circles does not inflate the total.
 
-## What not to claim
+## Boundary and companion controls
 
-- It does not hide that the same unknown contributor appeared in more than one
-  circle.
-- It does not prove the circles are independent.
-- It does not deduplicate unscoped events.
+| Boundary | Add this to cover it |
+| --- | --- |
+| Scoped federation reveals that the same unknown contributor appeared in more than one circle. | Use scoped federation only when deduplication is worth that overlap signal. Otherwise keep circles unscoped and display separate circle results. |
+| The proof does not prove circles are independent. | Publish federation membership rules, circle admission policies, and governance for conflicts or captured circles. |
+| Unscoped events cannot be deduplicated across circles. | Create circles with the same `scope` before collecting contributions; do not try to retrofit deduplication onto isolated events. |
+| Different circles may disagree. | Define client policy for thresholds, weighting, abstentions, and whether disagreement blocks action or lowers confidence. |
 
 ## Policy choices
 

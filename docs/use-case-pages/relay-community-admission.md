@@ -14,6 +14,15 @@ separate access handshake and transport privacy.
 - Proof version: v2 recommended.
 - Useful metric today: `rank` as admission confidence.
 
+## Implementation recipe for today's building block
+
+1. Publish a threshold-backed vouch assertion about the candidate pubkey.
+2. Have the relay or community verify the expected circle, threshold, subject,
+   and freshness.
+3. Apply ordinary access policy based on that verified assertion.
+4. Keep transport privacy, account creation, session continuity, revocation, and
+   abuse handling outside nostr-veil until a full admission profile exists.
+
 ## Worked example for today's building block
 
 ```ts
@@ -66,9 +75,11 @@ const canApplyPolicy = syntax.valid && proof.valid && proof.distinctSigners >= 3
 - How the admitted user proves continuity after admission.
 - Abuse handling after a vouched user is admitted.
 
-## What not to claim yet
+## Boundary and what to add
 
-- nostr-veil does not currently implement anonymous access control.
-- It does not hide IP address, timing, or relay metadata.
-- It does not let someone enter a relay without that relay choosing a policy.
-- It does not solve revocation or ban evasion by itself.
+| Boundary | Add this to cover it |
+| --- | --- |
+| nostr-veil does not currently implement anonymous access control. | Add a relay or community challenge/response protocol that accepts a verified threshold assertion. |
+| IP address, timing, and relay metadata are outside the proof. | Add transport privacy, batching, careful relay logs, and metadata-minimising admission flows. |
+| A user cannot enter a relay without relay policy. | Define policy for accepted circles, threshold, freshness, and what happens after admission. |
+| Revocation and ban evasion are separate problems. | Add expiry, revocation, session continuity, abuse response, and re-admission rules. |

@@ -17,4 +17,6 @@ Requires [tsx](https://github.com/privatenumber/tsx) (`npx tsx` works without in
 `typed-assertions.ts` uses opt-in proof v2 for event, addressable, and identifier assertions.
 
 `use-cases.ts` maps the main supported use cases to concrete assertion kinds,
-subject formats, helper functions, and proof v2 verification.
+subject formats, helper functions, and proof v2 verification. Pair it with
+[`docs/use-cases.md`](../docs/use-cases.md), which explains the production
+boundary and the companion controls each use case needs.

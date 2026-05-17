@@ -17,6 +17,19 @@ or attacker.
 - Useful metrics: `rank` as safety, review confidence, or maintenance
   confidence.
 
+## Implementation recipe
+
+1. Decide the exact subject: package name, package version, tarball digest,
+   repository commit, release artifact, or maintainer identity.
+2. Canonicalise that subject before signing so every reviewer scores the same
+   string.
+3. Define what `rank` means: safety, audit confidence, maintenance confidence,
+   compromise suspicion, or release readiness.
+4. Require proof v2, then verify the expected identifier, namespace, circle,
+   threshold, and freshness.
+5. Combine the score with provenance, signatures, SBOMs, reproducible builds,
+   CI, and human audit results.
+
 ## Worked example
 
 ```ts
@@ -66,13 +79,14 @@ if (!syntax.valid || !proof.valid) throw new Error('invalid package assertion')
 - Proof v2 prevents the package contribution being replayed as a user or event
   reputation proof.
 
-## What not to claim
+## Boundary and companion controls
 
-- It does not scan code.
-- It does not prove a package is safe.
-- It does not prove the package identifier is canonical unless your profile
-  defines canonicalisation.
-- It does not replace provenance, signatures, SBOMs, or reproducible builds.
+| Boundary | Add this to cover it |
+| --- | --- |
+| nostr-veil does not scan code. | Run static analysis, dependency review, tests, malware checks, and human audit before reviewers contribute. |
+| A threshold score does not prove a package is safe. | Treat it as reviewer consensus and combine it with signatures, provenance, SBOMs, reproducible builds, and incident response. |
+| The package identifier is not canonical by default. | Define canonical identifiers for registry, version, digest, repo, commit, and maintainer subjects. Prefer digest-bound subjects for high-risk releases. |
+| Maintainer and release risk are different. | Publish separate assertions for package versions, release artifacts, repositories, and maintainer identities. |
 
 ## Policy choices
 

@@ -15,6 +15,19 @@ communities.
 - Proof version: v2 recommended.
 - Useful metrics: `rank` as review score, confidence, or funding priority.
 
+## Implementation recipe
+
+1. Decide whether the subject is a proposal event, an addressable proposal
+   record, a milestone, or a maintainer.
+2. Define whether `rank` means eligibility, technical confidence, impact,
+   delivery risk, or final funding priority.
+3. Use proof v2 and verify the expected proposal subject, circle, threshold,
+   and freshness.
+4. Keep reviewer comments, conflict declarations, and appeals in a companion
+   grant process.
+5. Treat the aggregate as an auditable review signal unless the fund explicitly
+   chooses automatic decisions.
+
 ## Worked example
 
 ```ts
@@ -59,11 +72,14 @@ if (!syntax.valid || !proof.valid) throw new Error('invalid proposal assertion')
 - The score is bound to a specific proposal subject.
 - The reviewer set is public, but individual reviewers are not named.
 
-## What not to claim
+## Boundary and companion controls
 
-- It does not prove the proposal will succeed.
-- It does not show the private reviewer rationale.
-- It does not eliminate conflicts of interest unless the circle policy does.
+| Boundary | Add this to cover it |
+| --- | --- |
+| The proof does not prove the proposal will succeed. | Use milestone tracking, deliverable checks, and post-award review to validate execution. |
+| The proof does not show private reviewer rationale. | Publish redacted rationale, criteria scores, or decision notes when transparency is required. |
+| Conflicts of interest are not eliminated by the proof. | Require conflict declarations, recusals, reviewer eligibility rules, and independent review circles for large awards. |
+| A score alone may not be a fair decision. | Define whether the score is advisory, a ranking input, a veto, or an automatic threshold. |
 
 ## Policy choices
 

@@ -64,6 +64,9 @@ nostr-veil hides which public ring member contributed. It does not hide the ring
 membership list, individual anonymous metric values, network/timing metadata, or
 whether the circle was socially well-chosen. Shared federation scopes intentionally
 reveal cross-circle overlap by key image while still hiding the contributor's identity.
+Use companion controls for the boundary: circle admission and rotation, evidence
+workflow, appeals, identifier canonicalisation, expiry, revocation, batching,
+transport privacy, and service-specific checks.
 
 ## Use-Case Mapping
 
@@ -79,6 +82,10 @@ anonymous gated access are future profiles: nostr-veil can provide the threshold
 proof, but those flows need separate credential/admission event formats and
 handshakes.
 
+Use-case pages follow a local PRINCE lens: Problem, Risk, Implementation,
+Nostr shape, Constraints, Extension. Each caveat should say what companion
+policy or protocol covers the missing part.
+
 ## Companion Libraries
 
 These are not dependencies but complement nostr-veil:
@@ -91,6 +98,6 @@ These are not dependencies but complement nostr-veil:
 ## Optional
 
 - [README](https://github.com/forgesworn/nostr-veil/blob/main/README.md): Full documentation with architecture diagram
-- [docs/use-cases.md](https://github.com/forgesworn/nostr-veil/blob/main/docs/use-cases.md): Concrete use-case implementation map with individual worked pages
+- [docs/use-cases.md](https://github.com/forgesworn/nostr-veil/blob/main/docs/use-cases.md): Concrete use-case field guide with individual worked pages and companion controls
 - [IMPACT.md](https://github.com/forgesworn/nostr-veil/blob/main/IMPACT.md): Problem statement and ecosystem impact
 - [@forgesworn/ring-sig](https://github.com/forgesworn/ring-sig): Underlying ring signature library

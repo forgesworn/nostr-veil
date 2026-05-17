@@ -16,6 +16,17 @@ presentation rules.
 - Proof version: v2 strongly recommended.
 - Useful metric today: `rank` as endorsement confidence.
 
+## Implementation recipe for today's building block
+
+1. Publish or identify the credential or attestation event to be scored.
+2. Have the attestor circle publish a proof v2 event or addressable assertion
+   against that exact subject.
+3. Verify the expected subject, circle, threshold, and score before treating the
+   attestation as endorsed.
+4. Keep holder binding, presentation, selective disclosure, expiry, and
+   revocation in the credential profile until nostr-veil has native support for
+   those semantics.
+
 ## Worked example for today's building block
 
 ```ts
@@ -68,9 +79,11 @@ if (!syntax.valid || !proof.valid) throw new Error('invalid attestation score')
 - Whether endorsements are binary, ranked, weighted, or scoped.
 - How a verifier discovers the right circle for the credential class.
 
-## What not to claim yet
+## Boundary and what to add
 
-- nostr-veil does not currently issue anonymous credentials.
-- It does not define selective disclosure.
-- It does not prove the credential subject is the presenter.
-- It does not define revocation.
+| Boundary | Add this to cover it |
+| --- | --- |
+| nostr-veil does not currently issue anonymous credentials. | Define a credential or attestation event format, issuer rules, holder binding, and presentation flow. |
+| Selective disclosure is not defined here. | Add a credential protocol that can reveal only the required attributes while keeping the nostr-veil proof as the anonymous endorsement signal. |
+| The proof does not prove the credential subject is the presenter. | Add holder-binding keys, challenge/response presentation, and replay protection. |
+| Revocation is not defined yet. | Add expiry, revocation events, revocation discovery, and client policy for stale credentials. |

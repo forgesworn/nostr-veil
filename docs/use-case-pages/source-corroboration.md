@@ -17,6 +17,19 @@ without recording which people vouched.
 - Useful metrics: `rank` as source confidence, reliability, or corroboration
   strength.
 
+## Implementation recipe
+
+1. Decide whether the source can be represented by a Nostr pubkey or needs an
+   app-private external identifier.
+2. Define what `rank` means: identity confidence, reliability, document trail
+   strength, or contact safety.
+3. Generate source identifiers so they are stable for the newsroom or
+   investigation but do not dox the source.
+4. Require proof v2 for kind 30385 identifiers, then verify the expected
+   circle, subject, namespace, threshold, and score.
+5. Keep editorial evidence, secure contact channels, and publication approval
+   outside the nostr-veil proof.
+
 ## Worked example
 
 This example uses an app-private identifier namespace. The `k` value `0` is a
@@ -67,12 +80,14 @@ if (!syntax.valid || !proof.valid) throw new Error('invalid source assertion')
 - The aggregate `rank` matches the signed confidence values.
 - With proof v2, the proof is bound to kind 30385 and the `k` profile tag.
 
-## What not to claim
+## Boundary and companion controls
 
-- It does not prove the source's claim is true.
-- It does not prove the source is safe to contact.
-- It does not protect operational security outside the proof, such as message
-  timing, relay metadata, or leaked notes.
+| Boundary | Add this to cover it |
+| --- | --- |
+| The proof does not prove the source's claim is true. | Pair it with normal editorial verification: documents, independent confirmation, fact-checking, and correction policy. |
+| The proof does not prove the source is safe to contact. | Use a separate source-risk review, secure contact plan, and least-knowledge handling for sensitive details. |
+| The identifier can accidentally reveal too much. | Use a profile-defined identifier scheme, avoid real names or raw case notes, and document who can map identifiers back to internal records. |
+| The proof does not hide timing, relay, or note metadata. | Batch contributions, use private collection channels where needed, and keep operational notes out of public assertions. |
 
 ## Policy choices
 

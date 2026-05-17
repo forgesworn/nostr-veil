@@ -14,6 +14,18 @@ payment endpoint, or other service identifier outside a single Nostr pubkey.
 - Proof version: v2 recommended.
 - Useful metrics: `rank`.
 
+## Implementation recipe
+
+1. Canonicalise the identifier before signing: lowercase host names, agreed
+   schemes, punycode handling, and trailing slash rules.
+2. Decide whether the subject is a domain, a specific NIP-05 name, a payment
+   endpoint, or a service provider.
+3. Run the underlying service check outside nostr-veil, then publish the
+   threshold-backed assessment.
+4. Require proof v2 and verify the expected identifier string, `k` namespace,
+   circle, threshold, and freshness.
+5. Use expiry because domain ownership and service behaviour can change.
+
 ## Worked example
 
 ```ts
@@ -61,12 +73,14 @@ if (!syntax.valid || !proof.valid) throw new Error('invalid identity assertion')
 - The threshold and aggregate can be verified from the event.
 - Proof v2 binds the contribution to the identifier assertion namespace.
 
-## What not to claim
+## Boundary and companion controls
 
-- It does not prove domain control.
-- It does not perform NIP-05 resolution.
-- It does not prove that a service provider will behave correctly tomorrow.
-- It does not make DNS, HTTPS, or provider accounts anonymous.
+| Boundary | Add this to cover it |
+| --- | --- |
+| The proof does not prove domain control. | Perform DNS, HTTPS, NIP-05, LNURL, or service-specific checks before reviewers contribute. |
+| The proof does not perform NIP-05 resolution. | Resolve and cache the NIP-05 result in the application; use nostr-veil only for the circle's assessment of that identifier. |
+| Providers can change behaviour after review. | Use expiry, periodic re-review, incident assertions, and revocation once the profile supports it. |
+| DNS, HTTPS, and provider accounts are not made anonymous. | Use normal operational security for lookups and account management; nostr-veil hides only which circle members contributed. |
 
 ## Policy choices
 

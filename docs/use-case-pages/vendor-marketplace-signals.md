@@ -15,6 +15,19 @@ marketplace counterparties, or recurring scam patterns.
 - Proof version: v2 recommended.
 - Useful metrics: `rank`, `comment_cnt`, `reaction_cnt`.
 
+## Implementation recipe
+
+1. Decide whether the subject is a Nostr pubkey, a marketplace-specific vendor
+   id, an item listing, or a recurring scam pattern.
+2. Define what `rank` means: fulfilment reliability, dispute risk, fraud risk,
+   communication quality, or overall counterparty confidence.
+3. Require evidence rules before negative reports, especially if no trade was
+   completed.
+4. Use proof v2 and verify the expected subject, namespace, circle, threshold,
+   and freshness.
+5. Keep dispute resolution, refunds, identity checks, and recovery policy in
+   the marketplace layer.
+
 ## Worked example
 
 This example uses a private identifier profile. It is intentionally not a
@@ -68,11 +81,14 @@ if (!syntax.valid || !proof.valid) throw new Error('invalid vendor assertion')
 - The final metric tags match the signed anonymous contributions.
 - The signal is portable as a Nostr event.
 
-## What not to claim
+## Boundary and companion controls
 
-- It does not adjudicate disputes.
-- It does not prove a vendor identity outside the chosen identifier profile.
-- It does not prevent colluding circle members.
+| Boundary | Add this to cover it |
+| --- | --- |
+| The proof does not adjudicate disputes. | Add evidence submission, dispute review, appeal paths, refund policy, and moderator escalation. |
+| The proof does not prove vendor identity outside the chosen profile. | Use Nostr pubkeys, marketplace account checks, NIP-05/domain checks, escrow records, or other identity controls as appropriate. |
+| Colluding circle members can still coordinate. | Use circle admission policy, independent circles, federation thresholds, and anomaly review for high-value markets. |
+| Old negative scores can become stale. | Define expiry, recovery, pardon, or re-review rules so reputation can change when behaviour changes. |
 
 ## Policy choices
 

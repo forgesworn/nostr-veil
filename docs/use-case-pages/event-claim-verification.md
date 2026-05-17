@@ -13,6 +13,18 @@ report, moderation item, or fact-check target.
 - Useful metrics: `rank`, `comment_cnt`, `quote_cnt`, `repost_cnt`,
   `reaction_cnt`, `zap_cnt`, `zap_amount`.
 
+## Implementation recipe
+
+1. Treat the event id as immutable: the score is about that exact event, not a
+   later correction or paraphrase.
+2. Publish the review method that maps reviewer judgement to `rank`.
+3. Use proof v2 so the proof cannot be replayed as a user, addressable, or
+   identifier assertion.
+4. Verify strict syntax, the expected event id, the expected circle, the
+   threshold, and any freshness or correction policy.
+5. Link corrections or evidence with separate events if the client needs more
+   than the numeric signal.
+
 ## Worked example
 
 ```ts
@@ -61,11 +73,13 @@ if (!syntax.valid || !proof.valid) throw new Error('invalid claim assertion')
 - Proof v2 prevents the same contribution being replayed as a user,
   addressable, or identifier assertion.
 
-## What not to claim
+## Boundary and companion controls
 
-- It does not prove the event content is objectively true.
-- It does not explain reviewer methodology by itself.
-- It does not prevent the subject event from being deleted or superseded.
+| Boundary | Add this to cover it |
+| --- | --- |
+| The proof does not prove the event content is objectively true. | Publish the fact-checking method, evidence links, and correction rules. Treat the nostr-veil assertion as the verifiable reviewer signal. |
+| The proof does not explain reviewer methodology by itself. | Define a public provider profile for `rank`, quorum, eligible reviewers, conflicts, and freshness. |
+| The subject event can be deleted or superseded. | Score the exact event id, then publish a new assertion for corrections or later versions. Clients should display supersession state separately. |
 
 ## Policy choices
 

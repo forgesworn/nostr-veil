@@ -15,6 +15,18 @@ admission or onboarding policy without naming which members vouched.
 This is not anonymous gated access by itself. It creates a verifiable vouch
 event that another client, relay, or community can use as an input to policy.
 
+## Implementation recipe
+
+1. Define the admission policy and the threshold needed before a vouch is
+   useful.
+2. Publish a kind 30382 assertion about the candidate pubkey with proof v2.
+3. Verify the expected circle, threshold, candidate subject, and score before
+   applying community policy.
+4. Add expiry and revocation policy so old vouches do not become permanent
+   social credentials.
+5. For anonymous gated access, pair this with the future admission handshake
+   described in [relay or community admission](./relay-community-admission.md).
+
 ## Worked example
 
 ```ts
@@ -59,11 +71,14 @@ const accepted = syntax.valid && proof.valid && proof.distinctSigners >= 3
 - The candidate subject is bound to the proof.
 - No individual vouching member is identified.
 
-## What not to claim
+## Boundary and companion controls
 
-- It does not admit the user to a relay by itself.
-- It does not hide the candidate pubkey.
-- It does not prevent the candidate from later misbehaving.
+| Boundary | Add this to cover it |
+| --- | --- |
+| The assertion does not admit the user to a relay by itself. | Implement relay or community policy that checks the assertion and then grants access. |
+| The candidate pubkey is visible. | Use this for portable vouching today. For private membership or unlinkable entry, add a separate anonymous admission protocol. |
+| The proof does not prevent later misbehaviour. | Add expiry, re-review, revocation, moderation policy, and post-admission enforcement. |
+| A single circle may be captured or too local. | Require multiple independent circles or a scoped federation for higher-risk communities. |
 
 ## Policy choices
 

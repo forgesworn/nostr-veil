@@ -12,6 +12,28 @@ It does not decide whether a circle is socially legitimate, whether a claim is
 true, whether an off-chain package or domain is safe, or whether a verifier
 should act on the score. Those are application policy decisions.
 
+The right way to present a nostr-veil use case is not "the proof solves trust".
+It is "the proof gives one precise, verifiable privacy-preserving signal, and
+the application supplies the surrounding policy".
+
+## Use-case storytelling model
+
+There is a well-known PRINCE2 project-management method, but "PRINCE" is not a
+canonical sales or storytelling method for this library. For nostr-veil use
+cases, use this local PRINCE lens instead:
+
+| Step | Question to answer |
+| --- | --- |
+| Problem | What decision does the verifier need to make? |
+| Risk | Why would named contributors be exposed, pressured, or unsafe? |
+| Implementation | Which circle contributes, what metric is signed, and what threshold is required? |
+| Nostr shape | Which NIP-85 kind, subject tag, helper, and proof version are used? |
+| Constraints | What does the proof deliberately not establish? |
+| Extension | What companion protocol, policy, or control covers that missing part? |
+
+Use this structure when adding new pages. It keeps the story compelling without
+over-claiming the cryptography.
+
 ## Implementation pattern
 
 For any supported use case:
@@ -98,8 +120,10 @@ This is the straightforward case: a moderation or trust circle rates a user
 without naming which moderators or peers contributed. It supports abuse reports,
 trust scores, trader reputation, and community standing.
 
-Do not claim that the proof establishes abuse. It establishes that distinct
-members of the circle supplied the signed metrics.
+Boundary: the proof does not establish that abuse happened. Cover that with the
+community's evidence process, appeal path, report retention policy, and circle
+admission rules. nostr-veil supplies the anonymous threshold signal those
+processes can act on.
 
 ### Source corroboration
 
@@ -114,8 +138,10 @@ An editorial circle can say that enough trusted people have dealt with a source
 or document trail before. This gives an editor a verifiable threshold signal
 without storing the names of everyone who vouched.
 
-Do not present it as proof that the source's claim is true. It is a confidence
-signal from a named circle.
+Boundary: the proof is not a fact-check of the source's claim. Cover truth,
+safety, and operational security with separate editorial review, evidence
+handling, secure contact channels, and timing hygiene. nostr-veil supplies the
+anonymous corroboration signal.
 
 ### Event and claim verification
 
@@ -130,8 +156,9 @@ Fact-checkers, moderators, or review circles can score a specific note, claim,
 or announcement event. Clients can show the aggregate beside the event and
 verify that a threshold of the circle contributed.
 
-Do not claim the event content is objectively true. The proof binds a circle's
-assessment to a specific event id.
+Boundary: the proof does not make the event objectively true. Cover methodology,
+evidence, corrections, and dispute handling in the fact-checking profile.
+nostr-veil binds the circle's assessment to a specific event id.
 
 ### Article, research, and long-form review
 
@@ -162,8 +189,10 @@ to the author, sponsor, or audience.
 This lets clients compare relays, bots, moderation services, vendors, or
 marketplace counterparties without forcing reviewers to reveal themselves.
 
-Do not treat a single circle's score as a universal registry. It is portable
-because it is a Nostr event, but its authority comes from the chosen circle.
+Boundary: a single circle's score is not a universal registry. Cover registry
+authority with application profiles, circle discovery, freshness rules, and
+client policy. The assertion is portable because it is a Nostr event; its social
+authority comes from the chosen circle.
 
 ### Release, package, and maintainer reputation
 
@@ -181,8 +210,10 @@ Security reviewers can flag risky releases, compromised packages, suspicious
 maintainer changes, or strong audit outcomes without exposing every reviewer to
 the project, sponsor, or attacker.
 
-Do not imply nostr-veil scans code or proves supply-chain safety. It carries a
-threshold-backed reviewer signal.
+Boundary: nostr-veil does not scan code or prove supply-chain safety. Cover
+that with provenance, signatures, SBOMs, reproducible builds, CI, static
+analysis, and human audit policy. nostr-veil carries the threshold-backed
+reviewer signal.
 
 ### NIP-05, domain, and service-provider trust
 
@@ -198,8 +229,9 @@ Circles can rate identity domains, NIP-05 providers, upload services, payment
 endpoints, or other external identifiers. This is useful when the thing being
 scored is not a single Nostr pubkey.
 
-Do not claim the domain is controlled by the subject unless another protocol
-checks that. nostr-veil only carries the circle's assessment.
+Boundary: nostr-veil does not prove domain control. Cover that with DNS, HTTPS,
+NIP-05, LNURL, or service-specific verification. nostr-veil carries the
+circle's assessment of the identifier after those checks.
 
 ### Community list, labeler, and moderation-list reputation
 
@@ -231,8 +263,9 @@ Federation is for "count distinct people across several circles". If one person
 belongs to three circles, their scoped key image is the same in all three, so
 the federation counts them once.
 
-This deliberately reveals cross-circle overlap by key image. It still does not
-reveal the contributor's identity.
+This deliberately reveals cross-circle overlap by key image. If overlap
+visibility is unacceptable, keep circles isolated and do not use a shared
+`scope`. It still does not reveal the contributor's identity.
 
 ### Privacy-preserving onboarding
 
@@ -245,8 +278,9 @@ An existing circle can vouch that a new account passed its admission policy
 without publishing which members vouched. The new account can point clients or
 communities at that assertion.
 
-This is not anonymous gated access by itself. Admission still happens through
-normal application policy unless a separate access handshake is built.
+This is not anonymous gated access by itself. Use it as a portable admission
+signal today; add a separate challenge/response access handshake, expiry, and
+revocation before calling it anonymous gated access.
 
 ### Grant, funding, and proposal review
 
@@ -270,9 +304,9 @@ Today, a circle can score an event or addressable attestation with a NIP-85
 assertion. That is enough to say "this circle rated this attestation highly".
 
 A full anonymous endorsement profile needs an agreed event format for
-credentials or attestations, including what is being endorsed, expiry,
-revocation, and presentation rules. Once that exists, proof v2 gives the
-binding needed to keep the endorsement tied to the intended subject.
+credentials or attestations, including holder binding, what is being endorsed,
+expiry, revocation, and presentation rules. Once that exists, proof v2 gives
+the binding needed to keep the endorsement tied to the intended subject.
 
 ### Relay or community admission
 
@@ -281,7 +315,9 @@ pubkey. A relay or community can use that as an input to admission policy.
 
 A full anonymous admission flow needs a gated-access handshake outside NIP-85:
 the verifier must check the proof without learning which trusted member opened
-the door, and the transport must avoid leaking equivalent metadata.
+the door, and the transport must avoid leaking equivalent metadata. Until then,
+publish a threshold-backed vouch assertion and let the relay or community apply
+its ordinary admission policy.
 
 ## Recommended defaults
 
@@ -294,3 +330,5 @@ the door, and the transport must avoid leaking equivalent metadata.
 - Treat identifiers as application-profiled strings, not as global truth.
 - Avoid sensitive collection workflows that expose contributor IP, timing, or
   relay metadata.
+- Pair every caveat with a mitigation: evidence workflow, canonicalisation,
+  expiry, revocation, transport privacy, Sybil policy, or companion protocol.

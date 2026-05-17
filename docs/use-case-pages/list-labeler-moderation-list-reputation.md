@@ -15,6 +15,19 @@ publishing a graph of everyone who reviews labelers, lists, or filter feeds.
 - Proof version: v2 recommended for typed helper workflows.
 - Useful metrics: `rank`, and supported event/addressable count metrics.
 
+## Implementation recipe
+
+1. Decide whether the subject is the list event, the list author, the labeler
+   service, or an external feed.
+2. Define what `rank` measures: accuracy, coverage, abuse resistance,
+   freshness, political alignment, or operational reliability.
+3. Use proof v2 and verify the expected subject, circle, namespace or address,
+   threshold, and freshness.
+4. Score list revisions separately when the contents materially change, or
+   publish an expiry policy for living lists.
+5. Let clients combine several circle scores instead of treating one list score
+   as universal truth.
+
 ## Worked example
 
 ```ts
@@ -62,11 +75,14 @@ if (!syntax.valid || !proof.valid) throw new Error('invalid list assertion')
 - The aggregate quality signal is verifiable.
 - The reviewers are hidden inside the public circle.
 
-## What not to claim
+## Boundary and companion controls
 
-- It does not prove every item in the list is correct.
-- It does not prove the list author is trustworthy in general.
-- It does not hide which list is being reviewed.
+| Boundary | Add this to cover it |
+| --- | --- |
+| The proof does not prove every item in the list is correct. | Use spot checks, item-level review where needed, freshness windows, and correction channels. |
+| A list score does not prove the author is trustworthy in general. | Score operator pubkeys separately when author reputation matters. Keep list quality and operator reputation distinct. |
+| The reviewed list or labeler is public. | Use nostr-veil to hide reviewers, not the subject. If the subject itself is sensitive, use an app-private identifier and access-controlled context. |
+| Different communities may value different curation choices. | Publish the scoring profile and let clients choose circles aligned with their own policy. |
 
 ## Policy choices
 

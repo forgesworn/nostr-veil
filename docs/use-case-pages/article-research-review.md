@@ -15,6 +15,19 @@ grant applications, proposals, and other NIP-33-style records.
 - Useful metrics: `rank`, `comment_cnt`, `quote_cnt`, `repost_cnt`,
   `reaction_cnt`, `zap_cnt`, `zap_amount`.
 
+## Implementation recipe
+
+1. Decide whether the scored object is the work as a whole, a specific
+   revision, or the author's standing.
+2. Define what `rank` means for this venue: quality, confidence, relevance,
+   safety, or acceptance likelihood.
+3. Use a stable NIP-33 address for the artefact and proof v2 for new
+   deployments.
+4. Verify the expected address, circle, threshold, and freshness before showing
+   the score as review guidance.
+5. Publish comments, review criteria, and conflict handling separately if the
+   venue needs them.
+
 ## Worked example
 
 ```ts
@@ -63,12 +76,14 @@ if (!syntax.valid || !proof.valid) throw new Error('invalid review assertion')
 - Distinct circle members contributed the signed metrics.
 - The aggregate can be recomputed by anyone.
 
-## What not to claim
+## Boundary and companion controls
 
-- It does not prove the research is correct.
-- It does not reveal reviewer comments unless the application publishes those
-  separately.
-- It does not solve conflicts of interest in circle selection.
+| Boundary | Add this to cover it |
+| --- | --- |
+| The proof does not prove the research is correct. | Pair it with review criteria, reproducibility artefacts, open data where possible, and correction policy. |
+| The proof does not reveal reviewer comments. | Publish redacted review notes, structured comments, or reviewer rationale events when the workflow needs explanations. |
+| Conflicts of interest are not solved by cryptography. | Define reviewer eligibility, conflict declarations, recusal rules, and circle rotation outside the proof. |
+| Revisions can change the artefact being reviewed. | Score exact revisions when precision matters, or document that the address represents a living record with expiry. |
 
 ## Policy choices
 

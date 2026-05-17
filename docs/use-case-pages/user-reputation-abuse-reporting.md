@@ -20,6 +20,15 @@ Define metric direction before publishing. A practical profile is:
 - `reports_cnt_recd`: number of report-like contributions represented by the
   anonymous reviewers.
 
+## Implementation recipe
+
+1. Publish the circle admission policy before accepting reports.
+2. Define whether `rank` measures trust, risk, confidence, or severity.
+3. Batch or delay contribution collection if timing could identify reviewers.
+4. Aggregate with proof v2 and publish the resulting kind 30382 event.
+5. On the client, require strict syntax, a valid proof, the expected circle ID,
+   and a policy threshold before taking action.
+
 ## Worked example
 
 ```ts
@@ -76,12 +85,14 @@ signed it; they cannot see which members signed.
 - The metric tags match the aggregate of the signed contributions.
 - With proof v2, the proof is bound to kind 30382 and the `p` subject hint.
 
-## What not to claim
+## Boundary and companion controls
 
-- It does not prove that abuse happened.
-- It does not prove the circle is fair, independent, or Sybil-resistant.
-- It does not hide the public circle membership list.
-- It does not hide network or timing metadata from the collection workflow.
+| Boundary | Add this to cover it |
+| --- | --- |
+| The proof does not prove that abuse happened. | Keep a separate evidence workflow, retention policy, escalation path, and appeal process. Use the nostr-veil score as the anonymous threshold signal, not as the whole case file. |
+| The proof does not prove the circle is fair, independent, or Sybil-resistant. | Publish admission criteria, rotate compromised members, use independent circles for high-impact actions, and audit circle membership changes. |
+| The public ring reveals who could have contributed. | Use a cover set large enough for the risk, avoid circles made only of vulnerable reporters, and separate "reviewer circle" membership from "victim or witness" identity. |
+| Network, timing, or collector metadata can still leak. | Batch collection, avoid one-to-one submission timing, use transport privacy where appropriate, and avoid logging contributor IPs or relay metadata. |
 
 ## Policy choices
 
