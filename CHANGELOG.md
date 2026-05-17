@@ -29,6 +29,14 @@
 
 # [0.12.0](https://github.com/forgesworn/nostr-veil/compare/v0.11.0...v0.12.0) (2026-05-16)
 
+## 0.15.0 (2026-05-17)
+
+### Features
+
+- add deployment use-case profiles
+
+
+
 ### Features
 
 * add verifyFederation for cross-circle deduplication ([#15](https://github.com/forgesworn/nostr-veil/issues/15)) ([42e71c5](https://github.com/forgesworn/nostr-veil/commit/42e71c57b9e291115dccdf187271e67e75cbeb5f))
