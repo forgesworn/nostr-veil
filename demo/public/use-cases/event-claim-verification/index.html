@@ -297,6 +297,13 @@
       color: inherit;
       font-size: inherit;
     }
+    .tok-comment { color: #7f9993; font-style: italic; }
+    .tok-keyword { color: #7dd3fc; font-weight: 700; }
+    .tok-string { color: #a7f3d0; }
+    .tok-number,
+    .tok-literal { color: #f9d36d; }
+    .tok-type { color: #d8b4fe; }
+    .tok-fn { color: #f7c873; }
     .table-wrap {
       max-width: 100%;
       margin-top: 18px;
@@ -461,52 +468,52 @@
 <h2>Implementation recipe</h2>
 <ol><li>Treat the event id as immutable: the score is about that exact event, not a later correction or paraphrase.</li><li>Publish the review method that maps reviewer judgement to <code>rank</code>.</li><li>Use proof v2 so the proof cannot be replayed as a user, addressable, or identifier assertion.</li><li>Verify strict syntax, the expected event id, the expected circle, the threshold, and any freshness or correction policy.</li><li>Link corrections or evidence with separate events if the client needs more than the numeric signal.</li></ol>
 <h2 id="worked-example">Worked example</h2>
-<pre><code class="language-ts">import {
+<pre><code class="language-ts"><span class="tok-keyword">import</span> {
   NIP85_KINDS,
   aggregateEventContributions,
   contributeEventAssertion,
   createTrustCircle,
-} from 'nostr-veil'
-import {
+} <span class="tok-keyword">from</span> <span class="tok-string">'nostr-veil'</span>
+<span class="tok-keyword">import</span> {
   defaultMembers,
   memberIndex,
   proofVersion,
   verifyUseCaseAssertion,
   withCreatedAt,
-} from './_shared.js'
+} <span class="tok-keyword">from</span> <span class="tok-string">'./_shared.js'</span>
 
-const slug = 'event-claim-verification'
-const claimEventId = 'aa'.repeat(32)
-const circle = createTrustCircle(defaultMembers.map(member =&gt; member.pub))
+<span class="tok-keyword">const</span> slug = <span class="tok-string">'event-claim-verification'</span>
+<span class="tok-keyword">const</span> claimEventId = <span class="tok-string">'aa'</span>.<span class="tok-fn">repeat</span>(<span class="tok-number">32</span>)
+<span class="tok-keyword">const</span> circle = <span class="tok-fn">createTrustCircle</span>(defaultMembers.<span class="tok-fn">map</span>(member =&gt; member.pub))
 
-const contributions = defaultMembers.map((checker, index) =&gt;
-  contributeEventAssertion(
+<span class="tok-keyword">const</span> contributions = defaultMembers.<span class="tok-fn">map</span>((checker, index) =&gt;
+  <span class="tok-fn">contributeEventAssertion</span>(
     circle,
     claimEventId,
     {
-      rank: 70 + index * 4,
-      reaction_cnt: index + 1,
+      rank: <span class="tok-number">70</span> + index * <span class="tok-number">4</span>,
+      reaction_cnt: index + <span class="tok-number">1</span>,
     },
     checker.priv,
-    memberIndex(circle, checker.pub),
+    <span class="tok-fn">memberIndex</span>(circle, checker.pub),
     { proofVersion },
   ),
 )
 
-export const assertion = withCreatedAt(aggregateEventContributions(
+<span class="tok-keyword">export</span> <span class="tok-keyword">const</span> assertion = <span class="tok-fn">withCreatedAt</span>(<span class="tok-fn">aggregateEventContributions</span>(
   circle,
   claimEventId,
   contributions,
   { proofVersion },
 ))
 
-export const result = verifyUseCaseAssertion(slug, assertion, {
+<span class="tok-keyword">export</span> <span class="tok-keyword">const</span> result = <span class="tok-fn">verifyUseCaseAssertion</span>(slug, assertion, {
   kind: NIP85_KINDS.EVENT,
   subject: claimEventId,
-  subjectTag: 'e',
+  subjectTag: <span class="tok-string">'e'</span>,
   circleId: circle.circleId,
-  minDistinctSigners: 3,
-  freshAfter: assertion.created_at - 300,
+  minDistinctSigners: <span class="tok-number">3</span>,
+  freshAfter: assertion.created_at - <span class="tok-number">300</span>,
 })</code></pre>
 <h2>What to verify</h2>
 <ul><li>Strict syntax and a valid proof v2.</li><li>Kind 30383, with <code>d</code> and <code>e</code> equal to the event id currently being displayed or acted on.</li><li>The reviewer ring is one the client trusts for this claim class, and the threshold is high enough for the UI action.</li><li>The <code>rank</code> profile is known before display; do not compare scores from circles that use different meanings.</li><li>The event has not been superseded by a correction, later review, or local freshness policy.</li></ul>

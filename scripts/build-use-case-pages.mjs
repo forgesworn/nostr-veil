@@ -104,6 +104,201 @@ function escapeHtml(value) {
     .replaceAll('"', '&quot;')
 }
 
+const typeScriptKeywords = new Set([
+  'as',
+  'async',
+  'await',
+  'break',
+  'case',
+  'catch',
+  'class',
+  'const',
+  'continue',
+  'default',
+  'do',
+  'else',
+  'export',
+  'extends',
+  'finally',
+  'for',
+  'from',
+  'function',
+  'if',
+  'import',
+  'in',
+  'instanceof',
+  'interface',
+  'let',
+  'new',
+  'of',
+  'return',
+  'satisfies',
+  'switch',
+  'throw',
+  'try',
+  'type',
+  'typeof',
+  'while',
+])
+
+const typeScriptLiterals = new Set(['false', 'null', 'true', 'undefined'])
+
+const typeScriptTypes = new Set([
+  'Array',
+  'BigInt',
+  'Boolean',
+  'Error',
+  'Map',
+  'Number',
+  'Promise',
+  'Record',
+  'Set',
+  'String',
+  'Uint8Array',
+])
+
+function isIdentifierStart(char) {
+  return /[A-Za-z_$]/.test(char)
+}
+
+function isIdentifierPart(char) {
+  return /[A-Za-z0-9_$]/.test(char)
+}
+
+function isDigit(char) {
+  return /[0-9]/.test(char)
+}
+
+function readQuotedToken(source, start, quote) {
+  let i = start + 1
+
+  while (i < source.length) {
+    const char = source[i]
+    if (char === '\\') {
+      i += 2
+      continue
+    }
+    i += 1
+    if (char === quote) break
+  }
+
+  return source.slice(start, i)
+}
+
+function readBlockComment(source, start) {
+  const end = source.indexOf('*/', start + 2)
+  return source.slice(start, end === -1 ? source.length : end + 2)
+}
+
+function readLineComment(source, start) {
+  const end = source.indexOf('\n', start + 2)
+  return source.slice(start, end === -1 ? source.length : end)
+}
+
+function readNumberToken(source, start) {
+  let i = start
+
+  while (i < source.length && /[0-9A-Fa-f._xobn]/.test(source[i])) {
+    i += 1
+  }
+
+  return source.slice(start, i)
+}
+
+function readIdentifierToken(source, start) {
+  let i = start + 1
+
+  while (i < source.length && isIdentifierPart(source[i])) {
+    i += 1
+  }
+
+  return source.slice(start, i)
+}
+
+function nextNonWhitespace(source, start) {
+  let i = start
+
+  while (i < source.length && /\s/.test(source[i])) {
+    i += 1
+  }
+
+  return source[i]
+}
+
+function renderToken(className, value) {
+  return `<span class="${className}">${escapeHtml(value)}</span>`
+}
+
+function highlightTypeScript(source) {
+  const html = []
+  let i = 0
+
+  while (i < source.length) {
+    const char = source[i]
+    const next = source[i + 1]
+
+    if (char === '/' && next === '/') {
+      const token = readLineComment(source, i)
+      html.push(renderToken('tok-comment', token))
+      i += token.length
+      continue
+    }
+
+    if (char === '/' && next === '*') {
+      const token = readBlockComment(source, i)
+      html.push(renderToken('tok-comment', token))
+      i += token.length
+      continue
+    }
+
+    if (char === '"' || char === "'" || char === '`') {
+      const token = readQuotedToken(source, i, char)
+      html.push(renderToken('tok-string', token))
+      i += token.length
+      continue
+    }
+
+    if (isDigit(char)) {
+      const token = readNumberToken(source, i)
+      html.push(renderToken('tok-number', token))
+      i += token.length
+      continue
+    }
+
+    if (isIdentifierStart(char)) {
+      const token = readIdentifierToken(source, i)
+      const afterToken = i + token.length
+      if (typeScriptKeywords.has(token)) {
+        html.push(renderToken('tok-keyword', token))
+      } else if (typeScriptLiterals.has(token)) {
+        html.push(renderToken('tok-literal', token))
+      } else if (typeScriptTypes.has(token)) {
+        html.push(renderToken('tok-type', token))
+      } else if (nextNonWhitespace(source, afterToken) === '(') {
+        html.push(renderToken('tok-fn', token))
+      } else {
+        html.push(escapeHtml(token))
+      }
+      i = afterToken
+      continue
+    }
+
+    html.push(escapeHtml(char))
+    i += 1
+  }
+
+  return html.join('')
+}
+
+function renderCodeBlock(lang, code) {
+  const normalisedLang = lang.toLowerCase()
+  const html = ['ts', 'tsx', 'js', 'jsx', 'typescript', 'javascript'].includes(normalisedLang)
+    ? highlightTypeScript(code)
+    : escapeHtml(code)
+
+  return `<pre><code class="language-${escapeHtml(lang)}">${html}</code></pre>`
+}
+
 function inlineMarkdown(value) {
   let text = escapeHtml(value)
   text = text.replace(/\[([^\]]+)\]\(\.\/([^)]+)\)/g, (_match, label, href) => {
@@ -186,7 +381,7 @@ function renderMarkdown(markdown) {
         i += 1
       }
       i += 1
-      html.push(`<pre><code class="language-${escapeHtml(lang)}">${escapeHtml(code.join('\n'))}</code></pre>`)
+      html.push(renderCodeBlock(lang, code.join('\n')))
       continue
     }
 
@@ -601,6 +796,13 @@ function renderPage(useCase, index) {
       color: inherit;
       font-size: inherit;
     }
+    .tok-comment { color: #7f9993; font-style: italic; }
+    .tok-keyword { color: #7dd3fc; font-weight: 700; }
+    .tok-string { color: #a7f3d0; }
+    .tok-number,
+    .tok-literal { color: #f9d36d; }
+    .tok-type { color: #d8b4fe; }
+    .tok-fn { color: #f7c873; }
     .table-wrap {
       max-width: 100%;
       margin-top: 18px;

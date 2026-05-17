@@ -297,6 +297,13 @@
       color: inherit;
       font-size: inherit;
     }
+    .tok-comment { color: #7f9993; font-style: italic; }
+    .tok-keyword { color: #7dd3fc; font-weight: 700; }
+    .tok-string { color: #a7f3d0; }
+    .tok-number,
+    .tok-literal { color: #f9d36d; }
+    .tok-type { color: #d8b4fe; }
+    .tok-fn { color: #f7c873; }
     .table-wrap {
       max-width: 100%;
       margin-top: 18px;
@@ -461,38 +468,38 @@
 <h2>Implementation recipe</h2>
 <ol><li>Canonicalise the identifier before signing: lowercase host names, agreed schemes, punycode handling, and trailing slash rules.</li><li>Decide whether the subject is a domain, a specific NIP-05 name, a payment endpoint, or a service provider.</li><li>Run the underlying service check outside nostr-veil, then publish the threshold-backed assessment.</li><li>Require proof v2 and verify the expected identifier string, <code>k</code> namespace, circle, threshold, and freshness.</li><li>Use expiry because domain ownership and service behaviour can change.</li></ol>
 <h2 id="worked-example">Worked example</h2>
-<pre><code class="language-ts">import {
+<pre><code class="language-ts"><span class="tok-keyword">import</span> {
   NIP85_KINDS,
   aggregateIdentifierContributions,
   contributeIdentifierAssertion,
   createTrustCircle,
-} from 'nostr-veil'
-import {
+} <span class="tok-keyword">from</span> <span class="tok-string">'nostr-veil'</span>
+<span class="tok-keyword">import</span> {
   defaultMembers,
   externalProfileKind,
   memberIndex,
   proofVersion,
   verifyUseCaseAssertion,
   withCreatedAt,
-} from './_shared.js'
+} <span class="tok-keyword">from</span> <span class="tok-string">'./_shared.js'</span>
 
-const slug = 'nip05-domain-service-provider-trust'
-const domainId = 'nip05:alice@example.com'
-const circle = createTrustCircle(defaultMembers.map(member =&gt; member.pub))
+<span class="tok-keyword">const</span> slug = <span class="tok-string">'nip05-domain-service-provider-trust'</span>
+<span class="tok-keyword">const</span> domainId = <span class="tok-string">'nip05:alice@example.com'</span>
+<span class="tok-keyword">const</span> circle = <span class="tok-fn">createTrustCircle</span>(defaultMembers.<span class="tok-fn">map</span>(member =&gt; member.pub))
 
-const contributions = defaultMembers.map((reviewer, index) =&gt;
-  contributeIdentifierAssertion(
+<span class="tok-keyword">const</span> contributions = defaultMembers.<span class="tok-fn">map</span>((reviewer, index) =&gt;
+  <span class="tok-fn">contributeIdentifierAssertion</span>(
     circle,
     domainId,
     externalProfileKind,
-    { rank: 80 + index * 2 },
+    { rank: <span class="tok-number">80</span> + index * <span class="tok-number">2</span> },
     reviewer.priv,
-    memberIndex(circle, reviewer.pub),
+    <span class="tok-fn">memberIndex</span>(circle, reviewer.pub),
     { proofVersion },
   ),
 )
 
-export const assertion = withCreatedAt(aggregateIdentifierContributions(
+<span class="tok-keyword">export</span> <span class="tok-keyword">const</span> assertion = <span class="tok-fn">withCreatedAt</span>(<span class="tok-fn">aggregateIdentifierContributions</span>(
   circle,
   domainId,
   externalProfileKind,
@@ -500,14 +507,14 @@ export const assertion = withCreatedAt(aggregateIdentifierContributions(
   { proofVersion },
 ))
 
-export const result = verifyUseCaseAssertion(slug, assertion, {
+<span class="tok-keyword">export</span> <span class="tok-keyword">const</span> result = <span class="tok-fn">verifyUseCaseAssertion</span>(slug, assertion, {
   kind: NIP85_KINDS.IDENTIFIER,
   subject: domainId,
-  subjectTag: 'k',
+  subjectTag: <span class="tok-string">'k'</span>,
   subjectTagValue: externalProfileKind,
   circleId: circle.circleId,
-  minDistinctSigners: 3,
-  freshAfter: assertion.created_at - 300,
+  minDistinctSigners: <span class="tok-number">3</span>,
+  freshAfter: assertion.created_at - <span class="tok-number">300</span>,
 })</code></pre>
 <h2>What to verify</h2>
 <ul><li>Strict syntax and a valid proof v2.</li><li>Kind 30385, with <code>d</code> equal to the exact canonical identifier and <code>k</code> equal to the identity/provider profile namespace.</li><li>The circle is trusted for identity or provider review, not merely any reputation circle.</li><li>The assertion is fresh enough for domain or provider risk and has not been superseded by an incident signal.</li><li>The application has independently resolved the underlying NIP-05, DNS, HTTPS, LNURL, or service check when that check matters.</li></ul>

@@ -297,6 +297,13 @@
       color: inherit;
       font-size: inherit;
     }
+    .tok-comment { color: #7f9993; font-style: italic; }
+    .tok-keyword { color: #7dd3fc; font-weight: 700; }
+    .tok-string { color: #a7f3d0; }
+    .tok-number,
+    .tok-literal { color: #f9d36d; }
+    .tok-type { color: #d8b4fe; }
+    .tok-fn { color: #f7c873; }
     .table-wrap {
       max-width: 100%;
       margin-top: 18px;
@@ -461,53 +468,53 @@
 <h2>Implementation recipe</h2>
 <ol><li>Decide whether the subject is the list event, the list author, the labeler service, or an external feed.</li><li>Define what <code>rank</code> measures: accuracy, coverage, abuse resistance, freshness, political alignment, or operational reliability.</li><li>Use proof v2 and verify the expected subject, circle, namespace or address, threshold, and freshness.</li><li>Score list revisions separately when the contents materially change, or publish an expiry policy for living lists.</li><li>Let clients combine several circle scores instead of treating one list score as universal truth.</li></ol>
 <h2 id="worked-example">Worked example</h2>
-<pre><code class="language-ts">import {
+<pre><code class="language-ts"><span class="tok-keyword">import</span> {
   NIP85_KINDS,
   aggregateAddressableContributions,
   contributeAddressableAssertion,
   createTrustCircle,
-} from 'nostr-veil'
-import {
+} <span class="tok-keyword">from</span> <span class="tok-string">'nostr-veil'</span>
+<span class="tok-keyword">import</span> {
   authorPubkey,
   defaultMembers,
   memberIndex,
   proofVersion,
   verifyUseCaseAssertion,
   withCreatedAt,
-} from './_shared.js'
+} <span class="tok-keyword">from</span> <span class="tok-string">'./_shared.js'</span>
 
-const slug = 'list-labeler-moderation-list-reputation'
-const listAddress = `30000:${authorPubkey}:trusted-relays`
-const circle = createTrustCircle(defaultMembers.map(member =&gt; member.pub))
+<span class="tok-keyword">const</span> slug = <span class="tok-string">'list-labeler-moderation-list-reputation'</span>
+<span class="tok-keyword">const</span> listAddress = <span class="tok-string">`30000:${authorPubkey}:trusted-relays`</span>
+<span class="tok-keyword">const</span> circle = <span class="tok-fn">createTrustCircle</span>(defaultMembers.<span class="tok-fn">map</span>(member =&gt; member.pub))
 
-const contributions = defaultMembers.map((curator, index) =&gt;
-  contributeAddressableAssertion(
+<span class="tok-keyword">const</span> contributions = defaultMembers.<span class="tok-fn">map</span>((curator, index) =&gt;
+  <span class="tok-fn">contributeAddressableAssertion</span>(
     circle,
     listAddress,
     {
-      rank: 76 + index * 3,
-      reaction_cnt: index + 1,
+      rank: <span class="tok-number">76</span> + index * <span class="tok-number">3</span>,
+      reaction_cnt: index + <span class="tok-number">1</span>,
     },
     curator.priv,
-    memberIndex(circle, curator.pub),
+    <span class="tok-fn">memberIndex</span>(circle, curator.pub),
     { proofVersion },
   ),
 )
 
-export const assertion = withCreatedAt(aggregateAddressableContributions(
+<span class="tok-keyword">export</span> <span class="tok-keyword">const</span> assertion = <span class="tok-fn">withCreatedAt</span>(<span class="tok-fn">aggregateAddressableContributions</span>(
   circle,
   listAddress,
   contributions,
   { proofVersion },
 ))
 
-export const result = verifyUseCaseAssertion(slug, assertion, {
+<span class="tok-keyword">export</span> <span class="tok-keyword">const</span> result = <span class="tok-fn">verifyUseCaseAssertion</span>(slug, assertion, {
   kind: NIP85_KINDS.ADDRESSABLE,
   subject: listAddress,
-  subjectTag: 'a',
+  subjectTag: <span class="tok-string">'a'</span>,
   circleId: circle.circleId,
-  minDistinctSigners: 3,
-  freshAfter: assertion.created_at - 300,
+  minDistinctSigners: <span class="tok-number">3</span>,
+  freshAfter: assertion.created_at - <span class="tok-number">300</span>,
 })</code></pre>
 <h2>What to verify</h2>
 <ul><li>Strict syntax and a valid proof v2.</li><li>The assertion kind and subject tag match the object the client is about to use: <code>a</code> for addressable lists, <code>p</code> for operators, or <code>k</code> for external feeds.</li><li>The curator circle is trusted for this curation domain and the threshold is high enough for the action.</li><li>The list or labeler revision being used is the one that was reviewed, or the profile explicitly allows living-list inheritance.</li><li>The metric direction is known before comparing scores across circles.</li></ul>

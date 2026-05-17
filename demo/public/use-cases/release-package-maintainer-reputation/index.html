@@ -297,6 +297,13 @@
       color: inherit;
       font-size: inherit;
     }
+    .tok-comment { color: #7f9993; font-style: italic; }
+    .tok-keyword { color: #7dd3fc; font-weight: 700; }
+    .tok-string { color: #a7f3d0; }
+    .tok-number,
+    .tok-literal { color: #f9d36d; }
+    .tok-type { color: #d8b4fe; }
+    .tok-fn { color: #f7c873; }
     .table-wrap {
       max-width: 100%;
       margin-top: 18px;
@@ -461,38 +468,38 @@
 <h2>Implementation recipe</h2>
 <ol><li>Decide the exact subject: package name, package version, tarball digest, repository commit, release artefact, or maintainer identity.</li><li>Canonicalise that subject before signing so every reviewer scores the same string.</li><li>Define what <code>rank</code> means: safety, audit confidence, maintenance confidence, compromise suspicion, or release readiness.</li><li>Require proof v2, then verify the expected identifier, namespace, circle, threshold, and freshness.</li><li>Combine the score with provenance, signatures, SBOMs, reproducible builds, CI, and human audit results.</li></ol>
 <h2 id="worked-example">Worked example</h2>
-<pre><code class="language-ts">import {
+<pre><code class="language-ts"><span class="tok-keyword">import</span> {
   NIP85_KINDS,
   aggregateIdentifierContributions,
   contributeIdentifierAssertion,
   createTrustCircle,
-} from 'nostr-veil'
-import {
+} <span class="tok-keyword">from</span> <span class="tok-string">'nostr-veil'</span>
+<span class="tok-keyword">import</span> {
   defaultMembers,
   externalProfileKind,
   memberIndex,
   proofVersion,
   verifyUseCaseAssertion,
   withCreatedAt,
-} from './_shared.js'
+} <span class="tok-keyword">from</span> <span class="tok-string">'./_shared.js'</span>
 
-const slug = 'release-package-maintainer-reputation'
-const packageId = 'npm:nostr-veil@0.14.0'
-const circle = createTrustCircle(defaultMembers.map(member =&gt; member.pub))
+<span class="tok-keyword">const</span> slug = <span class="tok-string">'release-package-maintainer-reputation'</span>
+<span class="tok-keyword">const</span> packageId = <span class="tok-string">'npm:nostr-veil@0.14.0'</span>
+<span class="tok-keyword">const</span> circle = <span class="tok-fn">createTrustCircle</span>(defaultMembers.<span class="tok-fn">map</span>(member =&gt; member.pub))
 
-const contributions = defaultMembers.map((reviewer, index) =&gt;
-  contributeIdentifierAssertion(
+<span class="tok-keyword">const</span> contributions = defaultMembers.<span class="tok-fn">map</span>((reviewer, index) =&gt;
+  <span class="tok-fn">contributeIdentifierAssertion</span>(
     circle,
     packageId,
     externalProfileKind,
-    { rank: 86 + index },
+    { rank: <span class="tok-number">86</span> + index },
     reviewer.priv,
-    memberIndex(circle, reviewer.pub),
+    <span class="tok-fn">memberIndex</span>(circle, reviewer.pub),
     { proofVersion },
   ),
 )
 
-export const assertion = withCreatedAt(aggregateIdentifierContributions(
+<span class="tok-keyword">export</span> <span class="tok-keyword">const</span> assertion = <span class="tok-fn">withCreatedAt</span>(<span class="tok-fn">aggregateIdentifierContributions</span>(
   circle,
   packageId,
   externalProfileKind,
@@ -500,14 +507,14 @@ export const assertion = withCreatedAt(aggregateIdentifierContributions(
   { proofVersion },
 ))
 
-export const result = verifyUseCaseAssertion(slug, assertion, {
+<span class="tok-keyword">export</span> <span class="tok-keyword">const</span> result = <span class="tok-fn">verifyUseCaseAssertion</span>(slug, assertion, {
   kind: NIP85_KINDS.IDENTIFIER,
   subject: packageId,
-  subjectTag: 'k',
+  subjectTag: <span class="tok-string">'k'</span>,
   subjectTagValue: externalProfileKind,
   circleId: circle.circleId,
-  minDistinctSigners: 3,
-  freshAfter: assertion.created_at - 300,
+  minDistinctSigners: <span class="tok-number">3</span>,
+  freshAfter: assertion.created_at - <span class="tok-number">300</span>,
 })</code></pre>
 <h2>What to verify</h2>
 <ul><li>Strict syntax and a valid proof v2.</li><li>Kind 30385, with <code>d</code> equal to the canonical package, release, digest, commit, or maintainer subject and <code>k</code> equal to the software-review namespace.</li><li>The <code>veil-ring</code> matches an accepted reviewer circle with the right expertise and independence for the package class.</li><li>The threshold, freshness, and <code>rank</code> meaning match the consuming policy.</li><li>The external artefact checks still pass: registry metadata, digest, signature, provenance, SBOM, CI, and any required audit evidence.</li></ul>

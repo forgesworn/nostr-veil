@@ -297,6 +297,13 @@
       color: inherit;
       font-size: inherit;
     }
+    .tok-comment { color: #7f9993; font-style: italic; }
+    .tok-keyword { color: #7dd3fc; font-weight: 700; }
+    .tok-string { color: #a7f3d0; }
+    .tok-number,
+    .tok-literal { color: #f9d36d; }
+    .tok-type { color: #d8b4fe; }
+    .tok-fn { color: #f7c873; }
     .table-wrap {
       max-width: 100%;
       margin-top: 18px;
@@ -462,38 +469,38 @@
 <ol><li>Decide whether the source can be represented by a Nostr pubkey or needs an app-private external identifier.</li><li>Define what <code>rank</code> means: identity confidence, reliability, document trail strength, or contact safety.</li><li>Generate source identifiers so they are stable for the newsroom or investigation but do not dox the source.</li><li>Require proof v2 for kind 30385 identifiers, then verify the expected circle, subject, namespace, threshold, and score.</li><li>Keep editorial evidence, secure contact channels, and publication approval outside the nostr-veil proof.</li></ol>
 <h2 id="worked-example">Worked example</h2>
 <p>This example uses an app-private identifier namespace. The <code>k</code> value <code>0</code> is a profile choice for this application, not a Nostr-wide registry.</p>
-<pre><code class="language-ts">import {
+<pre><code class="language-ts"><span class="tok-keyword">import</span> {
   NIP85_KINDS,
   aggregateIdentifierContributions,
   contributeIdentifierAssertion,
   createTrustCircle,
-} from 'nostr-veil'
-import {
+} <span class="tok-keyword">from</span> <span class="tok-string">'nostr-veil'</span>
+<span class="tok-keyword">import</span> {
   defaultMembers,
   externalProfileKind,
   memberIndex,
   proofVersion,
   verifyUseCaseAssertion,
   withCreatedAt,
-} from './_shared.js'
+} <span class="tok-keyword">from</span> <span class="tok-string">'./_shared.js'</span>
 
-const slug = 'source-corroboration'
-const sourceId = 'source:newsroom-a:case-2026-05'
-const circle = createTrustCircle(defaultMembers.map(member =&gt; member.pub))
+<span class="tok-keyword">const</span> slug = <span class="tok-string">'source-corroboration'</span>
+<span class="tok-keyword">const</span> sourceId = <span class="tok-string">'source:newsroom-a:case-2026-05'</span>
+<span class="tok-keyword">const</span> circle = <span class="tok-fn">createTrustCircle</span>(defaultMembers.<span class="tok-fn">map</span>(member =&gt; member.pub))
 
-const contributions = defaultMembers.map((member, index) =&gt;
-  contributeIdentifierAssertion(
+<span class="tok-keyword">const</span> contributions = defaultMembers.<span class="tok-fn">map</span>((member, index) =&gt;
+  <span class="tok-fn">contributeIdentifierAssertion</span>(
     circle,
     sourceId,
     externalProfileKind,
-    { rank: 78 + index * 2 },
+    { rank: <span class="tok-number">78</span> + index * <span class="tok-number">2</span> },
     member.priv,
-    memberIndex(circle, member.pub),
+    <span class="tok-fn">memberIndex</span>(circle, member.pub),
     { proofVersion },
   ),
 )
 
-export const assertion = withCreatedAt(aggregateIdentifierContributions(
+<span class="tok-keyword">export</span> <span class="tok-keyword">const</span> assertion = <span class="tok-fn">withCreatedAt</span>(<span class="tok-fn">aggregateIdentifierContributions</span>(
   circle,
   sourceId,
   externalProfileKind,
@@ -501,14 +508,14 @@ export const assertion = withCreatedAt(aggregateIdentifierContributions(
   { proofVersion },
 ))
 
-export const result = verifyUseCaseAssertion(slug, assertion, {
+<span class="tok-keyword">export</span> <span class="tok-keyword">const</span> result = <span class="tok-fn">verifyUseCaseAssertion</span>(slug, assertion, {
   kind: NIP85_KINDS.IDENTIFIER,
   subject: sourceId,
-  subjectTag: 'k',
+  subjectTag: <span class="tok-string">'k'</span>,
   subjectTagValue: externalProfileKind,
   circleId: circle.circleId,
-  minDistinctSigners: 3,
-  freshAfter: assertion.created_at - 300,
+  minDistinctSigners: <span class="tok-number">3</span>,
+  freshAfter: assertion.created_at - <span class="tok-number">300</span>,
 })</code></pre>
 <h2>What to verify</h2>
 <ul><li>Strict syntax and a valid proof v2.</li><li>The event kind matches the subject route: 30382 for a pubkey or 30385 for an identifier.</li><li><code>d</code> equals the exact source id being evaluated, and <code>p</code> or <code>k</code> matches the selected route.</li><li>The reviewer ring is an accepted editorial circle and the threshold meets the desk's policy.</li><li>The score is fresh for the reporting decision and is not being reused for a different case, source, or claim.</li></ul>

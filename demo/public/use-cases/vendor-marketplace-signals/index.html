@@ -297,6 +297,13 @@
       color: inherit;
       font-size: inherit;
     }
+    .tok-comment { color: #7f9993; font-style: italic; }
+    .tok-keyword { color: #7dd3fc; font-weight: 700; }
+    .tok-string { color: #a7f3d0; }
+    .tok-number,
+    .tok-literal { color: #f9d36d; }
+    .tok-type { color: #d8b4fe; }
+    .tok-fn { color: #f7c873; }
     .table-wrap {
       max-width: 100%;
       margin-top: 18px;
@@ -462,41 +469,41 @@
 <ol><li>Decide whether the subject is a Nostr pubkey, a marketplace-specific vendor id, an item listing, or a recurring scam pattern.</li><li>Define what <code>rank</code> means: fulfilment reliability, dispute risk, fraud risk, communication quality, or overall counterparty confidence.</li><li>Require evidence rules before negative reports, especially if no trade was completed.</li><li>Use proof v2 and verify the expected subject, namespace, circle, threshold, and freshness.</li><li>Keep dispute resolution, refunds, identity checks, and recovery policy in the marketplace layer.</li></ol>
 <h2 id="worked-example">Worked example</h2>
 <p>This example uses a private identifier profile. It is intentionally not a global vendor registry.</p>
-<pre><code class="language-ts">import {
+<pre><code class="language-ts"><span class="tok-keyword">import</span> {
   NIP85_KINDS,
   aggregateIdentifierContributions,
   contributeIdentifierAssertion,
   createTrustCircle,
-} from 'nostr-veil'
-import {
+} <span class="tok-keyword">from</span> <span class="tok-string">'nostr-veil'</span>
+<span class="tok-keyword">import</span> {
   defaultMembers,
   externalProfileKind,
   memberIndex,
   proofVersion,
   verifyUseCaseAssertion,
   withCreatedAt,
-} from './_shared.js'
+} <span class="tok-keyword">from</span> <span class="tok-string">'./_shared.js'</span>
 
-const slug = 'vendor-marketplace-signals'
-const vendorId = 'vendor:market.example:alice'
-const circle = createTrustCircle(defaultMembers.map(member =&gt; member.pub))
+<span class="tok-keyword">const</span> slug = <span class="tok-string">'vendor-marketplace-signals'</span>
+<span class="tok-keyword">const</span> vendorId = <span class="tok-string">'vendor:market.example:alice'</span>
+<span class="tok-keyword">const</span> circle = <span class="tok-fn">createTrustCircle</span>(defaultMembers.<span class="tok-fn">map</span>(member =&gt; member.pub))
 
-const contributions = defaultMembers.map((counterparty, index) =&gt;
-  contributeIdentifierAssertion(
+<span class="tok-keyword">const</span> contributions = defaultMembers.<span class="tok-fn">map</span>((counterparty, index) =&gt;
+  <span class="tok-fn">contributeIdentifierAssertion</span>(
     circle,
     vendorId,
     externalProfileKind,
     {
-      rank: 62 + index * 4,
-      reaction_cnt: index + 1,
+      rank: <span class="tok-number">62</span> + index * <span class="tok-number">4</span>,
+      reaction_cnt: index + <span class="tok-number">1</span>,
     },
     counterparty.priv,
-    memberIndex(circle, counterparty.pub),
+    <span class="tok-fn">memberIndex</span>(circle, counterparty.pub),
     { proofVersion },
   ),
 )
 
-export const assertion = withCreatedAt(aggregateIdentifierContributions(
+<span class="tok-keyword">export</span> <span class="tok-keyword">const</span> assertion = <span class="tok-fn">withCreatedAt</span>(<span class="tok-fn">aggregateIdentifierContributions</span>(
   circle,
   vendorId,
   externalProfileKind,
@@ -504,14 +511,14 @@ export const assertion = withCreatedAt(aggregateIdentifierContributions(
   { proofVersion },
 ))
 
-export const result = verifyUseCaseAssertion(slug, assertion, {
+<span class="tok-keyword">export</span> <span class="tok-keyword">const</span> result = <span class="tok-fn">verifyUseCaseAssertion</span>(slug, assertion, {
   kind: NIP85_KINDS.IDENTIFIER,
   subject: vendorId,
-  subjectTag: 'k',
+  subjectTag: <span class="tok-string">'k'</span>,
   subjectTagValue: externalProfileKind,
   circleId: circle.circleId,
-  minDistinctSigners: 3,
-  freshAfter: assertion.created_at - 300,
+  minDistinctSigners: <span class="tok-number">3</span>,
+  freshAfter: assertion.created_at - <span class="tok-number">300</span>,
 })</code></pre>
 <h2>What to verify</h2>
 <ul><li>Strict syntax and a valid proof v2.</li><li>The assertion route matches the marketplace subject: <code>p</code> for Nostr pubkeys or <code>k</code> for marketplace identifiers.</li><li>The counterparty-review circle is trusted for this market and has enough distinct signers for the value at risk.</li><li>The <code>rank</code> meaning matches the UI action: warning, escrow requirement, search ranking, suspension, or manual review.</li><li>The assertion is fresh and not superseded by a dispute resolution, recovery assertion, or fraud incident.</li></ul>

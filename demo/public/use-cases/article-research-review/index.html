@@ -297,6 +297,13 @@
       color: inherit;
       font-size: inherit;
     }
+    .tok-comment { color: #7f9993; font-style: italic; }
+    .tok-keyword { color: #7dd3fc; font-weight: 700; }
+    .tok-string { color: #a7f3d0; }
+    .tok-number,
+    .tok-literal { color: #f9d36d; }
+    .tok-type { color: #d8b4fe; }
+    .tok-fn { color: #f7c873; }
     .table-wrap {
       max-width: 100%;
       margin-top: 18px;
@@ -461,53 +468,53 @@
 <h2>Implementation recipe</h2>
 <ol><li>Decide whether the scored object is the work as a whole, a specific revision, or the author's standing.</li><li>Define what <code>rank</code> means for this venue: quality, confidence, relevance, safety, or acceptance likelihood.</li><li>Use a stable NIP-33 address for the artefact and proof v2 for new deployments.</li><li>Verify the expected address, circle, threshold, and freshness before showing the score as review guidance.</li><li>Publish comments, review criteria, and conflict handling separately if the venue needs them.</li></ol>
 <h2 id="worked-example">Worked example</h2>
-<pre><code class="language-ts">import {
+<pre><code class="language-ts"><span class="tok-keyword">import</span> {
   NIP85_KINDS,
   aggregateAddressableContributions,
   contributeAddressableAssertion,
   createTrustCircle,
-} from 'nostr-veil'
-import {
+} <span class="tok-keyword">from</span> <span class="tok-string">'nostr-veil'</span>
+<span class="tok-keyword">import</span> {
   authorPubkey,
   defaultMembers,
   memberIndex,
   proofVersion,
   verifyUseCaseAssertion,
   withCreatedAt,
-} from './_shared.js'
+} <span class="tok-keyword">from</span> <span class="tok-string">'./_shared.js'</span>
 
-const slug = 'article-research-review'
-const articleAddress = `30023:${authorPubkey}:paper-2026-05`
-const circle = createTrustCircle(defaultMembers.map(member =&gt; member.pub))
+<span class="tok-keyword">const</span> slug = <span class="tok-string">'article-research-review'</span>
+<span class="tok-keyword">const</span> articleAddress = <span class="tok-string">`30023:${authorPubkey}:paper-2026-05`</span>
+<span class="tok-keyword">const</span> circle = <span class="tok-fn">createTrustCircle</span>(defaultMembers.<span class="tok-fn">map</span>(member =&gt; member.pub))
 
-const contributions = defaultMembers.map((reviewer, index) =&gt;
-  contributeAddressableAssertion(
+<span class="tok-keyword">const</span> contributions = defaultMembers.<span class="tok-fn">map</span>((reviewer, index) =&gt;
+  <span class="tok-fn">contributeAddressableAssertion</span>(
     circle,
     articleAddress,
     {
-      rank: 82 + index * 2,
-      comment_cnt: index + 1,
+      rank: <span class="tok-number">82</span> + index * <span class="tok-number">2</span>,
+      comment_cnt: index + <span class="tok-number">1</span>,
     },
     reviewer.priv,
-    memberIndex(circle, reviewer.pub),
+    <span class="tok-fn">memberIndex</span>(circle, reviewer.pub),
     { proofVersion },
   ),
 )
 
-export const assertion = withCreatedAt(aggregateAddressableContributions(
+<span class="tok-keyword">export</span> <span class="tok-keyword">const</span> assertion = <span class="tok-fn">withCreatedAt</span>(<span class="tok-fn">aggregateAddressableContributions</span>(
   circle,
   articleAddress,
   contributions,
   { proofVersion },
 ))
 
-export const result = verifyUseCaseAssertion(slug, assertion, {
+<span class="tok-keyword">export</span> <span class="tok-keyword">const</span> result = <span class="tok-fn">verifyUseCaseAssertion</span>(slug, assertion, {
   kind: NIP85_KINDS.ADDRESSABLE,
   subject: articleAddress,
-  subjectTag: 'a',
+  subjectTag: <span class="tok-string">'a'</span>,
   circleId: circle.circleId,
-  minDistinctSigners: 3,
-  freshAfter: assertion.created_at - 300,
+  minDistinctSigners: <span class="tok-number">3</span>,
+  freshAfter: assertion.created_at - <span class="tok-number">300</span>,
 })</code></pre>
 <h2>What to verify</h2>
 <ul><li>Strict syntax and a valid proof v2.</li><li>Kind 30384, with <code>d</code> and <code>a</code> equal to the addressable artefact under review.</li><li>The reviewer ring is approved for this venue, subject area, or funding programme.</li><li>The score has enough distinct signers and uses the venue's documented metric direction.</li><li>The assertion is still valid for the current revision or has a clear supersession path.</li></ul>

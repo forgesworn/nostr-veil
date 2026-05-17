@@ -297,6 +297,13 @@
       color: inherit;
       font-size: inherit;
     }
+    .tok-comment { color: #7f9993; font-style: italic; }
+    .tok-keyword { color: #7dd3fc; font-weight: 700; }
+    .tok-string { color: #a7f3d0; }
+    .tok-number,
+    .tok-literal { color: #f9d36d; }
+    .tok-type { color: #d8b4fe; }
+    .tok-fn { color: #f7c873; }
     .table-wrap {
       max-width: 100%;
       margin-top: 18px;
@@ -463,52 +470,52 @@
 <h2>Implementation recipe</h2>
 <ol><li>Publish the circle admission policy before accepting reports.</li><li>Define whether <code>rank</code> measures trust, risk, confidence, or severity.</li><li>Batch or delay contribution collection if timing could identify reviewers.</li><li>Aggregate with proof v2 and publish the resulting kind 30382 event.</li><li>On the client, require strict syntax, a valid proof, the expected circle ID, and a policy threshold before taking action.</li></ol>
 <h2 id="worked-example">Worked example</h2>
-<pre><code class="language-ts">import {
+<pre><code class="language-ts"><span class="tok-keyword">import</span> {
   NIP85_KINDS,
   aggregateContributions,
   contributeAssertion,
   createTrustCircle,
-} from 'nostr-veil'
-import {
+} <span class="tok-keyword">from</span> <span class="tok-string">'nostr-veil'</span>
+<span class="tok-keyword">import</span> {
   defaultMembers,
   memberIndex,
   proofVersion,
   subjectPubkey,
   verifyUseCaseAssertion,
   withCreatedAt,
-} from './_shared.js'
+} <span class="tok-keyword">from</span> <span class="tok-string">'./_shared.js'</span>
 
-const slug = 'user-reputation-abuse-reporting'
-const circle = createTrustCircle(defaultMembers.map(member =&gt; member.pub))
+<span class="tok-keyword">const</span> slug = <span class="tok-string">'user-reputation-abuse-reporting'</span>
+<span class="tok-keyword">const</span> circle = <span class="tok-fn">createTrustCircle</span>(defaultMembers.<span class="tok-fn">map</span>(member =&gt; member.pub))
 
-const contributions = defaultMembers.map((reviewer, index) =&gt;
-  contributeAssertion(
+<span class="tok-keyword">const</span> contributions = defaultMembers.<span class="tok-fn">map</span>((reviewer, index) =&gt;
+  <span class="tok-fn">contributeAssertion</span>(
     circle,
     subjectPubkey,
     {
-      rank: 24 + index * 3,
-      reports_cnt_recd: index + 1,
+      rank: <span class="tok-number">24</span> + index * <span class="tok-number">3</span>,
+      reports_cnt_recd: index + <span class="tok-number">1</span>,
     },
     reviewer.priv,
-    memberIndex(circle, reviewer.pub),
+    <span class="tok-fn">memberIndex</span>(circle, reviewer.pub),
     { proofVersion },
   ),
 )
 
-export const assertion = withCreatedAt(aggregateContributions(
+<span class="tok-keyword">export</span> <span class="tok-keyword">const</span> assertion = <span class="tok-fn">withCreatedAt</span>(<span class="tok-fn">aggregateContributions</span>(
   circle,
   subjectPubkey,
   contributions,
   { proofVersion },
 ))
 
-export const result = verifyUseCaseAssertion(slug, assertion, {
+<span class="tok-keyword">export</span> <span class="tok-keyword">const</span> result = <span class="tok-fn">verifyUseCaseAssertion</span>(slug, assertion, {
   kind: NIP85_KINDS.USER,
   subject: subjectPubkey,
-  subjectTag: 'p',
+  subjectTag: <span class="tok-string">'p'</span>,
   circleId: circle.circleId,
-  minDistinctSigners: 3,
-  freshAfter: assertion.created_at - 300,
+  minDistinctSigners: <span class="tok-number">3</span>,
+  freshAfter: assertion.created_at - <span class="tok-number">300</span>,
 })</code></pre>
 <p>The output is a kind 30382 event with <code>d</code>, <code>p</code>, metric tags, and <code>veil-*</code> proof tags. A verifier can see the aggregate score and that distinct circle members signed it; they cannot see which members signed.</p>
 <h2>What to verify</h2>

@@ -297,6 +297,13 @@
       color: inherit;
       font-size: inherit;
     }
+    .tok-comment { color: #7f9993; font-style: italic; }
+    .tok-keyword { color: #7dd3fc; font-weight: 700; }
+    .tok-string { color: #a7f3d0; }
+    .tok-number,
+    .tok-literal { color: #f9d36d; }
+    .tok-type { color: #d8b4fe; }
+    .tok-fn { color: #f7c873; }
     .table-wrap {
       max-width: 100%;
       margin-top: 18px;
@@ -462,41 +469,41 @@
 <h2>Implementation recipe</h2>
 <ol><li>Canonicalise the service identifier before signing: scheme, host, port, trailing slash, and service class.</li><li>Define what <code>rank</code> measures for this service class: reliability, censorship behaviour, latency, privacy, malware risk, support quality, or abuse handling.</li><li>Use a stable <code>k</code> namespace per application profile and proof v2 for new identifier assertions.</li><li>Verify the expected identifier, namespace, circle, threshold, and freshness before using the score for relay or service selection.</li><li>Combine nostr-veil with monitoring and incident reports when clients need current operational data.</li></ol>
 <h2 id="worked-example">Worked example</h2>
-<pre><code class="language-ts">import {
+<pre><code class="language-ts"><span class="tok-keyword">import</span> {
   NIP85_KINDS,
   aggregateIdentifierContributions,
   contributeIdentifierAssertion,
   createTrustCircle,
-} from 'nostr-veil'
-import {
+} <span class="tok-keyword">from</span> <span class="tok-string">'nostr-veil'</span>
+<span class="tok-keyword">import</span> {
   defaultMembers,
   memberIndex,
   proofVersion,
   verifyUseCaseAssertion,
   withCreatedAt,
-} from './_shared.js'
+} <span class="tok-keyword">from</span> <span class="tok-string">'./_shared.js'</span>
 
-const slug = 'relay-service-reputation'
-const relayProfileKind = '10002'
-const relayId = 'relay:wss://relay.example.com'
-const circle = createTrustCircle(defaultMembers.map(member =&gt; member.pub))
+<span class="tok-keyword">const</span> slug = <span class="tok-string">'relay-service-reputation'</span>
+<span class="tok-keyword">const</span> relayProfileKind = <span class="tok-string">'10002'</span>
+<span class="tok-keyword">const</span> relayId = <span class="tok-string">'relay:wss://relay.example.com'</span>
+<span class="tok-keyword">const</span> circle = <span class="tok-fn">createTrustCircle</span>(defaultMembers.<span class="tok-fn">map</span>(member =&gt; member.pub))
 
-const contributions = defaultMembers.map((reviewer, index) =&gt;
-  contributeIdentifierAssertion(
+<span class="tok-keyword">const</span> contributions = defaultMembers.<span class="tok-fn">map</span>((reviewer, index) =&gt;
+  <span class="tok-fn">contributeIdentifierAssertion</span>(
     circle,
     relayId,
     relayProfileKind,
     {
-      rank: 74 + index * 3,
-      reaction_cnt: index + 1,
+      rank: <span class="tok-number">74</span> + index * <span class="tok-number">3</span>,
+      reaction_cnt: index + <span class="tok-number">1</span>,
     },
     reviewer.priv,
-    memberIndex(circle, reviewer.pub),
+    <span class="tok-fn">memberIndex</span>(circle, reviewer.pub),
     { proofVersion },
   ),
 )
 
-export const assertion = withCreatedAt(aggregateIdentifierContributions(
+<span class="tok-keyword">export</span> <span class="tok-keyword">const</span> assertion = <span class="tok-fn">withCreatedAt</span>(<span class="tok-fn">aggregateIdentifierContributions</span>(
   circle,
   relayId,
   relayProfileKind,
@@ -504,14 +511,14 @@ export const assertion = withCreatedAt(aggregateIdentifierContributions(
   { proofVersion },
 ))
 
-export const result = verifyUseCaseAssertion(slug, assertion, {
+<span class="tok-keyword">export</span> <span class="tok-keyword">const</span> result = <span class="tok-fn">verifyUseCaseAssertion</span>(slug, assertion, {
   kind: NIP85_KINDS.IDENTIFIER,
   subject: relayId,
-  subjectTag: 'k',
+  subjectTag: <span class="tok-string">'k'</span>,
   subjectTagValue: relayProfileKind,
   circleId: circle.circleId,
-  minDistinctSigners: 3,
-  freshAfter: assertion.created_at - 300,
+  minDistinctSigners: <span class="tok-number">3</span>,
+  freshAfter: assertion.created_at - <span class="tok-number">300</span>,
 })</code></pre>
 <h2>What to verify</h2>
 <ul><li>Strict syntax and a valid proof v2.</li><li>Kind 30385, with <code>d</code> equal to the canonical service id and <code>k</code> equal to the profile namespace the client understands.</li><li>The service-review ring is trusted for this service class and has enough distinct signers.</li><li>The score is recent enough for operational use, or paired with live probes for uptime-sensitive decisions.</li><li>The metric meaning matches the decision: reliability, censorship behaviour, privacy, malware risk, or another declared axis.</li></ul>

@@ -297,6 +297,13 @@
       color: inherit;
       font-size: inherit;
     }
+    .tok-comment { color: #7f9993; font-style: italic; }
+    .tok-keyword { color: #7dd3fc; font-weight: 700; }
+    .tok-string { color: #a7f3d0; }
+    .tok-number,
+    .tok-literal { color: #f9d36d; }
+    .tok-type { color: #d8b4fe; }
+    .tok-fn { color: #f7c873; }
     .table-wrap {
       max-width: 100%;
       margin-top: 18px;
@@ -461,49 +468,49 @@
 <h2>Implementation recipe for today's building block</h2>
 <ol><li>Publish or identify the credential or attestation event to be scored.</li><li>Have the attestor circle publish a proof v2 event or addressable assertion against that exact subject.</li><li>Verify the expected subject, circle, threshold, and score before treating the attestation as endorsed.</li><li>Keep holder binding, presentation, selective disclosure, expiry, and revocation in the credential profile until nostr-veil has native support for those semantics.</li></ol>
 <h2 id="worked-example">Worked example for today's building block</h2>
-<pre><code class="language-ts">import {
+<pre><code class="language-ts"><span class="tok-keyword">import</span> {
   NIP85_KINDS,
   aggregateEventContributions,
   contributeEventAssertion,
   createTrustCircle,
-} from 'nostr-veil'
-import {
+} <span class="tok-keyword">from</span> <span class="tok-string">'nostr-veil'</span>
+<span class="tok-keyword">import</span> {
   defaultMembers,
   memberIndex,
   proofVersion,
   verifyUseCaseAssertion,
   withCreatedAt,
-} from './_shared.js'
+} <span class="tok-keyword">from</span> <span class="tok-string">'./_shared.js'</span>
 
-const slug = 'anonymous-credential-attestation-cosigning'
-const attestationEventId = 'cc'.repeat(32)
-const circle = createTrustCircle(defaultMembers.map(member =&gt; member.pub))
+<span class="tok-keyword">const</span> slug = <span class="tok-string">'anonymous-credential-attestation-cosigning'</span>
+<span class="tok-keyword">const</span> attestationEventId = <span class="tok-string">'cc'</span>.<span class="tok-fn">repeat</span>(<span class="tok-number">32</span>)
+<span class="tok-keyword">const</span> circle = <span class="tok-fn">createTrustCircle</span>(defaultMembers.<span class="tok-fn">map</span>(member =&gt; member.pub))
 
-const contributions = defaultMembers.map((attestor, index) =&gt;
-  contributeEventAssertion(
+<span class="tok-keyword">const</span> contributions = defaultMembers.<span class="tok-fn">map</span>((attestor, index) =&gt;
+  <span class="tok-fn">contributeEventAssertion</span>(
     circle,
     attestationEventId,
-    { rank: 90 + index },
+    { rank: <span class="tok-number">90</span> + index },
     attestor.priv,
-    memberIndex(circle, attestor.pub),
+    <span class="tok-fn">memberIndex</span>(circle, attestor.pub),
     { proofVersion },
   ),
 )
 
-export const assertion = withCreatedAt(aggregateEventContributions(
+<span class="tok-keyword">export</span> <span class="tok-keyword">const</span> assertion = <span class="tok-fn">withCreatedAt</span>(<span class="tok-fn">aggregateEventContributions</span>(
   circle,
   attestationEventId,
   contributions,
   { proofVersion },
 ))
 
-export const result = verifyUseCaseAssertion(slug, assertion, {
+<span class="tok-keyword">export</span> <span class="tok-keyword">const</span> result = <span class="tok-fn">verifyUseCaseAssertion</span>(slug, assertion, {
   kind: NIP85_KINDS.EVENT,
   subject: attestationEventId,
-  subjectTag: 'e',
+  subjectTag: <span class="tok-string">'e'</span>,
   circleId: circle.circleId,
-  minDistinctSigners: 3,
-  freshAfter: assertion.created_at - 300,
+  minDistinctSigners: <span class="tok-number">3</span>,
+  freshAfter: assertion.created_at - <span class="tok-number">300</span>,
 })</code></pre>
 <h2>What to verify</h2>
 <ul><li>Today: strict syntax and a valid proof v2 for the attestation event or addressable credential record.</li><li>The subject tag points to the exact credential artefact being considered.</li><li>The attestor circle is accepted for that credential class and has enough distinct signers.</li><li>The credential profile supplies holder binding, challenge/response, revocation, expiry, and disclosure checks before the verifier treats the presenter as credentialed.</li><li>The assertion has not been superseded by revocation or a later credential revision.</li></ul>

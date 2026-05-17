@@ -15,6 +15,8 @@ const escapeHtml = (value: string) =>
     .replaceAll('<', '&lt;')
     .replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;')
+const stripTokenSpans = (value: string) =>
+  value.replace(/<span class="tok-[^"]+">([^<]*)<\/span>/g, '$1')
 
 const slugs = readdirSync(docsDir)
   .filter(file => file.endsWith('.md'))
@@ -89,7 +91,21 @@ describe('public use-case pages', () => {
 
       expect(page).not.toContain('use-case-example:')
       expect(resultLine, `${slug} executable example has no exported result`).toBeDefined()
-      expect(page, `${slug} page does not render the executable example`).toContain(escapeHtml(resultLine!))
+      expect(stripTokenSpans(page), `${slug} page does not render the executable example`).toContain(
+        escapeHtml(resultLine!),
+      )
+    }
+  })
+
+  it('syntax highlights executable TypeScript examples', () => {
+    for (const pagePath of detailPagePaths) {
+      const page = readText(pagePath)
+
+      expect(page, pagePath).toContain('class="language-ts"')
+      expect(page, pagePath).toContain('<span class="tok-keyword">import</span>')
+      expect(page, pagePath).toContain('<span class="tok-keyword">export</span>')
+      expect(page, pagePath).toContain('class="tok-string"')
+      expect(page, pagePath).toContain('class="tok-fn"')
     }
   })
 })

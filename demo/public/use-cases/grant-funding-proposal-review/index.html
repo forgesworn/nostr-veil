@@ -297,6 +297,13 @@
       color: inherit;
       font-size: inherit;
     }
+    .tok-comment { color: #7f9993; font-style: italic; }
+    .tok-keyword { color: #7dd3fc; font-weight: 700; }
+    .tok-string { color: #a7f3d0; }
+    .tok-number,
+    .tok-literal { color: #f9d36d; }
+    .tok-type { color: #d8b4fe; }
+    .tok-fn { color: #f7c873; }
     .table-wrap {
       max-width: 100%;
       margin-top: 18px;
@@ -461,50 +468,50 @@
 <h2>Implementation recipe</h2>
 <ol><li>Decide whether the subject is a proposal event, an addressable proposal record, a milestone, or a maintainer.</li><li>Define whether <code>rank</code> means eligibility, technical confidence, impact, delivery risk, or final funding priority.</li><li>Use proof v2 and verify the expected proposal subject, circle, threshold, and freshness.</li><li>Keep reviewer comments, conflict declarations, and appeals in a companion grant process.</li><li>Treat the aggregate as an auditable review signal unless the fund explicitly chooses automatic decisions.</li></ol>
 <h2 id="worked-example">Worked example</h2>
-<pre><code class="language-ts">import {
+<pre><code class="language-ts"><span class="tok-keyword">import</span> {
   NIP85_KINDS,
   aggregateAddressableContributions,
   contributeAddressableAssertion,
   createTrustCircle,
-} from 'nostr-veil'
-import {
+} <span class="tok-keyword">from</span> <span class="tok-string">'nostr-veil'</span>
+<span class="tok-keyword">import</span> {
   authorPubkey,
   defaultMembers,
   memberIndex,
   proofVersion,
   verifyUseCaseAssertion,
   withCreatedAt,
-} from './_shared.js'
+} <span class="tok-keyword">from</span> <span class="tok-string">'./_shared.js'</span>
 
-const slug = 'grant-funding-proposal-review'
-const proposalAddress = `30023:${authorPubkey}:grant-2026-q2`
-const circle = createTrustCircle(defaultMembers.map(member =&gt; member.pub))
+<span class="tok-keyword">const</span> slug = <span class="tok-string">'grant-funding-proposal-review'</span>
+<span class="tok-keyword">const</span> proposalAddress = <span class="tok-string">`30023:${authorPubkey}:grant-2026-q2`</span>
+<span class="tok-keyword">const</span> circle = <span class="tok-fn">createTrustCircle</span>(defaultMembers.<span class="tok-fn">map</span>(member =&gt; member.pub))
 
-const contributions = defaultMembers.map((reviewer, index) =&gt;
-  contributeAddressableAssertion(
+<span class="tok-keyword">const</span> contributions = defaultMembers.<span class="tok-fn">map</span>((reviewer, index) =&gt;
+  <span class="tok-fn">contributeAddressableAssertion</span>(
     circle,
     proposalAddress,
-    { rank: 68 + index * 5 },
+    { rank: <span class="tok-number">68</span> + index * <span class="tok-number">5</span> },
     reviewer.priv,
-    memberIndex(circle, reviewer.pub),
+    <span class="tok-fn">memberIndex</span>(circle, reviewer.pub),
     { proofVersion },
   ),
 )
 
-export const assertion = withCreatedAt(aggregateAddressableContributions(
+<span class="tok-keyword">export</span> <span class="tok-keyword">const</span> assertion = <span class="tok-fn">withCreatedAt</span>(<span class="tok-fn">aggregateAddressableContributions</span>(
   circle,
   proposalAddress,
   contributions,
   { proofVersion },
 ))
 
-export const result = verifyUseCaseAssertion(slug, assertion, {
+<span class="tok-keyword">export</span> <span class="tok-keyword">const</span> result = <span class="tok-fn">verifyUseCaseAssertion</span>(slug, assertion, {
   kind: NIP85_KINDS.ADDRESSABLE,
   subject: proposalAddress,
-  subjectTag: 'a',
+  subjectTag: <span class="tok-string">'a'</span>,
   circleId: circle.circleId,
-  minDistinctSigners: 3,
-  freshAfter: assertion.created_at - 300,
+  minDistinctSigners: <span class="tok-number">3</span>,
+  freshAfter: assertion.created_at - <span class="tok-number">300</span>,
 })</code></pre>
 <h2>What to verify</h2>
 <ul><li>Strict syntax and a valid proof v2.</li><li>The assertion kind and subject tag match the proposal or milestone currently being evaluated.</li><li>The reviewer circle is approved for this fund, topic, and conflict policy.</li><li><code>proof.distinctSigners</code> meets the funding threshold and the <code>rank</code> meaning is known before ranking proposals.</li><li>The score is current for the proposal revision and not superseded by appeals, conflicts, or milestone evidence.</li></ul>

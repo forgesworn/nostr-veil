@@ -297,6 +297,13 @@
       color: inherit;
       font-size: inherit;
     }
+    .tok-comment { color: #7f9993; font-style: italic; }
+    .tok-keyword { color: #7dd3fc; font-weight: 700; }
+    .tok-string { color: #a7f3d0; }
+    .tok-number,
+    .tok-literal { color: #f9d36d; }
+    .tok-type { color: #d8b4fe; }
+    .tok-fn { color: #f7c873; }
     .table-wrap {
       max-width: 100%;
       margin-top: 18px;
@@ -461,50 +468,50 @@
 <h2>Implementation recipe for today's building block</h2>
 <ol><li>Publish a threshold-backed vouch assertion about the candidate pubkey.</li><li>Have the relay or community verify the expected circle, threshold, subject, and freshness.</li><li>Apply ordinary access policy based on that verified assertion.</li><li>Keep transport privacy, account creation, session continuity, revocation, and abuse handling outside nostr-veil until a full admission profile exists.</li></ol>
 <h2 id="worked-example">Worked example for today's building block</h2>
-<pre><code class="language-ts">import {
+<pre><code class="language-ts"><span class="tok-keyword">import</span> {
   NIP85_KINDS,
   aggregateContributions,
   contributeAssertion,
   createTrustCircle,
-} from 'nostr-veil'
-import {
+} <span class="tok-keyword">from</span> <span class="tok-string">'nostr-veil'</span>
+<span class="tok-keyword">import</span> {
   defaultMembers,
   memberIndex,
   proofVersion,
   subjectPubkey,
   verifyUseCaseAssertion,
   withCreatedAt,
-} from './_shared.js'
+} <span class="tok-keyword">from</span> <span class="tok-string">'./_shared.js'</span>
 
-const slug = 'relay-community-admission'
-const applicantPubkey = subjectPubkey
-const circle = createTrustCircle(defaultMembers.map(member =&gt; member.pub))
+<span class="tok-keyword">const</span> slug = <span class="tok-string">'relay-community-admission'</span>
+<span class="tok-keyword">const</span> applicantPubkey = subjectPubkey
+<span class="tok-keyword">const</span> circle = <span class="tok-fn">createTrustCircle</span>(defaultMembers.<span class="tok-fn">map</span>(member =&gt; member.pub))
 
-const contributions = defaultMembers.map((member, index) =&gt;
-  contributeAssertion(
+<span class="tok-keyword">const</span> contributions = defaultMembers.<span class="tok-fn">map</span>((member, index) =&gt;
+  <span class="tok-fn">contributeAssertion</span>(
     circle,
     applicantPubkey,
-    { rank: 91 + index },
+    { rank: <span class="tok-number">91</span> + index },
     member.priv,
-    memberIndex(circle, member.pub),
+    <span class="tok-fn">memberIndex</span>(circle, member.pub),
     { proofVersion },
   ),
 )
 
-export const assertion = withCreatedAt(aggregateContributions(
+<span class="tok-keyword">export</span> <span class="tok-keyword">const</span> assertion = <span class="tok-fn">withCreatedAt</span>(<span class="tok-fn">aggregateContributions</span>(
   circle,
   applicantPubkey,
   contributions,
   { proofVersion },
 ))
 
-export const result = verifyUseCaseAssertion(slug, assertion, {
+<span class="tok-keyword">export</span> <span class="tok-keyword">const</span> result = <span class="tok-fn">verifyUseCaseAssertion</span>(slug, assertion, {
   kind: NIP85_KINDS.USER,
   subject: applicantPubkey,
-  subjectTag: 'p',
+  subjectTag: <span class="tok-string">'p'</span>,
   circleId: circle.circleId,
-  minDistinctSigners: 3,
-  freshAfter: assertion.created_at - 300,
+  minDistinctSigners: <span class="tok-number">3</span>,
+  freshAfter: assertion.created_at - <span class="tok-number">300</span>,
 })</code></pre>
 <h2>What to verify</h2>
 <ul><li>Today: strict syntax and a valid proof v2.</li><li>Kind 30382, with <code>d</code> and <code>p</code> equal to the applicant pubkey.</li><li>The admission circle is accepted by the relay or community and has enough distinct signers.</li><li>The vouch is fresh, not revoked, and has a documented <code>rank</code> meaning.</li><li>For full anonymous admission, also verify the admission challenge, replay protection, session binding, and transport requirements defined by the future profile.</li></ul>

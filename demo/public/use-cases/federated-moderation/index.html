@@ -297,6 +297,13 @@
       color: inherit;
       font-size: inherit;
     }
+    .tok-comment { color: #7f9993; font-style: italic; }
+    .tok-keyword { color: #7dd3fc; font-weight: 700; }
+    .tok-string { color: #a7f3d0; }
+    .tok-number,
+    .tok-literal { color: #f9d36d; }
+    .tok-type { color: #d8b4fe; }
+    .tok-fn { color: #f7c873; }
     .table-wrap {
       max-width: 100%;
       margin-top: 18px;
@@ -461,43 +468,43 @@
 <h2>Implementation recipe</h2>
 <ol><li>Agree the federation <code>scope</code> before any circle publishes assertions.</li><li>Use the same subject and assertion kind across all participating circles.</li><li>Verify each event independently, then call <code>verifyFederation</code> to count scoped key images once.</li><li>Decide whether every circle must meet its own threshold before the federation-level count is accepted.</li><li>Use isolated circles instead of a shared scope if cross-circle overlap would create unacceptable privacy risk.</li></ol>
 <h2 id="worked-example">Worked example</h2>
-<pre><code class="language-ts">import {
+<pre><code class="language-ts"><span class="tok-keyword">import</span> {
   NIP85_KINDS,
   aggregateContributions,
   contributeAssertion,
   createTrustCircle,
-} from 'nostr-veil'
-import {
+} <span class="tok-keyword">from</span> <span class="tok-string">'nostr-veil'</span>
+<span class="tok-keyword">import</span> {
   keys,
   memberIndex,
   proofVersion,
   subjectPubkey,
   verifyFederatedUseCase,
   withCreatedAt,
-} from './_shared.js'
-import type { TrustCircle } from 'nostr-veil'
+} <span class="tok-keyword">from</span> <span class="tok-string">'./_shared.js'</span>
+<span class="tok-keyword">import</span> <span class="tok-keyword">type</span> { TrustCircle } <span class="tok-keyword">from</span> <span class="tok-string">'nostr-veil'</span>
 
-const slug = 'federated-moderation'
-const scope = 'moderation.federation.example'
-const circleA = createTrustCircle(keys.slice(0, 3).map(member =&gt; member.pub), { scope })
-const circleB = createTrustCircle(keys.slice(1, 4).map(member =&gt; member.pub), { scope })
+<span class="tok-keyword">const</span> slug = <span class="tok-string">'federated-moderation'</span>
+<span class="tok-keyword">const</span> scope = <span class="tok-string">'moderation.federation.example'</span>
+<span class="tok-keyword">const</span> circleA = <span class="tok-fn">createTrustCircle</span>(keys.<span class="tok-fn">slice</span>(<span class="tok-number">0</span>, <span class="tok-number">3</span>).<span class="tok-fn">map</span>(member =&gt; member.pub), { scope })
+<span class="tok-keyword">const</span> circleB = <span class="tok-fn">createTrustCircle</span>(keys.<span class="tok-fn">slice</span>(<span class="tok-number">1</span>, <span class="tok-number">4</span>).<span class="tok-fn">map</span>(member =&gt; member.pub), { scope })
 
-function makeAssertion(circle: TrustCircle, members: typeof keys, offset: number) {
-  const contributions = members.map((member, index) =&gt;
-    contributeAssertion(
+<span class="tok-keyword">function</span> <span class="tok-fn">makeAssertion</span>(circle: TrustCircle, members: <span class="tok-keyword">typeof</span> keys, offset: number) {
+  <span class="tok-keyword">const</span> contributions = members.<span class="tok-fn">map</span>((member, index) =&gt;
+    <span class="tok-fn">contributeAssertion</span>(
       circle,
       subjectPubkey,
       {
-        rank: offset + index * 5,
-        reports_cnt_recd: index + 1,
+        rank: offset + index * <span class="tok-number">5</span>,
+        reports_cnt_recd: index + <span class="tok-number">1</span>,
       },
       member.priv,
-      memberIndex(circle, member.pub),
+      <span class="tok-fn">memberIndex</span>(circle, member.pub),
       { proofVersion },
     ),
   )
 
-  return withCreatedAt(aggregateContributions(
+  <span class="tok-keyword">return</span> <span class="tok-fn">withCreatedAt</span>(<span class="tok-fn">aggregateContributions</span>(
     circle,
     subjectPubkey,
     contributions,
@@ -505,16 +512,16 @@ function makeAssertion(circle: TrustCircle, members: typeof keys, offset: number
   ))
 }
 
-export const events = [
-  makeAssertion(circleA, keys.slice(0, 3), 30),
-  makeAssertion(circleB, keys.slice(1, 4), 35),
+<span class="tok-keyword">export</span> <span class="tok-keyword">const</span> events = [
+  <span class="tok-fn">makeAssertion</span>(circleA, keys.<span class="tok-fn">slice</span>(<span class="tok-number">0</span>, <span class="tok-number">3</span>), <span class="tok-number">30</span>),
+  <span class="tok-fn">makeAssertion</span>(circleB, keys.<span class="tok-fn">slice</span>(<span class="tok-number">1</span>, <span class="tok-number">4</span>), <span class="tok-number">35</span>),
 ]
 
-export const result = verifyFederatedUseCase(slug, events, {
+<span class="tok-keyword">export</span> <span class="tok-keyword">const</span> result = <span class="tok-fn">verifyFederatedUseCase</span>(slug, events, {
   kind: NIP85_KINDS.USER,
   subject: subjectPubkey,
   scope,
-  minDistinctSigners: 4,
+  minDistinctSigners: <span class="tok-number">4</span>,
 })</code></pre>
 <h2>What to verify</h2>
 <ul><li>Each event verifies independently with <code>verifyProof</code>, using proof v2 for new deployments.</li><li><code>verifyFederation(events).valid</code> is true, with one shared subject and one shared scope.</li><li>Each participating circle is accepted by the federation policy.</li><li>The federation-level <code>distinctSigners</code> count and any per-circle thresholds meet the action threshold.</li><li>Clients understand that repeated scoped key images reveal cross-circle membership overlap for an otherwise anonymous contributor.</li></ul>
