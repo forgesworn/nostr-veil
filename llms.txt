@@ -82,9 +82,9 @@ anonymous gated access are future profiles: nostr-veil can provide the threshold
 proof, but those flows need separate credential/admission event formats and
 handshakes.
 
-Use-case pages follow a local PRINCE lens: Problem, Risk, Implementation,
-Nostr shape, Constraints, Extension. Each caveat should say what companion
-policy or protocol covers the missing part.
+Use-case pages follow a Recall-style narrative arc: Hook, Stakes, Evidence,
+Mechanism, Build shape, Boundary, Companion controls, Outcome. Each caveat
+should say what companion policy or protocol covers the missing part.
 
 ## Companion Libraries
 

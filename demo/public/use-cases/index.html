@@ -135,7 +135,7 @@
     .section-head > *,
     .split > *,
     .kind-grid > *,
-    .prince-grid > *,
+    .arc-grid > *,
     .case-grid > *,
     .road > *,
     .footer-grid > * {
@@ -301,27 +301,27 @@
     .kind p { color: var(--text-soft); font-size: 14px; }
     .kind code { color: var(--accent); }
 
-    .prince-grid {
+    .arc-grid {
       display: grid;
-      grid-template-columns: repeat(6, minmax(0, 1fr));
+      grid-template-columns: repeat(4, minmax(0, 1fr));
       gap: 10px;
     }
-    .prince {
+    .arc-step {
       min-height: 156px;
       border: 1px solid var(--line);
       border-radius: 8px;
       background: rgba(17,25,35,0.82);
       padding: 16px;
     }
-    .prince strong {
+    .arc-step strong {
       display: block;
       font-size: 28px;
       color: var(--accent);
       line-height: 1;
       margin-bottom: 12px;
     }
-    .prince h3 { font-size: 15px; margin-bottom: 8px; }
-    .prince p { color: var(--text-soft); font-size: 13px; line-height: 1.45; }
+    .arc-step h3 { font-size: 15px; margin-bottom: 8px; }
+    .arc-step p { color: var(--text-soft); font-size: 13px; line-height: 1.45; }
 
     .case-toolbar {
       display: flex;
@@ -466,7 +466,7 @@
       .footer-grid { grid-template-columns: 1fr; }
       .kind-grid,
       .case-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-      .prince-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .arc-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .hero h1 { max-width: 13ch; }
     }
 
@@ -495,7 +495,7 @@
       .metric-grid,
       .kind-grid,
       .case-grid,
-      .prince-grid { grid-template-columns: 1fr; }
+      .arc-grid { grid-template-columns: 1fr; }
       .case { min-height: auto; }
       .proof-ring span { height: 36px; }
       .footer-grid { gap: 28px; }
@@ -655,45 +655,56 @@
         <div class="section-head">
           <div>
             <span class="eyebrow">Use-case lens</span>
-            <h2>A practical PRINCE structure for every story.</h2>
+            <h2>The Recall-style arc for every use case.</h2>
           </div>
           <p>
-            PRINCE here is a local storytelling checklist for nostr-veil, not a
-            claim that the library is using PRINCE2 project management. It keeps
-            sales copy and developer docs aligned around the same truth.
+            Start with the broken assumption, make the stakes real, prove the
+            problem, then show the mechanism, implementation path, boundary,
+            and companion controls. This keeps the story sharp without
+            over-claiming the proof.
           </p>
         </div>
 
-        <div class="prince-grid">
-          <div class="prince">
-            <strong>P</strong>
-            <h3>Problem</h3>
-            <p>What decision does the verifier need to make?</p>
+        <div class="arc-grid">
+          <div class="arc-step">
+            <strong>01</strong>
+            <h3>Hook</h3>
+            <p>What familiar trust assumption is broken?</p>
           </div>
-          <div class="prince">
-            <strong>R</strong>
-            <h3>Risk</h3>
-            <p>Why would named contributors be exposed or pressured?</p>
+          <div class="arc-step">
+            <strong>02</strong>
+            <h3>Stakes</h3>
+            <p>Who is exposed, pressured, or blocked today?</p>
           </div>
-          <div class="prince">
-            <strong>I</strong>
-            <h3>Implementation</h3>
-            <p>Which circle, metric, threshold, and verification rule?</p>
+          <div class="arc-step">
+            <strong>03</strong>
+            <h3>Evidence</h3>
+            <p>What facts or threat model prove the need?</p>
           </div>
-          <div class="prince">
-            <strong>N</strong>
-            <h3>Nostr shape</h3>
-            <p>Which NIP-85 kind, subject tag, helper, and proof version?</p>
+          <div class="arc-step">
+            <strong>04</strong>
+            <h3>Mechanism</h3>
+            <p>What does nostr-veil add to the workflow?</p>
           </div>
-          <div class="prince">
-            <strong>C</strong>
-            <h3>Constraints</h3>
+          <div class="arc-step">
+            <strong>05</strong>
+            <h3>Build shape</h3>
+            <p>Which circle, metric, kind, subject, helper, and proof version?</p>
+          </div>
+          <div class="arc-step">
+            <strong>06</strong>
+            <h3>Boundary</h3>
             <p>What does the proof deliberately not establish?</p>
           </div>
-          <div class="prince">
-            <strong>E</strong>
-            <h3>Extension</h3>
-            <p>What policy or companion protocol covers that boundary?</p>
+          <div class="arc-step">
+            <strong>07</strong>
+            <h3>Controls</h3>
+            <p>What policy or protocol covers the missing part?</p>
+          </div>
+          <div class="arc-step">
+            <strong>08</strong>
+            <h3>Outcome</h3>
+            <p>What can a verifier safely do after checking it?</p>
           </div>
         </div>
       </div>

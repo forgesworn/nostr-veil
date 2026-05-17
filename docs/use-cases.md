@@ -18,21 +18,24 @@ the application supplies the surrounding policy".
 
 ## Use-case storytelling model
 
-There is a well-known PRINCE2 project-management method, but "PRINCE" is not a
-canonical sales or storytelling method for this library. For nostr-veil use
-cases, use this local PRINCE lens instead:
+Use the same kind of narrative arc as the Recall pitch site: name the broken
+assumption, make the stakes concrete, show evidence, then introduce the
+mechanism and implementation path. It is close to a PAS/PASO sales structure
+with extra proof and boundary sections for technical readers.
 
 | Step | Question to answer |
 | --- | --- |
-| Problem | What decision does the verifier need to make? |
-| Risk | Why would named contributors be exposed, pressured, or unsafe? |
-| Implementation | Which circle contributes, what metric is signed, and what threshold is required? |
-| Nostr shape | Which NIP-85 kind, subject tag, helper, and proof version are used? |
-| Constraints | What does the proof deliberately not establish? |
-| Extension | What companion protocol, policy, or control covers that missing part? |
+| Hook | What familiar assumption is broken? |
+| Stakes | Who is exposed, pressured, or blocked by the current trust workflow? |
+| Evidence | What concrete facts, examples, or threat model prove the problem is real? |
+| Mechanism | What does nostr-veil add that the existing workflow lacks? |
+| Build shape | Which circle, metric, threshold, NIP-85 kind, subject tag, helper, and proof version are used? |
+| Boundary | What does the proof deliberately not establish? |
+| Companion controls | What policy, evidence process, protocol, or operational control covers that boundary? |
+| Outcome | What can the verifier safely do after checking the assertion? |
 
-Use this structure when adding new pages. It keeps the story compelling without
-over-claiming the cryptography.
+Use this structure when adding new pages. It keeps the story compelling,
+specific, and useful without over-claiming the cryptography.
 
 ## Implementation pattern
 
