@@ -243,8 +243,9 @@ For sensitive deployments, combine nostr-veil with careful collection, transport
 
 The shipped primitives support more than user trust scores. See
 [docs/use-cases.md](./docs/use-cases.md) for a concrete implementation map,
-including subject formats, helper functions, metrics, and the boundary between
-what ships today and what needs a future profile.
+including one worked page per use case, subject formats, helper functions,
+metrics, and the boundary between what ships today and what needs a future
+profile.
 
 Supported today:
 
@@ -315,7 +316,7 @@ Each project is independently maintained and published. nostr-veil focuses solel
 ## Further reading
 
 - [IMPACT.md](./IMPACT.md) -- Problem statement and ecosystem impact
-- [docs/use-cases.md](./docs/use-cases.md) -- Concrete implementation map for supported and future use cases
+- [docs/use-cases.md](./docs/use-cases.md) -- Concrete implementation map with individual worked use-case pages
 - [CONTRIBUTING.md](./CONTRIBUTING.md) -- Setup, testing, and PR guidelines
 - [SECURITY.md](./SECURITY.md) -- Vulnerability reporting and cryptographic scope
 - [llms.txt](./llms.txt) -- Machine-readable project summary for LLMs

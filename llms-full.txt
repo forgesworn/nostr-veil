@@ -658,6 +658,6 @@ These are not dependencies but complement nostr-veil:
 ## Optional
 
 - [README](https://github.com/forgesworn/nostr-veil/blob/main/README.md): Full documentation with architecture diagram
-- [docs/use-cases.md](https://github.com/forgesworn/nostr-veil/blob/main/docs/use-cases.md): Concrete use-case implementation map
+- [docs/use-cases.md](https://github.com/forgesworn/nostr-veil/blob/main/docs/use-cases.md): Concrete use-case implementation map with individual worked pages
 - [IMPACT.md](https://github.com/forgesworn/nostr-veil/blob/main/IMPACT.md): Problem statement and ecosystem impact
 - [@forgesworn/ring-sig](https://github.com/forgesworn/ring-sig): Underlying ring signature library

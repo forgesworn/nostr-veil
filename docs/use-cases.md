@@ -58,6 +58,31 @@ standardise every external namespace. Examples that use `k = 0` are placeholders
 for an application-private profile, not a Nostr-wide package, domain, or vendor
 registry.
 
+## Detailed pages
+
+Each page works through the subject shape, helper calls, metrics, verification,
+security boundary, and policy choices for one use case:
+
+| Use case | Status | Page |
+| --- | --- | --- |
+| User reputation and abuse reporting | Supported today | [user reputation and abuse reporting](./use-case-pages/user-reputation-abuse-reporting.md) |
+| Source corroboration | Supported today | [source corroboration](./use-case-pages/source-corroboration.md) |
+| Event and claim verification | Supported today | [event and claim verification](./use-case-pages/event-claim-verification.md) |
+| Article, research, and long-form review | Supported today | [article and research review](./use-case-pages/article-research-review.md) |
+| Relay and service reputation | Supported today | [relay and service reputation](./use-case-pages/relay-service-reputation.md) |
+| Vendor and marketplace signals | Supported today | [vendor and marketplace signals](./use-case-pages/vendor-marketplace-signals.md) |
+| Release, package, and maintainer reputation | Supported today | [release, package, and maintainer reputation](./use-case-pages/release-package-maintainer-reputation.md) |
+| NIP-05, domain, and service-provider trust | Supported today | [NIP-05 and domain trust](./use-case-pages/nip05-domain-service-provider-trust.md) |
+| Community list, labeler, and moderation-list reputation | Supported today | [list, labeler, and moderation-list reputation](./use-case-pages/list-labeler-moderation-list-reputation.md) |
+| Federated moderation | Supported today | [federated moderation](./use-case-pages/federated-moderation.md) |
+| Privacy-preserving onboarding | Supported today | [privacy-preserving onboarding](./use-case-pages/privacy-preserving-onboarding.md) |
+| Grant, funding, and proposal review | Supported today | [grant, funding, and proposal review](./use-case-pages/grant-funding-proposal-review.md) |
+| Anonymous credential or attestation co-signing | Future profile | [anonymous credential co-signing](./use-case-pages/anonymous-credential-attestation-cosigning.md) |
+| Relay or community admission | Future profile | [relay or community admission](./use-case-pages/relay-community-admission.md) |
+
+The runnable cross-check for these shapes is
+[`examples/use-cases.ts`](../examples/use-cases.ts).
+
 ## Supported today
 
 ### User reputation and abuse reporting

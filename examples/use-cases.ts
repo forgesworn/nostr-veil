@@ -171,6 +171,14 @@ const supportedCases = [
     name: 'Privacy-preserving onboarding',
     assertion: userAssertion(subjectPubkey, i => ({ rank: 88 + i })),
   },
+  {
+    name: 'Anonymous credential attestation score (future profile building block)',
+    assertion: eventAssertion('cc'.repeat(32), i => ({ rank: 90 + i })),
+  },
+  {
+    name: 'Relay/community admission vouch (future profile building block)',
+    assertion: userAssertion(subjectPubkey, i => ({ rank: 91 + i })),
+  },
 ]
 
 for (const useCase of supportedCases) {
