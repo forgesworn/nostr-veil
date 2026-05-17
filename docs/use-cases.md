@@ -17,19 +17,26 @@ pick the helper, define the metric meaning, require the right proof version,
 then add the operational controls that sit outside the cryptographic proof.
 
 For production deployments, use the machine-readable profiles and safe verifier
-from `nostr-veil/profiles`:
+from `nostr-veil/profiles` through an explicit deployment policy:
 
 ```ts
 import {
   RELEASE_PACKAGE_MAINTAINER_REPUTATION_PROFILE,
   canonicalNpmPackageSubject,
-  verifyUseCaseProfile,
+  createDeploymentPolicy,
+  verifyDeploymentPolicy,
 } from 'nostr-veil/profiles'
 
 const subject = canonicalNpmPackageSubject('nostr-veil', '0.14.0')
-const result = verifyUseCaseProfile(assertion, RELEASE_PACKAGE_MAINTAINER_REPUTATION_PROFILE, {
+const policy = createDeploymentPolicy(RELEASE_PACKAGE_MAINTAINER_REPUTATION_PROFILE, {
   acceptedCircleIds: ['<accepted circle id>'],
   expectedSubject: subject,
+  metricPolicies: {
+    rank: { required: true, min: 0, max: 100, integer: true },
+  },
+  rejectUnknownMetrics: true,
+})
+const result = verifyDeploymentPolicy(assertion, policy, {
   now: Math.floor(Date.now() / 1000),
 })
 
@@ -38,8 +45,9 @@ if (!result.valid) throw new Error(result.errors.join('; '))
 
 See [circle governance](./circle-governance.md) for the operational controls
 that make a circle safe to trust, and
+[production deployment](./production-deployment.md) and
 [flagship deployments](./flagship-deployments.md) for concrete production
-profiles.
+profiles and verifier recipes.
 
 ## Implementation pattern
 

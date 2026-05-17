@@ -12,6 +12,7 @@ npx tsx examples/partial-threshold.ts
 npx tsx examples/nip85-provider.ts
 npx tsx examples/typed-assertions.ts
 npx tsx examples/use-cases.ts
+npm run test:production-recipes
 npm run test:use-cases:relay -- --dry-run
 ```
 
@@ -28,6 +29,11 @@ The live relay harness also runs the fetched events through the built-in
 `verifyUseCaseProfile()` verifier, using the example circles as the accepted
 circle IDs. That keeps the public relay evidence aligned with the safer
 deployment API, not only the low-level proof verifier.
+
+`production-recipes.ts` shows production-shaped verifier gates using
+`createDeploymentPolicy()` and `verifyDeploymentPolicy()`: package release
+reputation, relay preference, NIP-05/domain trust, federated moderation review,
+and relay/community admission.
 
 `use-cases-relay.ts` is an opt-in live relay check. It signs every canonical
 use-case example as a Nostr event, publishes the events to

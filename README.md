@@ -165,6 +165,8 @@ The resulting `assertion` is a plain `EventTemplate` you sign and publish like a
 | `USE_CASE_PROFILES` | Built-in machine-readable profiles for the documented use cases |
 | `USE_CASE_PROFILE_BY_ID` | Lookup table keyed by use-case slug |
 | `verifyUseCaseProfile(events, profile, options)` | Verify NIP-85 syntax, proof v2, subject binding, threshold, freshness, accepted circles, and federation policy |
+| `createDeploymentPolicy(profile, options)` | Build a fail-closed deployment policy with accepted circles, expected subject, metric bounds, freshness, threshold, and signature requirements |
+| `verifyDeploymentPolicy(events, policy, options?)` | Verify a profile plus deployment-specific controls before acting on a score |
 | `canonicalRelaySubject`, `canonicalNip05Subject`, `canonicalDomainSubject`, `canonicalNpmPackageSubject` | Canonical subject helpers for common real-world identifiers |
 | `canonicalPubkeySubject`, `canonicalEventSubject`, `canonicalAddressSubject` | Canonical subject helpers for Nostr-native subjects |
 
@@ -173,6 +175,7 @@ The resulting `assertion` is a plain `EventTemplate` you sign and publish like a
 | Export | Description |
 |--------|-------------|
 | `signEvent(template, privateKey)` | Sign an unsigned event template with BIP-340 Schnorr -- returns a complete `SignedEvent` |
+| `verifySignedEvent(event)` | Verify a signed Nostr event id and BIP-340 signature after fetching from an untrusted relay |
 | `computeEventId(event)` | Compute the NIP-01 event ID (SHA-256 of canonical serialisation) |
 
 ---

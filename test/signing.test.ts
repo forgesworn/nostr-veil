@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { computeEventId, signEvent } from '../src/signing.js'
+import { computeEventId, signEvent, verifySignedEvent } from '../src/signing.js'
 
 describe('computeEventId', () => {
   it('produces a 64-char lowercase hex string', () => {
@@ -54,5 +54,13 @@ describe('signEvent', () => {
 
     const valid = schnorr.verify(hexToBytes(signed.sig), hexToBytes(signed.id), hexToBytes(signed.pubkey))
     expect(valid).toBe(true)
+  })
+
+  it('detects signed event mutation', () => {
+    const privateKey = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef'
+    const signed = signEvent({ kind: 1, tags: [], content: 'hello' }, privateKey)
+
+    expect(verifySignedEvent(signed)).toBe(true)
+    expect(verifySignedEvent({ ...signed, content: 'tampered' })).toBe(false)
   })
 })

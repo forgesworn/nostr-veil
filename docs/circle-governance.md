@@ -46,7 +46,7 @@ to act on. Production deployments need an explicit circle policy.
 
 ## Verifier checklist
 
-Use `verifyUseCaseProfile()` with:
+Use `createDeploymentPolicy()` and `verifyDeploymentPolicy()` with:
 
 - accepted circle IDs;
 - expected subject;
@@ -54,4 +54,6 @@ Use `verifyUseCaseProfile()` with:
 - proof v2 requirement;
 - minimum distinct signer count;
 - freshness window;
+- metric bounds and required metrics;
+- Nostr event signature verification for relay-fetched events;
 - federation scope policy, when applicable.

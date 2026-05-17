@@ -80,3 +80,19 @@ export function signEvent(template: UnsignedEvent, privateKey: string): SignedEv
 
   return { ...event, id, sig }
 }
+
+/**
+ * Verify a fully-signed Nostr event.
+ *
+ * Checks both the event id (NIP-01 canonical serialisation) and the BIP-340
+ * Schnorr signature. Use this after fetching an assertion from an untrusted
+ * relay, before acting on its proof or score.
+ */
+export function verifySignedEvent(event: SignedEvent): boolean {
+  if (computeEventId(event) !== event.id) return false
+  try {
+    return schnorr.verify(hexToBytes(event.sig), hexToBytes(event.id), hexToBytes(event.pubkey))
+  } catch {
+    return false
+  }
+}
