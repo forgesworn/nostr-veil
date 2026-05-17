@@ -29,6 +29,14 @@
 
 # [0.12.0](https://github.com/forgesworn/nostr-veil/compare/v0.11.0...v0.12.0) (2026-05-16)
 
+## 0.24.0 (2026-05-17)
+
+### Features
+
+- validate use-case profile definitions
+
+
+
 ## 0.23.0 (2026-05-17)
 
 ### Features
