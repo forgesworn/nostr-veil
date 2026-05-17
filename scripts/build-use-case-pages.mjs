@@ -106,7 +106,7 @@ const safetyChecks = [
   ['Insufficient threshold', 'Removing a signature must fail the profile threshold.'],
   ['Stale assertion', 'created_at must remain inside the freshness window.'],
   ['Unknown circle', 'The circle ID must be accepted by deployment policy.'],
-  ['Unsigned policy', 'Production verifiers should require a signed deployment bundle from a trusted publisher.'],
+  ['Unsigned policy', 'verifyProductionDeployment() should require a signed deployment bundle from a trusted publisher.'],
   ['Relay mutation', 'Fetched event content and tags must match the Nostr signature.'],
 ]
 const nip85Kinds = [
@@ -618,7 +618,7 @@ function renderSafetyMatrix() {
     <p>${escapeHtml(detail)}</p>
   </div>`).join('\n  ')}
 </div>
-<p>Use <code>verifyUseCaseProfile()</code> with accepted circle IDs, expected subject, freshness, and threshold policy so these checks are not left to application glue.</p>`
+<p>Use <code>verifyProductionDeployment()</code> with trusted bundle publishers, signed relay events, accepted circle manifests, expected subject, freshness, and threshold policy so these checks are not left to application glue.</p>`
 }
 
 function renderNip85KindReference() {

@@ -7,7 +7,7 @@ a deployment policy. The policy should be explicit, versioned, and tested.
 
 Use `createDeploymentPolicy()` for the local deployment controls, then wrap the
 policy in `createSignedDeploymentBundle()` before distributing it. Verifiers
-should call `verifyDeploymentBundle()` with a pinned publisher key. A policy
+should call `verifyProductionDeployment()` with a pinned publisher key. A policy
 should include:
 
 - the exact expected subject;
@@ -25,7 +25,7 @@ import {
   createCircleManifest,
   createDeploymentPolicy,
   createSignedDeploymentBundle,
-  verifyDeploymentBundle,
+  verifyProductionDeployment,
 } from 'nostr-veil/profiles'
 
 const trustedPolicyPublishers = [operatorPubkey]
@@ -55,16 +55,29 @@ const bundle = createSignedDeploymentBundle(policy, {
   privateKey: operatorPrivateKey,
 })
 
-const result = verifyDeploymentBundle(assertionFromRelay, bundle, {
+const result = verifyProductionDeployment(assertionFromRelay, bundle, {
   now: Math.floor(Date.now() / 1000),
   trustedPublishers: trustedPolicyPublishers,
 })
 
-if (!result.valid) throw new Error(result.errors.join('; '))
+if (!result.valid) {
+  audit(result.issues.map(issue => issue.code))
+  throw new Error(result.errors.join('; '))
+}
 ```
 
-The result is a gate, not a business decision. After it passes, the application
-still decides what action is proportionate for that subject and score.
+The production verifier is intentionally stricter than
+`verifyDeploymentBundle()`: by default it requires a trusted bundle publisher,
+an expiring signed bundle, and a bundled policy that requires valid Nostr event
+signatures for relay-fetched assertions. The result is a gate, not a business
+decision. After it passes, the application still decides what action is
+proportionate for that subject and score.
+
+`result.errors` are human-readable. `result.issues` contains stable
+machine-readable codes such as `bundle.trusted_publishers_missing`,
+`bundle.signer_untrusted`, `bundle.expired`, `event.signature_invalid`,
+`circle.unaccepted`, `metric.below_min`, and `policy.nostr_signature_not_required`.
+Use those codes for audit logs, alerts, retry decisions, and fail-closed policy.
 
 ## Recipe patterns
 

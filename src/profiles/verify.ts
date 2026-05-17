@@ -3,6 +3,7 @@ import { computeCircleId } from '../proof/circle.js'
 import { verifyFederation } from '../proof/federate.js'
 import { verifyProof } from '../proof/verify.js'
 import { subjectMatchesAnyFormat } from './canonical.js'
+import { issuesFromErrors } from './issues.js'
 import type { EventTemplate } from '../nip85/types.js'
 import type {
   UseCaseProfile,
@@ -178,6 +179,7 @@ export function verifyUseCaseProfile(
   return {
     valid: errors.length === 0,
     errors,
+    issues: issuesFromErrors(errors),
     events: verifiedEvents,
     federation,
     profile,

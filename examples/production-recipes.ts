@@ -14,7 +14,7 @@ import {
   createCircleManifest,
   createDeploymentPolicy,
   createSignedDeploymentBundle,
-  verifyDeploymentBundle,
+  verifyProductionDeployment,
 } from 'nostr-veil/profiles'
 import { assertion as nip05Assertion } from './use-cases/nip05-domain-service-provider-trust.js'
 import { assertion as packageAssertion } from './use-cases/release-package-maintainer-reputation.js'
@@ -25,6 +25,7 @@ import { events as moderationEvents } from './use-cases/federated-moderation.js'
 interface RecipeResult {
   action: string
   errors: string[]
+  issueCodes: string[]
   kind: string
   name: string
   valid: boolean
@@ -88,7 +89,7 @@ function verifyWithSignedBundle(
     privateKey: BUNDLE_PUBLISHER_KEY,
   })
 
-  return verifyDeploymentBundle(signedEvents, bundle, {
+  return verifyProductionDeployment(signedEvents, bundle, {
     now,
     trustedPublishers: [bundle.signer],
   })
@@ -113,6 +114,7 @@ function packageReleaseGate(): RecipeResult {
   return {
     action: result.valid && rank >= 85 ? 'surface-reviewed-release' : 'manual-review',
     errors: result.errors,
+    issueCodes: result.issues.map(issue => issue.code),
     kind: describeNip85Kind(RELEASE_PACKAGE_MAINTAINER_REPUTATION_PROFILE.kind),
     name: 'package-release-gate',
     valid: result.valid,
@@ -139,6 +141,7 @@ function relayServicePreference(): RecipeResult {
   return {
     action: result.valid && rank >= 75 ? 'prefer-relay' : 'do-not-prefer-relay',
     errors: result.errors,
+    issueCodes: result.issues.map(issue => issue.code),
     kind: describeNip85Kind(RELAY_SERVICE_REPUTATION_PROFILE.kind),
     name: 'relay-service-preference',
     valid: result.valid,
@@ -165,6 +168,7 @@ function nip05DomainWarning(): RecipeResult {
   return {
     action: result.valid && rank >= 80 ? 'show-provider-trust-signal' : 'show-provider-warning',
     errors: result.errors,
+    issueCodes: result.issues.map(issue => issue.code),
     kind: describeNip85Kind(NIP05_DOMAIN_SERVICE_PROVIDER_TRUST_PROFILE.kind),
     name: 'nip05-domain-warning',
     valid: result.valid,
@@ -190,6 +194,7 @@ function federatedModerationReview(): RecipeResult {
   return {
     action: result.valid && reportCount >= 4 ? 'queue-human-moderation-review' : 'no-automatic-action',
     errors: result.errors,
+    issueCodes: result.issues.map(issue => issue.code),
     kind: describeNip85Kind(FEDERATED_MODERATION_PROFILE.kind),
     name: 'federated-moderation-review',
     valid: result.valid,
@@ -214,6 +219,7 @@ function relayAdmissionGate(): RecipeResult {
   return {
     action: result.valid && rank >= 90 ? 'admit-with-standard-rate-limits' : 'manual-admission-review',
     errors: result.errors,
+    issueCodes: result.issues.map(issue => issue.code),
     kind: describeNip85Kind(RELAY_COMMUNITY_ADMISSION_PROFILE.kind),
     name: 'relay-admission-gate',
     valid: result.valid,
@@ -232,5 +238,6 @@ for (const result of productionRecipeResults) {
   console.log(`${result.name}: valid=${result.valid ? 'yes' : 'no'} kind="${result.kind}" action=${result.action}`)
   if (!result.valid) {
     console.log(`  errors=${result.errors.join('; ')}`)
+    console.log(`  issueCodes=${result.issueCodes.join(',')}`)
   }
 }

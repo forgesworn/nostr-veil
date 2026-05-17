@@ -48,7 +48,7 @@ to act on. Production deployments need an explicit circle policy.
 
 ## Verifier checklist
 
-Use `createDeploymentPolicy()` and `verifyDeploymentPolicy()` with:
+Use `createDeploymentPolicy()` and `verifyProductionDeployment()` with:
 
 - accepted circle IDs or circle manifests;
 - expected subject;
@@ -59,6 +59,10 @@ Use `createDeploymentPolicy()` and `verifyDeploymentPolicy()` with:
 - metric bounds and required metrics;
 - Nostr event signature verification for relay-fetched events;
 - federation scope policy, when applicable.
+
+Use the returned `issues[].code` values for operational handling, for example
+`circle.revoked`, `circle.superseded`, `circle.unaccepted`, and
+`event.signature_invalid`.
 
 Use `createCircleManifest()` for production circles. A manifest binds the
 circle ID to the member list and records the allowed profile IDs, issue/expiry

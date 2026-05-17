@@ -1,9 +1,11 @@
 import { verifySignedEvent } from '../signing.js'
+import { issuesFromErrors } from './issues.js'
 import { resolveCircleManifests } from './manifest.js'
 import { verifyUseCaseProfile } from './verify.js'
 import type { EventTemplate } from '../nip85/types.js'
 import type { AggregateFn } from '../proof/types.js'
 import type { SignedEvent } from '../signing.js'
+import type { VerificationIssue } from './issues.js'
 import type { CircleManifest } from './manifest.js'
 import type { UseCaseProfile, UseCaseProfileVerification } from './types.js'
 
@@ -59,6 +61,7 @@ export interface VerifyDeploymentPolicyOptions {
 export interface DeploymentPolicyVerification {
   decision: DeploymentDecision
   errors: string[]
+  issues: VerificationIssue[]
   metrics: Record<string, number[]>
   nostrSignatures: {
     checked: boolean
@@ -358,6 +361,7 @@ export function verifyDeploymentPolicy(
   return {
     decision: valid ? 'accept' : 'reject',
     errors,
+    issues: issuesFromErrors(errors),
     metrics: metricVerification.metrics,
     nostrSignatures: {
       checked: nostrSignatures.checked,

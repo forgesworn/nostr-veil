@@ -879,14 +879,14 @@
   </div>
   <div class="safety-item">
     <span>Unsigned policy</span>
-    <p>Production verifiers should require a signed deployment bundle from a trusted publisher.</p>
+    <p>verifyProductionDeployment() should require a signed deployment bundle from a trusted publisher.</p>
   </div>
   <div class="safety-item">
     <span>Relay mutation</span>
     <p>Fetched event content and tags must match the Nostr signature.</p>
   </div>
 </div>
-<p>Use <code>verifyUseCaseProfile()</code> with accepted circle IDs, expected subject, freshness, and threshold policy so these checks are not left to application glue.</p>
+<p>Use <code>verifyProductionDeployment()</code> with trusted bundle publishers, signed relay events, accepted circle manifests, expected subject, freshness, and threshold policy so these checks are not left to application glue.</p>
         <h2>Next examples</h2>
         <div class="next-grid">
           <a class="next-card" href="../vendor-marketplace-signals/">

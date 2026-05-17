@@ -171,6 +171,8 @@ The resulting `assertion` is a plain `EventTemplate` you sign and publish like a
 | `verifyDeploymentPolicy(events, policy, options?)` | Verify a profile plus deployment-specific controls before acting on a score |
 | `createSignedDeploymentBundle(policy, options)` | Sign a deployment policy and its manifests as trusted operator configuration |
 | `verifyDeploymentBundle(events, bundle, options?)` | Verify a signed bundle from trusted publishers, then verify the bundled deployment policy |
+| `verifyProductionDeployment(events, bundle, options?)` | One-call production gate that also requires an expiring bundle and signed relay-fetched events by default |
+| `VerificationIssue`, `VerificationIssueCode` | Stable machine-readable issue codes returned alongside human-readable errors |
 | `canonicalRelaySubject`, `canonicalNip05Subject`, `canonicalDomainSubject`, `canonicalNpmPackageSubject` | Canonical subject helpers for common real-world identifiers |
 | `canonicalPubkeySubject`, `canonicalEventSubject`, `canonicalAddressSubject` | Canonical subject helpers for Nostr-native subjects |
 
@@ -261,6 +263,11 @@ application control:
 For sensitive deployments, combine nostr-veil with careful collection,
 transport privacy, key hygiene, and a clear policy for how circles are admitted
 and rotated.
+
+Production verifiers should prefer `verifyProductionDeployment()` over manually
+composing lower-level checks. It returns the existing human-readable `errors`
+plus stable `issues[].code` values such as `bundle.signer_untrusted`,
+`event.signature_invalid`, `circle.unaccepted`, and `metric.below_min`.
 
 ---
 

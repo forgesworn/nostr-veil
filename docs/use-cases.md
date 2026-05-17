@@ -26,7 +26,7 @@ import {
   createCircleManifest,
   createDeploymentPolicy,
   createSignedDeploymentBundle,
-  verifyDeploymentBundle,
+  verifyProductionDeployment,
 } from 'nostr-veil/profiles'
 
 const trustedPolicyPublishers = [operatorPubkey]
@@ -47,6 +47,7 @@ const policy = createDeploymentPolicy(RELEASE_PACKAGE_MAINTAINER_REPUTATION_PROF
     rank: { required: true, min: 0, max: 100, integer: true },
   },
   rejectUnknownMetrics: true,
+  requireNostrSignature: true,
 })
 const bundle = createSignedDeploymentBundle(policy, {
   id: 'package-release-gate',
@@ -54,12 +55,12 @@ const bundle = createSignedDeploymentBundle(policy, {
   expiresAt: 1778000900,
   privateKey: operatorPrivateKey,
 })
-const result = verifyDeploymentBundle(assertion, bundle, {
+const result = verifyProductionDeployment(assertion, bundle, {
   now: Math.floor(Date.now() / 1000),
   trustedPublishers: trustedPolicyPublishers,
 })
 
-if (!result.valid) throw new Error(result.errors.join('; '))
+if (!result.valid) throw new Error(result.issues.map(issue => issue.code).join(', '))
 ```
 
 See [circle governance](./circle-governance.md) for the operational controls

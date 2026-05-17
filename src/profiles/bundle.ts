@@ -1,8 +1,10 @@
 import { schnorr } from '@noble/curves/secp256k1.js'
 import { sha256 } from '@noble/hashes/sha2.js'
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js'
+import { issuesFromErrors } from './issues.js'
 import { verifyDeploymentPolicy } from './policy.js'
 import type { EventTemplate } from '../nip85/types.js'
+import type { VerificationIssue } from './issues.js'
 import type { DeploymentPolicyVerification, UseCaseDeploymentPolicy, VerifyDeploymentPolicyOptions } from './policy.js'
 
 export const DEPLOYMENT_BUNDLE_TYPE = 'nostr-veil-deployment-bundle'
@@ -36,6 +38,7 @@ export interface VerifySignedDeploymentBundleOptions {
 export interface SignedDeploymentBundleVerification {
   bundle: SignedDeploymentBundle
   errors: string[]
+  issues: VerificationIssue[]
   publisherTrusted: boolean
   signatureValid: boolean
   valid: boolean
@@ -49,6 +52,7 @@ export interface DeploymentBundleVerification {
   bundle: SignedDeploymentBundleVerification
   deployment: DeploymentPolicyVerification
   errors: string[]
+  issues: VerificationIssue[]
   valid: boolean
 }
 
@@ -205,6 +209,7 @@ export function verifySignedDeploymentBundle(
   return {
     bundle,
     errors,
+    issues: issuesFromErrors(errors),
     publisherTrusted,
     signatureValid,
     valid: errors.length === 0,
@@ -222,11 +227,16 @@ export function verifyDeploymentBundle(
     ...bundleVerification.errors,
     ...deployment.errors,
   ]
+  const issues = [
+    ...bundleVerification.issues,
+    ...deployment.issues,
+  ]
 
   return {
     bundle: bundleVerification,
     deployment,
     errors,
+    issues,
     valid: bundleVerification.valid && deployment.valid,
   }
 }

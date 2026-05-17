@@ -162,7 +162,7 @@ describe('public use-case pages', () => {
       'Unknown circle',
       'Unsigned policy',
       'Relay mutation',
-      'verifyUseCaseProfile()',
+      'verifyProductionDeployment()',
     ]
 
     for (const slug of slugs) {

@@ -13,6 +13,7 @@ import {
   createSignedDeploymentBundle,
   signEvent,
   verifyDeploymentBundle,
+  verifyProductionDeployment,
   verifyUseCaseProfile,
 } from '../../src/index.js'
 import type { EventTemplate, SignedEvent } from '../../src/index.js'
@@ -325,14 +326,28 @@ describe('adversarial use-case deployment checks', () => {
     for (const result of useCaseResults) {
       const bundle = signedDeploymentBundleFor(result)
       const signedEvents = eventsFor(result).map(event => signEvent(event, RELAY_PUBLISHER_KEY))
+      const verification = verifyProductionDeployment(signedEvents, bundle, {
+        now: nowFor(result),
+        trustedPublishers: [bundle.signer],
+      })
+
+      expect(verification.valid, `${result.slug}: ${verification.errors.join('; ')}`).toBe(true)
+      expect(verification.decision, result.slug).toBe('accept')
+      expect(verification.bundle.signatureValid, result.slug).toBe(true)
+      expect(verification.deployment.nostrSignatures).toEqual({ checked: true, valid: true })
+    }
+  })
+
+  it('keeps the lower-level bundle verifier available for custom deployments', { timeout: 30_000 }, () => {
+    for (const result of useCaseResults) {
+      const bundle = signedDeploymentBundleFor(result)
+      const signedEvents = eventsFor(result).map(event => signEvent(event, RELAY_PUBLISHER_KEY))
       const verification = verifyDeploymentBundle(signedEvents, bundle, {
         now: nowFor(result),
         trustedPublishers: [bundle.signer],
       })
 
       expect(verification.valid, `${result.slug}: ${verification.errors.join('; ')}`).toBe(true)
-      expect(verification.bundle.signatureValid, result.slug).toBe(true)
-      expect(verification.deployment.nostrSignatures).toEqual({ checked: true, valid: true })
     }
   })
 })

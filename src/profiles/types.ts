@@ -6,6 +6,7 @@ import type {
   ProofVersion,
   SubjectTag,
 } from '../proof/types.js'
+import type { VerificationIssue } from './issues.js'
 
 export type UseCaseProfileStatus = 'supported' | 'profile-needed'
 
@@ -71,6 +72,7 @@ export interface VerifiedProfileEvent {
 export interface UseCaseProfileVerification {
   valid: boolean
   errors: string[]
+  issues: VerificationIssue[]
   events: VerifiedProfileEvent[]
   federation?: FederationVerification
   profile: UseCaseProfile

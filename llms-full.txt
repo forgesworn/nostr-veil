@@ -149,6 +149,20 @@ interface ProofVerification {
 }
 ```
 
+### `VerificationIssue`
+
+```ts
+interface VerificationIssue {
+  code: VerificationIssueCode
+  message: string
+  path?: string
+}
+```
+
+Deployment/profile verifiers keep human-readable `errors` for compatibility and
+also return stable `issues[].code` values for application policy, logging, and
+alerts.
+
 ### `EventTemplate`
 
 ```ts
@@ -645,6 +659,21 @@ const result = verifyDeploymentBundle(assertionFromRelay, bundle, {
   now,
   trustedPublishers: [operatorPubkey],
 })
+```
+
+#### `verifyProductionDeployment(events, bundle, options) → ProductionDeploymentVerification`
+
+One-call production gate. It wraps `verifyDeploymentBundle()` and, by default,
+also requires the bundle to have `expiresAt` and the bundled policy to require
+valid Nostr signatures for relay-fetched events. It returns `decision`,
+human-readable `errors`, and stable `issues[].code` values.
+
+```ts
+const result = verifyProductionDeployment(assertionFromRelay, bundle, {
+  now,
+  trustedPublishers: [operatorPubkey],
+})
+if (!result.valid) audit(result.issues.map(issue => issue.code))
 ```
 
 ---
