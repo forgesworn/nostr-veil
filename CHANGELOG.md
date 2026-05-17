@@ -29,6 +29,14 @@
 
 # [0.12.0](https://github.com/forgesworn/nostr-veil/compare/v0.11.0...v0.12.0) (2026-05-16)
 
+## 0.21.0 (2026-05-17)
+
+### Features
+
+- canonicalise real-world profile subjects
+
+
+
 ## 0.20.0 (2026-05-17)
 
 ### Features
