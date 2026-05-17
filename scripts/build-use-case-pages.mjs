@@ -528,6 +528,7 @@ function renderPage(useCase, index) {
       padding: clamp(24px, 4vw, 46px);
     }
     article h2 {
+      scroll-margin-top: 88px;
       margin-top: 42px;
       padding-top: 34px;
       border-top: 1px solid var(--line);
@@ -666,9 +667,10 @@ function renderPage(useCase, index) {
       .hero-inner { min-height: auto; gap: 24px; padding: 34px 0 30px; }
       .button { width: 100%; }
       .layout { padding: 52px 0; gap: 28px; }
+      article { order: 1; padding: 22px; }
+      .side-nav { order: 2; }
       .side-nav,
       .next-grid { grid-template-columns: 1fr; }
-      article { padding: 22px; }
       table { min-width: 560px; }
     }
   </style>

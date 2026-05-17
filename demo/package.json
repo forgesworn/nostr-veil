@@ -3,7 +3,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "prebuild": "node ../scripts/build-use-case-pages.mjs",
+    "build:use-cases": "node ../scripts/build-use-case-pages.mjs",
+    "prebuild": "npm run build:use-cases",
+    "predev": "npm run build:use-cases",
     "dev": "vite",
     "build": "vite build"
   },
