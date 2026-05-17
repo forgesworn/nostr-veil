@@ -9,7 +9,7 @@
 
 A privacy layer for Nostr reputation systems. A group of people can collectively score someone's trustworthiness, and anyone can verify the result -- but nobody can tell which group members actually contributed. Built for abuse reporting, whistleblowing, journalism, and anonymous peer review.
 
-**New here?** The [**use-case overview**](https://veil.forgesworn.dev/use-cases/) covers what nostr-veil is, the problem it solves, and seven things you can build on it today.
+**New here?** The [**use-case overview**](https://forgesworn.github.io/nostr-veil/use-cases/) covers what nostr-veil is, the problem it solves, and seven things you can build on it today.
 
 ---
 
