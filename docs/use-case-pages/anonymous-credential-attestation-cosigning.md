@@ -49,41 +49,7 @@ presentation rules.
 
 ## Worked example for today's building block
 
-```ts
-import {
-  aggregateEventContributions,
-  contributeEventAssertion,
-  createTrustCircle,
-  validateAssertionStrict,
-  verifyProof,
-} from 'nostr-veil'
-
-const proofVersion = 'v2' as const
-const attestationEventId = 'cc'.repeat(32)
-const circle = createTrustCircle(attestors.map(a => a.pubkey))
-
-const contributions = attestors.map((attestor) =>
-  contributeEventAssertion(
-    circle,
-    attestationEventId,
-    { rank: attestor.endorsementConfidence },
-    attestor.privateKey,
-    circle.members.indexOf(attestor.pubkey),
-    { proofVersion },
-  ),
-)
-
-const assertion = aggregateEventContributions(
-  circle,
-  attestationEventId,
-  contributions,
-  { proofVersion },
-)
-
-const syntax = validateAssertionStrict(assertion)
-const proof = verifyProof(assertion, { requireProofVersion: 'v2' })
-if (!syntax.valid || !proof.valid) throw new Error('invalid attestation score')
-```
+<!-- use-case-example: anonymous-credential-attestation-cosigning -->
 
 ## What to verify
 

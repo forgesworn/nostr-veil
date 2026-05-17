@@ -463,44 +463,56 @@
 <ol><li>Canonicalise the service identifier before signing: scheme, host, port, trailing slash, and service class.</li><li>Define what <code>rank</code> measures for this service class: reliability, censorship behaviour, latency, privacy, malware risk, support quality, or abuse handling.</li><li>Use a stable <code>k</code> namespace per application profile and proof v2 for new identifier assertions.</li><li>Verify the expected identifier, namespace, circle, threshold, and freshness before using the score for relay or service selection.</li><li>Combine nostr-veil with monitoring and incident reports when clients need current operational data.</li></ol>
 <h2 id="worked-example">Worked example</h2>
 <pre><code class="language-ts">import {
+  NIP85_KINDS,
   aggregateIdentifierContributions,
   contributeIdentifierAssertion,
   createTrustCircle,
-  validateAssertionStrict,
-  verifyProof,
 } from 'nostr-veil'
+import {
+  defaultMembers,
+  memberIndex,
+  proofVersion,
+  verifyUseCaseAssertion,
+  withCreatedAt,
+} from './_shared.js'
 
-const proofVersion = 'v2' as const
+const slug = 'relay-service-reputation'
 const relayProfileKind = '10002'
 const relayId = 'relay:wss://relay.example.com'
-const circle = createTrustCircle(serviceReviewers.map(r =&gt; r.pubkey))
+const circle = createTrustCircle(defaultMembers.map(member =&gt; member.pub))
 
-const contributions = serviceReviewers.map((reviewer) =&gt;
+const contributions = defaultMembers.map((reviewer, index) =&gt;
   contributeIdentifierAssertion(
     circle,
     relayId,
     relayProfileKind,
     {
-      rank: reviewer.reliabilityRank,
-      reaction_cnt: reviewer.observationCount,
+      rank: 74 + index * 3,
+      reaction_cnt: index + 1,
     },
-    reviewer.privateKey,
-    circle.members.indexOf(reviewer.pubkey),
+    reviewer.priv,
+    memberIndex(circle, reviewer.pub),
     { proofVersion },
   ),
 )
 
-const assertion = aggregateIdentifierContributions(
+export const assertion = withCreatedAt(aggregateIdentifierContributions(
   circle,
   relayId,
   relayProfileKind,
   contributions,
   { proofVersion },
-)
+))
 
-const syntax = validateAssertionStrict(assertion)
-const proof = verifyProof(assertion, { requireProofVersion: 'v2' })
-if (!syntax.valid || !proof.valid) throw new Error('invalid relay assertion')</code></pre>
+export const result = verifyUseCaseAssertion(slug, assertion, {
+  kind: NIP85_KINDS.IDENTIFIER,
+  subject: relayId,
+  subjectTag: 'k',
+  subjectTagValue: relayProfileKind,
+  circleId: circle.circleId,
+  minDistinctSigners: 3,
+  freshAfter: assertion.created_at - 300,
+})</code></pre>
 <h2>What to verify</h2>
 <ul><li>Strict syntax and a valid proof v2.</li><li>Kind 30385, with <code>d</code> equal to the canonical service id and <code>k</code> equal to the profile namespace the client understands.</li><li>The service-review ring is trusted for this service class and has enough distinct signers.</li><li>The score is recent enough for operational use, or paired with live probes for uptime-sensitive decisions.</li><li>The metric meaning matches the decision: reliability, censorship behaviour, privacy, malware risk, or another declared axis.</li></ul>
 <h2>What this proves</h2>

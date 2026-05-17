@@ -1,6 +1,8 @@
 # Examples
 
-Runnable examples for nostr-veil. Each script is self-contained.
+Runnable examples for nostr-veil. The top-level scripts are self-contained;
+`examples/use-cases.ts` runs the canonical use-case snippets published on the
+demo site.
 
 ## Run
 
@@ -16,7 +18,7 @@ Requires [tsx](https://github.com/privatenumber/tsx) (`npx tsx` works without in
 
 `typed-assertions.ts` uses opt-in proof v2 for event, addressable, and identifier assertions.
 
-`use-cases.ts` maps the main supported use cases to concrete assertion kinds,
-subject formats, helper functions, and proof v2 verification. Pair it with
-[`docs/use-cases.md`](../docs/use-cases.md), which explains the production
-boundary and the companion controls each use case needs.
+`use-cases.ts` imports one executable file per use case from
+`examples/use-cases/`. The generated detail pages in `demo/public/use-cases/`
+render those same files, so the public snippets drift only when the executable
+examples drift.

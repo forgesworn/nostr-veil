@@ -462,41 +462,53 @@
 <ol><li>Decide whether the scored object is the work as a whole, a specific revision, or the author's standing.</li><li>Define what <code>rank</code> means for this venue: quality, confidence, relevance, safety, or acceptance likelihood.</li><li>Use a stable NIP-33 address for the artefact and proof v2 for new deployments.</li><li>Verify the expected address, circle, threshold, and freshness before showing the score as review guidance.</li><li>Publish comments, review criteria, and conflict handling separately if the venue needs them.</li></ol>
 <h2 id="worked-example">Worked example</h2>
 <pre><code class="language-ts">import {
+  NIP85_KINDS,
   aggregateAddressableContributions,
   contributeAddressableAssertion,
   createTrustCircle,
-  validateAssertionStrict,
-  verifyProof,
 } from 'nostr-veil'
+import {
+  authorPubkey,
+  defaultMembers,
+  memberIndex,
+  proofVersion,
+  verifyUseCaseAssertion,
+  withCreatedAt,
+} from './_shared.js'
 
-const proofVersion = 'v2' as const
+const slug = 'article-research-review'
 const articleAddress = `30023:${authorPubkey}:paper-2026-05`
-const circle = createTrustCircle(reviewers.map(r =&gt; r.pubkey))
+const circle = createTrustCircle(defaultMembers.map(member =&gt; member.pub))
 
-const contributions = reviewers.map((reviewer) =&gt;
+const contributions = defaultMembers.map((reviewer, index) =&gt;
   contributeAddressableAssertion(
     circle,
     articleAddress,
     {
-      rank: reviewer.reviewScore,
-      comment_cnt: reviewer.substantiveComments,
+      rank: 82 + index * 2,
+      comment_cnt: index + 1,
     },
-    reviewer.privateKey,
-    circle.members.indexOf(reviewer.pubkey),
+    reviewer.priv,
+    memberIndex(circle, reviewer.pub),
     { proofVersion },
   ),
 )
 
-const assertion = aggregateAddressableContributions(
+export const assertion = withCreatedAt(aggregateAddressableContributions(
   circle,
   articleAddress,
   contributions,
   { proofVersion },
-)
+))
 
-const syntax = validateAssertionStrict(assertion)
-const proof = verifyProof(assertion, { requireProofVersion: 'v2' })
-if (!syntax.valid || !proof.valid) throw new Error('invalid review assertion')</code></pre>
+export const result = verifyUseCaseAssertion(slug, assertion, {
+  kind: NIP85_KINDS.ADDRESSABLE,
+  subject: articleAddress,
+  subjectTag: 'a',
+  circleId: circle.circleId,
+  minDistinctSigners: 3,
+  freshAfter: assertion.created_at - 300,
+})</code></pre>
 <h2>What to verify</h2>
 <ul><li>Strict syntax and a valid proof v2.</li><li>Kind 30384, with <code>d</code> and <code>a</code> equal to the addressable artefact under review.</li><li>The reviewer ring is approved for this venue, subject area, or funding programme.</li><li>The score has enough distinct signers and uses the venue's documented metric direction.</li><li>The assertion is still valid for the current revision or has a clear supersession path.</li></ul>
 <h2>What this proves</h2>

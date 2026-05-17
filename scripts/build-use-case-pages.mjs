@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const docsDir = path.join(root, 'docs', 'use-case-pages')
+const examplesDir = path.join(root, 'examples', 'use-cases')
 const publicDir = path.join(root, 'demo', 'public', 'use-cases')
 
 const cases = [
@@ -266,6 +267,20 @@ function extractIntro(markdown) {
 
 function stripTitle(markdown) {
   return markdown.replace(/^#\s+.+\n+/, '').trim()
+}
+
+async function includeExecutableExamples(markdown) {
+  const exampleRefs = [...markdown.matchAll(/<!--\s*use-case-example:\s*([a-z0-9-]+)\s*-->/g)]
+  let rendered = markdown
+
+  for (const match of exampleRefs) {
+    const slug = match[1]
+    const examplePath = path.join(examplesDir, `${slug}.ts`)
+    const source = (await readFile(examplePath, 'utf8')).trimEnd()
+    rendered = rendered.replace(match[0], `\`\`\`ts\n${source}\n\`\`\``)
+  }
+
+  return rendered
 }
 
 function statusClass(status) {
@@ -757,7 +772,7 @@ await mkdir(publicDir, { recursive: true })
 
 for (const useCase of cases) {
   const markdown = await readFile(path.join(docsDir, useCase.file), 'utf8')
-  useCase.markdown = markdown
+  useCase.markdown = await includeExecutableExamples(markdown)
   useCase.title = extractTitle(markdown)
   useCase.intro = extractIntro(markdown)
 }

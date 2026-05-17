@@ -57,44 +57,7 @@ without recording which people vouched.
 This example uses an app-private identifier namespace. The `k` value `0` is a
 profile choice for this application, not a Nostr-wide registry.
 
-```ts
-import {
-  aggregateIdentifierContributions,
-  contributeIdentifierAssertion,
-  createTrustCircle,
-  validateAssertionStrict,
-  verifyProof,
-} from 'nostr-veil'
-
-const proofVersion = 'v2' as const
-const sourceProfileKind = '0'
-const sourceId = 'source:newsroom-a:case-2026-05'
-const circle = createTrustCircle(editorsAndContacts.map(m => m.pubkey))
-
-const contributions = editorsAndContacts.map((member) =>
-  contributeIdentifierAssertion(
-    circle,
-    sourceId,
-    sourceProfileKind,
-    { rank: member.confidence },
-    member.privateKey,
-    circle.members.indexOf(member.pubkey),
-    { proofVersion },
-  ),
-)
-
-const assertion = aggregateIdentifierContributions(
-  circle,
-  sourceId,
-  sourceProfileKind,
-  contributions,
-  { proofVersion },
-)
-
-const syntax = validateAssertionStrict(assertion)
-const proof = verifyProof(assertion, { requireProofVersion: 'v2' })
-if (!syntax.valid || !proof.valid) throw new Error('invalid source assertion')
-```
+<!-- use-case-example: source-corroboration -->
 
 ## What to verify
 

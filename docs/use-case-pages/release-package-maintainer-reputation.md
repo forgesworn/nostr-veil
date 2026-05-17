@@ -55,44 +55,7 @@ or attacker.
 
 ## Worked example
 
-```ts
-import {
-  aggregateIdentifierContributions,
-  contributeIdentifierAssertion,
-  createTrustCircle,
-  validateAssertionStrict,
-  verifyProof,
-} from 'nostr-veil'
-
-const proofVersion = 'v2' as const
-const softwareProfileKind = '0'
-const packageId = 'npm:nostr-veil@0.14.0'
-const circle = createTrustCircle(securityReviewers.map(r => r.pubkey))
-
-const contributions = securityReviewers.map((reviewer) =>
-  contributeIdentifierAssertion(
-    circle,
-    packageId,
-    softwareProfileKind,
-    { rank: reviewer.releaseSafetyRank },
-    reviewer.privateKey,
-    circle.members.indexOf(reviewer.pubkey),
-    { proofVersion },
-  ),
-)
-
-const assertion = aggregateIdentifierContributions(
-  circle,
-  packageId,
-  softwareProfileKind,
-  contributions,
-  { proofVersion },
-)
-
-const syntax = validateAssertionStrict(assertion)
-const proof = verifyProof(assertion, { requireProofVersion: 'v2' })
-if (!syntax.valid || !proof.valid) throw new Error('invalid package assertion')
-```
+<!-- use-case-example: release-package-maintainer-reputation -->
 
 ## What to verify
 

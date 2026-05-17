@@ -47,44 +47,7 @@ report, moderation item, or fact-check target.
 
 ## Worked example
 
-```ts
-import {
-  aggregateEventContributions,
-  contributeEventAssertion,
-  createTrustCircle,
-  validateAssertionStrict,
-  verifyProof,
-} from 'nostr-veil'
-
-const proofVersion = 'v2' as const
-const claimEventId = 'aa'.repeat(32)
-const circle = createTrustCircle(factCheckers.map(m => m.pubkey))
-
-const contributions = factCheckers.map((checker) =>
-  contributeEventAssertion(
-    circle,
-    claimEventId,
-    {
-      rank: checker.accuracyScore,
-      reaction_cnt: checker.reviewed ? 1 : 0,
-    },
-    checker.privateKey,
-    circle.members.indexOf(checker.pubkey),
-    { proofVersion },
-  ),
-)
-
-const assertion = aggregateEventContributions(
-  circle,
-  claimEventId,
-  contributions,
-  { proofVersion },
-)
-
-const syntax = validateAssertionStrict(assertion)
-const proof = verifyProof(assertion, { requireProofVersion: 'v2' })
-if (!syntax.valid || !proof.valid) throw new Error('invalid claim assertion')
-```
+<!-- use-case-example: event-claim-verification -->
 
 ## What to verify
 

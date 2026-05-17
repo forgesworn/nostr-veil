@@ -57,47 +57,7 @@ marketplace counterparties, or recurring scam patterns.
 This example uses a private identifier profile. It is intentionally not a
 global vendor registry.
 
-```ts
-import {
-  aggregateIdentifierContributions,
-  contributeIdentifierAssertion,
-  createTrustCircle,
-  validateAssertionStrict,
-  verifyProof,
-} from 'nostr-veil'
-
-const proofVersion = 'v2' as const
-const marketplaceProfileKind = '0'
-const vendorId = 'vendor:market.example:alice'
-const circle = createTrustCircle(counterparties.map(c => c.pubkey))
-
-const contributions = counterparties.map((counterparty) =>
-  contributeIdentifierAssertion(
-    circle,
-    vendorId,
-    marketplaceProfileKind,
-    {
-      rank: counterparty.tradeRank,
-      reaction_cnt: counterparty.completedTrades,
-    },
-    counterparty.privateKey,
-    circle.members.indexOf(counterparty.pubkey),
-    { proofVersion },
-  ),
-)
-
-const assertion = aggregateIdentifierContributions(
-  circle,
-  vendorId,
-  marketplaceProfileKind,
-  contributions,
-  { proofVersion },
-)
-
-const syntax = validateAssertionStrict(assertion)
-const proof = verifyProof(assertion, { requireProofVersion: 'v2' })
-if (!syntax.valid || !proof.valid) throw new Error('invalid vendor assertion')
-```
+<!-- use-case-example: vendor-marketplace-signals -->
 
 ## What to verify
 

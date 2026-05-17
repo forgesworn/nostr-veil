@@ -462,38 +462,50 @@
 <ol><li>Decide whether the subject is a proposal event, an addressable proposal record, a milestone, or a maintainer.</li><li>Define whether <code>rank</code> means eligibility, technical confidence, impact, delivery risk, or final funding priority.</li><li>Use proof v2 and verify the expected proposal subject, circle, threshold, and freshness.</li><li>Keep reviewer comments, conflict declarations, and appeals in a companion grant process.</li><li>Treat the aggregate as an auditable review signal unless the fund explicitly chooses automatic decisions.</li></ol>
 <h2 id="worked-example">Worked example</h2>
 <pre><code class="language-ts">import {
+  NIP85_KINDS,
   aggregateAddressableContributions,
   contributeAddressableAssertion,
   createTrustCircle,
-  validateAssertionStrict,
-  verifyProof,
 } from 'nostr-veil'
+import {
+  authorPubkey,
+  defaultMembers,
+  memberIndex,
+  proofVersion,
+  verifyUseCaseAssertion,
+  withCreatedAt,
+} from './_shared.js'
 
-const proofVersion = 'v2' as const
-const proposalAddress = `30023:${applicantPubkey}:grant-2026-q2`
-const circle = createTrustCircle(grantReviewers.map(r =&gt; r.pubkey))
+const slug = 'grant-funding-proposal-review'
+const proposalAddress = `30023:${authorPubkey}:grant-2026-q2`
+const circle = createTrustCircle(defaultMembers.map(member =&gt; member.pub))
 
-const contributions = grantReviewers.map((reviewer) =&gt;
+const contributions = defaultMembers.map((reviewer, index) =&gt;
   contributeAddressableAssertion(
     circle,
     proposalAddress,
-    { rank: reviewer.fundingRank },
-    reviewer.privateKey,
-    circle.members.indexOf(reviewer.pubkey),
+    { rank: 68 + index * 5 },
+    reviewer.priv,
+    memberIndex(circle, reviewer.pub),
     { proofVersion },
   ),
 )
 
-const assertion = aggregateAddressableContributions(
+export const assertion = withCreatedAt(aggregateAddressableContributions(
   circle,
   proposalAddress,
   contributions,
   { proofVersion },
-)
+))
 
-const syntax = validateAssertionStrict(assertion)
-const proof = verifyProof(assertion, { requireProofVersion: 'v2' })
-if (!syntax.valid || !proof.valid) throw new Error('invalid proposal assertion')</code></pre>
+export const result = verifyUseCaseAssertion(slug, assertion, {
+  kind: NIP85_KINDS.ADDRESSABLE,
+  subject: proposalAddress,
+  subjectTag: 'a',
+  circleId: circle.circleId,
+  minDistinctSigners: 3,
+  freshAfter: assertion.created_at - 300,
+})</code></pre>
 <h2>What to verify</h2>
 <ul><li>Strict syntax and a valid proof v2.</li><li>The assertion kind and subject tag match the proposal or milestone currently being evaluated.</li><li>The reviewer circle is approved for this fund, topic, and conflict policy.</li><li><code>proof.distinctSigners</code> meets the funding threshold and the <code>rank</code> meaning is known before ranking proposals.</li><li>The score is current for the proposal revision and not superseded by appeals, conflicts, or milestone evidence.</li></ul>
 <h2>What this proves</h2>

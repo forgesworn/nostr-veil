@@ -51,41 +51,7 @@ communities.
 
 ## Worked example
 
-```ts
-import {
-  aggregateAddressableContributions,
-  contributeAddressableAssertion,
-  createTrustCircle,
-  validateAssertionStrict,
-  verifyProof,
-} from 'nostr-veil'
-
-const proofVersion = 'v2' as const
-const proposalAddress = `30023:${applicantPubkey}:grant-2026-q2`
-const circle = createTrustCircle(grantReviewers.map(r => r.pubkey))
-
-const contributions = grantReviewers.map((reviewer) =>
-  contributeAddressableAssertion(
-    circle,
-    proposalAddress,
-    { rank: reviewer.fundingRank },
-    reviewer.privateKey,
-    circle.members.indexOf(reviewer.pubkey),
-    { proofVersion },
-  ),
-)
-
-const assertion = aggregateAddressableContributions(
-  circle,
-  proposalAddress,
-  contributions,
-  { proofVersion },
-)
-
-const syntax = validateAssertionStrict(assertion)
-const proof = verifyProof(assertion, { requireProofVersion: 'v2' })
-if (!syntax.valid || !proof.valid) throw new Error('invalid proposal assertion')
-```
+<!-- use-case-example: grant-funding-proposal-review -->
 
 ## What to verify
 

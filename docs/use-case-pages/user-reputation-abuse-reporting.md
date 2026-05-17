@@ -52,47 +52,7 @@ Define metric direction before publishing. A practical profile is:
 
 ## Worked example
 
-```ts
-import {
-  aggregateContributions,
-  contributeAssertion,
-  createTrustCircle,
-  validateAssertionStrict,
-  verifyProof,
-} from 'nostr-veil'
-
-const proofVersion = 'v2' as const
-const circle = createTrustCircle(reviewers.map(r => r.pubkey))
-const subjectPubkey = accusedOrRatedUserPubkey
-
-const contributions = reviewers.map((reviewer) =>
-  contributeAssertion(
-    circle,
-    subjectPubkey,
-    {
-      rank: reviewer.trustRank,
-      reports_cnt_recd: reviewer.reportCount,
-    },
-    reviewer.privateKey,
-    circle.members.indexOf(reviewer.pubkey),
-    { proofVersion },
-  ),
-)
-
-const assertion = aggregateContributions(
-  circle,
-  subjectPubkey,
-  contributions,
-  { proofVersion },
-)
-
-const syntax = validateAssertionStrict(assertion)
-const proof = verifyProof(assertion, { requireProofVersion: 'v2' })
-
-if (!syntax.valid || !proof.valid) {
-  throw new Error([...syntax.errors, ...proof.errors].join('; '))
-}
-```
+<!-- use-case-example: user-reputation-abuse-reporting -->
 
 The output is a kind 30382 event with `d`, `p`, metric tags, and `veil-*` proof
 tags. A verifier can see the aggregate score and that distinct circle members

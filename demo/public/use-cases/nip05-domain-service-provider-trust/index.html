@@ -462,41 +462,53 @@
 <ol><li>Canonicalise the identifier before signing: lowercase host names, agreed schemes, punycode handling, and trailing slash rules.</li><li>Decide whether the subject is a domain, a specific NIP-05 name, a payment endpoint, or a service provider.</li><li>Run the underlying service check outside nostr-veil, then publish the threshold-backed assessment.</li><li>Require proof v2 and verify the expected identifier string, <code>k</code> namespace, circle, threshold, and freshness.</li><li>Use expiry because domain ownership and service behaviour can change.</li></ol>
 <h2 id="worked-example">Worked example</h2>
 <pre><code class="language-ts">import {
+  NIP85_KINDS,
   aggregateIdentifierContributions,
   contributeIdentifierAssertion,
   createTrustCircle,
-  validateAssertionStrict,
-  verifyProof,
 } from 'nostr-veil'
+import {
+  defaultMembers,
+  externalProfileKind,
+  memberIndex,
+  proofVersion,
+  verifyUseCaseAssertion,
+  withCreatedAt,
+} from './_shared.js'
 
-const proofVersion = 'v2' as const
-const identityProfileKind = '0'
+const slug = 'nip05-domain-service-provider-trust'
 const domainId = 'nip05:alice@example.com'
-const circle = createTrustCircle(identityReviewers.map(r =&gt; r.pubkey))
+const circle = createTrustCircle(defaultMembers.map(member =&gt; member.pub))
 
-const contributions = identityReviewers.map((reviewer) =&gt;
+const contributions = defaultMembers.map((reviewer, index) =&gt;
   contributeIdentifierAssertion(
     circle,
     domainId,
-    identityProfileKind,
-    { rank: reviewer.identityConfidence },
-    reviewer.privateKey,
-    circle.members.indexOf(reviewer.pubkey),
+    externalProfileKind,
+    { rank: 80 + index * 2 },
+    reviewer.priv,
+    memberIndex(circle, reviewer.pub),
     { proofVersion },
   ),
 )
 
-const assertion = aggregateIdentifierContributions(
+export const assertion = withCreatedAt(aggregateIdentifierContributions(
   circle,
   domainId,
-  identityProfileKind,
+  externalProfileKind,
   contributions,
   { proofVersion },
-)
+))
 
-const syntax = validateAssertionStrict(assertion)
-const proof = verifyProof(assertion, { requireProofVersion: 'v2' })
-if (!syntax.valid || !proof.valid) throw new Error('invalid identity assertion')</code></pre>
+export const result = verifyUseCaseAssertion(slug, assertion, {
+  kind: NIP85_KINDS.IDENTIFIER,
+  subject: domainId,
+  subjectTag: 'k',
+  subjectTagValue: externalProfileKind,
+  circleId: circle.circleId,
+  minDistinctSigners: 3,
+  freshAfter: assertion.created_at - 300,
+})</code></pre>
 <h2>What to verify</h2>
 <ul><li>Strict syntax and a valid proof v2.</li><li>Kind 30385, with <code>d</code> equal to the exact canonical identifier and <code>k</code> equal to the identity/provider profile namespace.</li><li>The circle is trusted for identity or provider review, not merely any reputation circle.</li><li>The assertion is fresh enough for domain or provider risk and has not been superseded by an incident signal.</li><li>The application has independently resolved the underlying NIP-05, DNS, HTTPS, LNURL, or service check when that check matters.</li></ul>
 <h2>What this proves</h2>

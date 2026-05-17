@@ -56,47 +56,7 @@ different decimal namespace if your application needs one.
 
 ## Worked example
 
-```ts
-import {
-  aggregateIdentifierContributions,
-  contributeIdentifierAssertion,
-  createTrustCircle,
-  validateAssertionStrict,
-  verifyProof,
-} from 'nostr-veil'
-
-const proofVersion = 'v2' as const
-const relayProfileKind = '10002'
-const relayId = 'relay:wss://relay.example.com'
-const circle = createTrustCircle(serviceReviewers.map(r => r.pubkey))
-
-const contributions = serviceReviewers.map((reviewer) =>
-  contributeIdentifierAssertion(
-    circle,
-    relayId,
-    relayProfileKind,
-    {
-      rank: reviewer.reliabilityRank,
-      reaction_cnt: reviewer.observationCount,
-    },
-    reviewer.privateKey,
-    circle.members.indexOf(reviewer.pubkey),
-    { proofVersion },
-  ),
-)
-
-const assertion = aggregateIdentifierContributions(
-  circle,
-  relayId,
-  relayProfileKind,
-  contributions,
-  { proofVersion },
-)
-
-const syntax = validateAssertionStrict(assertion)
-const proof = verifyProof(assertion, { requireProofVersion: 'v2' })
-if (!syntax.valid || !proof.valid) throw new Error('invalid relay assertion')
-```
+<!-- use-case-example: relay-service-reputation -->
 
 ## What to verify
 

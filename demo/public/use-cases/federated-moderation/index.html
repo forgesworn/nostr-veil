@@ -462,40 +462,60 @@
 <ol><li>Agree the federation <code>scope</code> before any circle publishes assertions.</li><li>Use the same subject and assertion kind across all participating circles.</li><li>Verify each event independently, then call <code>verifyFederation</code> to count scoped key images once.</li><li>Decide whether every circle must meet its own threshold before the federation-level count is accepted.</li><li>Use isolated circles instead of a shared scope if cross-circle overlap would create unacceptable privacy risk.</li></ol>
 <h2 id="worked-example">Worked example</h2>
 <pre><code class="language-ts">import {
+  NIP85_KINDS,
   aggregateContributions,
   contributeAssertion,
   createTrustCircle,
-  verifyFederation,
 } from 'nostr-veil'
+import {
+  keys,
+  memberIndex,
+  proofVersion,
+  subjectPubkey,
+  verifyFederatedUseCase,
+  withCreatedAt,
+} from './_shared.js'
+import type { TrustCircle } from 'nostr-veil'
 
-const proofVersion = 'v2' as const
+const slug = 'federated-moderation'
 const scope = 'moderation.federation.example'
-const subjectPubkey = reportedUserPubkey
+const circleA = createTrustCircle(keys.slice(0, 3).map(member =&gt; member.pub), { scope })
+const circleB = createTrustCircle(keys.slice(1, 4).map(member =&gt; member.pub), { scope })
 
-const circleA = createTrustCircle(groupA.map(m =&gt; m.pubkey), { scope })
-const circleB = createTrustCircle(groupB.map(m =&gt; m.pubkey), { scope })
-
-function makeEvent(circle, members) {
-  const contributions = members.map((member) =&gt;
+function makeAssertion(circle: TrustCircle, members: typeof keys, offset: number) {
+  const contributions = members.map((member, index) =&gt;
     contributeAssertion(
       circle,
       subjectPubkey,
-      { rank: member.trustRank, reports_cnt_recd: member.reportCount },
-      member.privateKey,
-      circle.members.indexOf(member.pubkey),
+      {
+        rank: offset + index * 5,
+        reports_cnt_recd: index + 1,
+      },
+      member.priv,
+      memberIndex(circle, member.pub),
       { proofVersion },
     ),
   )
 
-  return aggregateContributions(circle, subjectPubkey, contributions, { proofVersion })
+  return withCreatedAt(aggregateContributions(
+    circle,
+    subjectPubkey,
+    contributions,
+    { proofVersion },
+  ))
 }
 
-const eventA = makeEvent(circleA, groupA)
-const eventB = makeEvent(circleB, groupB)
-const federation = verifyFederation([eventA, eventB])
+export const events = [
+  makeAssertion(circleA, keys.slice(0, 3), 30),
+  makeAssertion(circleB, keys.slice(1, 4), 35),
+]
 
-if (!federation.valid) throw new Error(federation.errors.join('; '))
-console.log(federation.distinctSigners, federation.totalSignatures)</code></pre>
+export const result = verifyFederatedUseCase(slug, events, {
+  kind: NIP85_KINDS.USER,
+  subject: subjectPubkey,
+  scope,
+  minDistinctSigners: 4,
+})</code></pre>
 <h2>What to verify</h2>
 <ul><li>Each event verifies independently with <code>verifyProof</code>, using proof v2 for new deployments.</li><li><code>verifyFederation(events).valid</code> is true, with one shared subject and one shared scope.</li><li>Each participating circle is accepted by the federation policy.</li><li>The federation-level <code>distinctSigners</code> count and any per-circle thresholds meet the action threshold.</li><li>Clients understand that repeated scoped key images reveal cross-circle membership overlap for an otherwise anonymous contributor.</li></ul>
 <h2>What this proves</h2>

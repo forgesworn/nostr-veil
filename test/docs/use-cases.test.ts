@@ -1,12 +1,20 @@
+import { execFileSync } from 'node:child_process'
 import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { basename, join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
 const root = process.cwd()
 const docsDir = join(root, 'docs/use-case-pages')
+const exampleDir = join(root, 'examples/use-cases')
 const publicUseCasesDir = join(root, 'demo/public/use-cases')
 
 const readText = (path: string) => readFileSync(path, 'utf8')
+const escapeHtml = (value: string) =>
+  value
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
 
 const slugs = readdirSync(docsDir)
   .filter(file => file.endsWith('.md'))
@@ -72,6 +80,18 @@ describe('public use-case pages', () => {
       }
     }
   })
+
+  it('renders worked examples from the executable example files', () => {
+    for (const slug of slugs) {
+      const page = readText(join(publicUseCasesDir, slug, 'index.html'))
+      const example = readText(join(exampleDir, `${slug}.ts`))
+      const resultLine = example.split('\n').find(line => line.startsWith('export const result'))
+
+      expect(page).not.toContain('use-case-example:')
+      expect(resultLine, `${slug} executable example has no exported result`).toBeDefined()
+      expect(page, `${slug} page does not render the executable example`).toContain(escapeHtml(resultLine!))
+    }
+  })
 })
 
 describe('use-case source pages', () => {
@@ -82,6 +102,31 @@ describe('use-case source pages', () => {
       for (const section of requiredImplementationSections) {
         expect(page, `${slug} is missing ${section}`).toContain(`## ${section}`)
       }
+    }
+  })
+
+  it('references one canonical executable example per use case', () => {
+    for (const slug of slugs) {
+      const page = readText(join(docsDir, `${slug}.md`))
+      const examplePath = join(exampleDir, `${slug}.ts`)
+
+      expect(page, `${slug} does not include its executable example`).toContain(
+        `<!-- use-case-example: ${slug} -->`,
+      )
+      expect(existsSync(examplePath), `${slug} executable example is missing`).toBe(true)
+    }
+  })
+})
+
+describe('executable use-case examples', () => {
+  it('runs the canonical use-case examples', { timeout: 30_000 }, () => {
+    const output = execFileSync('npx', ['tsx', join(root, 'examples/use-cases.ts')], {
+      cwd: root,
+      encoding: 'utf8',
+    })
+
+    for (const slug of slugs) {
+      expect(output).toContain(`${slug}: proof=yes`)
     }
   })
 })

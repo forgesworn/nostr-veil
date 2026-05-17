@@ -463,41 +463,53 @@
 <h2 id="worked-example">Worked example</h2>
 <p>This example uses an app-private identifier namespace. The <code>k</code> value <code>0</code> is a profile choice for this application, not a Nostr-wide registry.</p>
 <pre><code class="language-ts">import {
+  NIP85_KINDS,
   aggregateIdentifierContributions,
   contributeIdentifierAssertion,
   createTrustCircle,
-  validateAssertionStrict,
-  verifyProof,
 } from 'nostr-veil'
+import {
+  defaultMembers,
+  externalProfileKind,
+  memberIndex,
+  proofVersion,
+  verifyUseCaseAssertion,
+  withCreatedAt,
+} from './_shared.js'
 
-const proofVersion = 'v2' as const
-const sourceProfileKind = '0'
+const slug = 'source-corroboration'
 const sourceId = 'source:newsroom-a:case-2026-05'
-const circle = createTrustCircle(editorsAndContacts.map(m =&gt; m.pubkey))
+const circle = createTrustCircle(defaultMembers.map(member =&gt; member.pub))
 
-const contributions = editorsAndContacts.map((member) =&gt;
+const contributions = defaultMembers.map((member, index) =&gt;
   contributeIdentifierAssertion(
     circle,
     sourceId,
-    sourceProfileKind,
-    { rank: member.confidence },
-    member.privateKey,
-    circle.members.indexOf(member.pubkey),
+    externalProfileKind,
+    { rank: 78 + index * 2 },
+    member.priv,
+    memberIndex(circle, member.pub),
     { proofVersion },
   ),
 )
 
-const assertion = aggregateIdentifierContributions(
+export const assertion = withCreatedAt(aggregateIdentifierContributions(
   circle,
   sourceId,
-  sourceProfileKind,
+  externalProfileKind,
   contributions,
   { proofVersion },
-)
+))
 
-const syntax = validateAssertionStrict(assertion)
-const proof = verifyProof(assertion, { requireProofVersion: 'v2' })
-if (!syntax.valid || !proof.valid) throw new Error('invalid source assertion')</code></pre>
+export const result = verifyUseCaseAssertion(slug, assertion, {
+  kind: NIP85_KINDS.IDENTIFIER,
+  subject: sourceId,
+  subjectTag: 'k',
+  subjectTagValue: externalProfileKind,
+  circleId: circle.circleId,
+  minDistinctSigners: 3,
+  freshAfter: assertion.created_at - 300,
+})</code></pre>
 <h2>What to verify</h2>
 <ul><li>Strict syntax and a valid proof v2.</li><li>The event kind matches the subject route: 30382 for a pubkey or 30385 for an identifier.</li><li><code>d</code> equals the exact source id being evaluated, and <code>p</code> or <code>k</code> matches the selected route.</li><li>The reviewer ring is an accepted editorial circle and the threshold meets the desk's policy.</li><li>The score is fresh for the reporting decision and is not being reused for a different case, source, or claim.</li></ul>
 <h2>What this proves</h2>

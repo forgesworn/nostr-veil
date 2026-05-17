@@ -50,41 +50,7 @@ event that another client, relay, or community can use as an input to policy.
 
 ## Worked example
 
-```ts
-import {
-  aggregateContributions,
-  contributeAssertion,
-  createTrustCircle,
-  validateAssertionStrict,
-  verifyProof,
-} from 'nostr-veil'
-
-const proofVersion = 'v2' as const
-const candidatePubkey = newMemberPubkey
-const circle = createTrustCircle(existingMembers.map(m => m.pubkey))
-
-const contributions = existingMembers.map((member) =>
-  contributeAssertion(
-    circle,
-    candidatePubkey,
-    { rank: member.admissionConfidence },
-    member.privateKey,
-    circle.members.indexOf(member.pubkey),
-    { proofVersion },
-  ),
-)
-
-const assertion = aggregateContributions(
-  circle,
-  candidatePubkey,
-  contributions,
-  { proofVersion },
-)
-
-const syntax = validateAssertionStrict(assertion)
-const proof = verifyProof(assertion, { requireProofVersion: 'v2' })
-const accepted = syntax.valid && proof.valid && proof.distinctSigners >= 3
-```
+<!-- use-case-example: privacy-preserving-onboarding -->
 
 ## What to verify
 

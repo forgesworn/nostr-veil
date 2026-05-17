@@ -52,44 +52,7 @@ publishing a graph of everyone who reviews labelers, lists, or filter feeds.
 
 ## Worked example
 
-```ts
-import {
-  aggregateAddressableContributions,
-  contributeAddressableAssertion,
-  createTrustCircle,
-  validateAssertionStrict,
-  verifyProof,
-} from 'nostr-veil'
-
-const proofVersion = 'v2' as const
-const listAddress = `30000:${listAuthorPubkey}:trusted-relays`
-const circle = createTrustCircle(curators.map(c => c.pubkey))
-
-const contributions = curators.map((curator) =>
-  contributeAddressableAssertion(
-    circle,
-    listAddress,
-    {
-      rank: curator.listQualityRank,
-      reaction_cnt: curator.itemsReviewed,
-    },
-    curator.privateKey,
-    circle.members.indexOf(curator.pubkey),
-    { proofVersion },
-  ),
-)
-
-const assertion = aggregateAddressableContributions(
-  circle,
-  listAddress,
-  contributions,
-  { proofVersion },
-)
-
-const syntax = validateAssertionStrict(assertion)
-const proof = verifyProof(assertion, { requireProofVersion: 'v2' })
-if (!syntax.valid || !proof.valid) throw new Error('invalid list assertion')
-```
+<!-- use-case-example: list-labeler-moderation-list-reputation -->
 
 ## What to verify
 

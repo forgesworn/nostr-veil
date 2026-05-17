@@ -462,38 +462,50 @@
 <ol><li>Publish a threshold-backed vouch assertion about the candidate pubkey.</li><li>Have the relay or community verify the expected circle, threshold, subject, and freshness.</li><li>Apply ordinary access policy based on that verified assertion.</li><li>Keep transport privacy, account creation, session continuity, revocation, and abuse handling outside nostr-veil until a full admission profile exists.</li></ol>
 <h2 id="worked-example">Worked example for today's building block</h2>
 <pre><code class="language-ts">import {
+  NIP85_KINDS,
   aggregateContributions,
   contributeAssertion,
   createTrustCircle,
-  validateAssertionStrict,
-  verifyProof,
 } from 'nostr-veil'
+import {
+  defaultMembers,
+  memberIndex,
+  proofVersion,
+  subjectPubkey,
+  verifyUseCaseAssertion,
+  withCreatedAt,
+} from './_shared.js'
 
-const proofVersion = 'v2' as const
-const candidatePubkey = applicantPubkey
-const circle = createTrustCircle(admissionMembers.map(m =&gt; m.pubkey))
+const slug = 'relay-community-admission'
+const applicantPubkey = subjectPubkey
+const circle = createTrustCircle(defaultMembers.map(member =&gt; member.pub))
 
-const contributions = admissionMembers.map((member) =&gt;
+const contributions = defaultMembers.map((member, index) =&gt;
   contributeAssertion(
     circle,
-    candidatePubkey,
-    { rank: member.admissionConfidence },
-    member.privateKey,
-    circle.members.indexOf(member.pubkey),
+    applicantPubkey,
+    { rank: 91 + index },
+    member.priv,
+    memberIndex(circle, member.pub),
     { proofVersion },
   ),
 )
 
-const assertion = aggregateContributions(
+export const assertion = withCreatedAt(aggregateContributions(
   circle,
-  candidatePubkey,
+  applicantPubkey,
   contributions,
   { proofVersion },
-)
+))
 
-const syntax = validateAssertionStrict(assertion)
-const proof = verifyProof(assertion, { requireProofVersion: 'v2' })
-const canApplyPolicy = syntax.valid &amp;&amp; proof.valid &amp;&amp; proof.distinctSigners &gt;= 3</code></pre>
+export const result = verifyUseCaseAssertion(slug, assertion, {
+  kind: NIP85_KINDS.USER,
+  subject: applicantPubkey,
+  subjectTag: 'p',
+  circleId: circle.circleId,
+  minDistinctSigners: 3,
+  freshAfter: assertion.created_at - 300,
+})</code></pre>
 <h2>What to verify</h2>
 <ul><li>Today: strict syntax and a valid proof v2.</li><li>Kind 30382, with <code>d</code> and <code>p</code> equal to the applicant pubkey.</li><li>The admission circle is accepted by the relay or community and has enough distinct signers.</li><li>The vouch is fresh, not revoked, and has a documented <code>rank</code> meaning.</li><li>For full anonymous admission, also verify the admission challenge, replay protection, session binding, and transport requirements defined by the future profile.</li></ul>
 <h2>What this proves today</h2>

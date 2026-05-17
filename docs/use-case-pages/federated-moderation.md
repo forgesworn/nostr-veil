@@ -50,43 +50,7 @@ members who appear in more than one circle.
 
 ## Worked example
 
-```ts
-import {
-  aggregateContributions,
-  contributeAssertion,
-  createTrustCircle,
-  verifyFederation,
-} from 'nostr-veil'
-
-const proofVersion = 'v2' as const
-const scope = 'moderation.federation.example'
-const subjectPubkey = reportedUserPubkey
-
-const circleA = createTrustCircle(groupA.map(m => m.pubkey), { scope })
-const circleB = createTrustCircle(groupB.map(m => m.pubkey), { scope })
-
-function makeEvent(circle, members) {
-  const contributions = members.map((member) =>
-    contributeAssertion(
-      circle,
-      subjectPubkey,
-      { rank: member.trustRank, reports_cnt_recd: member.reportCount },
-      member.privateKey,
-      circle.members.indexOf(member.pubkey),
-      { proofVersion },
-    ),
-  )
-
-  return aggregateContributions(circle, subjectPubkey, contributions, { proofVersion })
-}
-
-const eventA = makeEvent(circleA, groupA)
-const eventB = makeEvent(circleB, groupB)
-const federation = verifyFederation([eventA, eventB])
-
-if (!federation.valid) throw new Error(federation.errors.join('; '))
-console.log(federation.distinctSigners, federation.totalSignatures)
-```
+<!-- use-case-example: federated-moderation -->
 
 ## What to verify
 

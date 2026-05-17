@@ -51,44 +51,7 @@ grant applications, proposals, and other NIP-33-style records.
 
 ## Worked example
 
-```ts
-import {
-  aggregateAddressableContributions,
-  contributeAddressableAssertion,
-  createTrustCircle,
-  validateAssertionStrict,
-  verifyProof,
-} from 'nostr-veil'
-
-const proofVersion = 'v2' as const
-const articleAddress = `30023:${authorPubkey}:paper-2026-05`
-const circle = createTrustCircle(reviewers.map(r => r.pubkey))
-
-const contributions = reviewers.map((reviewer) =>
-  contributeAddressableAssertion(
-    circle,
-    articleAddress,
-    {
-      rank: reviewer.reviewScore,
-      comment_cnt: reviewer.substantiveComments,
-    },
-    reviewer.privateKey,
-    circle.members.indexOf(reviewer.pubkey),
-    { proofVersion },
-  ),
-)
-
-const assertion = aggregateAddressableContributions(
-  circle,
-  articleAddress,
-  contributions,
-  { proofVersion },
-)
-
-const syntax = validateAssertionStrict(assertion)
-const proof = verifyProof(assertion, { requireProofVersion: 'v2' })
-if (!syntax.valid || !proof.valid) throw new Error('invalid review assertion')
-```
+<!-- use-case-example: article-research-review -->
 
 ## What to verify
 

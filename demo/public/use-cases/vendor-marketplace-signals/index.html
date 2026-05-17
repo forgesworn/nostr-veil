@@ -463,44 +463,56 @@
 <h2 id="worked-example">Worked example</h2>
 <p>This example uses a private identifier profile. It is intentionally not a global vendor registry.</p>
 <pre><code class="language-ts">import {
+  NIP85_KINDS,
   aggregateIdentifierContributions,
   contributeIdentifierAssertion,
   createTrustCircle,
-  validateAssertionStrict,
-  verifyProof,
 } from 'nostr-veil'
+import {
+  defaultMembers,
+  externalProfileKind,
+  memberIndex,
+  proofVersion,
+  verifyUseCaseAssertion,
+  withCreatedAt,
+} from './_shared.js'
 
-const proofVersion = 'v2' as const
-const marketplaceProfileKind = '0'
+const slug = 'vendor-marketplace-signals'
 const vendorId = 'vendor:market.example:alice'
-const circle = createTrustCircle(counterparties.map(c =&gt; c.pubkey))
+const circle = createTrustCircle(defaultMembers.map(member =&gt; member.pub))
 
-const contributions = counterparties.map((counterparty) =&gt;
+const contributions = defaultMembers.map((counterparty, index) =&gt;
   contributeIdentifierAssertion(
     circle,
     vendorId,
-    marketplaceProfileKind,
+    externalProfileKind,
     {
-      rank: counterparty.tradeRank,
-      reaction_cnt: counterparty.completedTrades,
+      rank: 62 + index * 4,
+      reaction_cnt: index + 1,
     },
-    counterparty.privateKey,
-    circle.members.indexOf(counterparty.pubkey),
+    counterparty.priv,
+    memberIndex(circle, counterparty.pub),
     { proofVersion },
   ),
 )
 
-const assertion = aggregateIdentifierContributions(
+export const assertion = withCreatedAt(aggregateIdentifierContributions(
   circle,
   vendorId,
-  marketplaceProfileKind,
+  externalProfileKind,
   contributions,
   { proofVersion },
-)
+))
 
-const syntax = validateAssertionStrict(assertion)
-const proof = verifyProof(assertion, { requireProofVersion: 'v2' })
-if (!syntax.valid || !proof.valid) throw new Error('invalid vendor assertion')</code></pre>
+export const result = verifyUseCaseAssertion(slug, assertion, {
+  kind: NIP85_KINDS.IDENTIFIER,
+  subject: vendorId,
+  subjectTag: 'k',
+  subjectTagValue: externalProfileKind,
+  circleId: circle.circleId,
+  minDistinctSigners: 3,
+  freshAfter: assertion.created_at - 300,
+})</code></pre>
 <h2>What to verify</h2>
 <ul><li>Strict syntax and a valid proof v2.</li><li>The assertion route matches the marketplace subject: <code>p</code> for Nostr pubkeys or <code>k</code> for marketplace identifiers.</li><li>The counterparty-review circle is trusted for this market and has enough distinct signers for the value at risk.</li><li>The <code>rank</code> meaning matches the UI action: warning, escrow requirement, search ranking, suspension, or manual review.</li><li>The assertion is fresh and not superseded by a dispute resolution, recovery assertion, or fraud incident.</li></ul>
 <h2>What this proves</h2>

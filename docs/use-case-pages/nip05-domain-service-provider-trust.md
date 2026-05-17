@@ -51,44 +51,7 @@ payment endpoint, or other service identifier outside a single Nostr pubkey.
 
 ## Worked example
 
-```ts
-import {
-  aggregateIdentifierContributions,
-  contributeIdentifierAssertion,
-  createTrustCircle,
-  validateAssertionStrict,
-  verifyProof,
-} from 'nostr-veil'
-
-const proofVersion = 'v2' as const
-const identityProfileKind = '0'
-const domainId = 'nip05:alice@example.com'
-const circle = createTrustCircle(identityReviewers.map(r => r.pubkey))
-
-const contributions = identityReviewers.map((reviewer) =>
-  contributeIdentifierAssertion(
-    circle,
-    domainId,
-    identityProfileKind,
-    { rank: reviewer.identityConfidence },
-    reviewer.privateKey,
-    circle.members.indexOf(reviewer.pubkey),
-    { proofVersion },
-  ),
-)
-
-const assertion = aggregateIdentifierContributions(
-  circle,
-  domainId,
-  identityProfileKind,
-  contributions,
-  { proofVersion },
-)
-
-const syntax = validateAssertionStrict(assertion)
-const proof = verifyProof(assertion, { requireProofVersion: 'v2' })
-if (!syntax.valid || !proof.valid) throw new Error('invalid identity assertion')
-```
+<!-- use-case-example: nip05-domain-service-provider-trust -->
 
 ## What to verify
 

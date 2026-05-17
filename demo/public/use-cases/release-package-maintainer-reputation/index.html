@@ -462,41 +462,53 @@
 <ol><li>Decide the exact subject: package name, package version, tarball digest, repository commit, release artefact, or maintainer identity.</li><li>Canonicalise that subject before signing so every reviewer scores the same string.</li><li>Define what <code>rank</code> means: safety, audit confidence, maintenance confidence, compromise suspicion, or release readiness.</li><li>Require proof v2, then verify the expected identifier, namespace, circle, threshold, and freshness.</li><li>Combine the score with provenance, signatures, SBOMs, reproducible builds, CI, and human audit results.</li></ol>
 <h2 id="worked-example">Worked example</h2>
 <pre><code class="language-ts">import {
+  NIP85_KINDS,
   aggregateIdentifierContributions,
   contributeIdentifierAssertion,
   createTrustCircle,
-  validateAssertionStrict,
-  verifyProof,
 } from 'nostr-veil'
+import {
+  defaultMembers,
+  externalProfileKind,
+  memberIndex,
+  proofVersion,
+  verifyUseCaseAssertion,
+  withCreatedAt,
+} from './_shared.js'
 
-const proofVersion = 'v2' as const
-const softwareProfileKind = '0'
+const slug = 'release-package-maintainer-reputation'
 const packageId = 'npm:nostr-veil@0.14.0'
-const circle = createTrustCircle(securityReviewers.map(r =&gt; r.pubkey))
+const circle = createTrustCircle(defaultMembers.map(member =&gt; member.pub))
 
-const contributions = securityReviewers.map((reviewer) =&gt;
+const contributions = defaultMembers.map((reviewer, index) =&gt;
   contributeIdentifierAssertion(
     circle,
     packageId,
-    softwareProfileKind,
-    { rank: reviewer.releaseSafetyRank },
-    reviewer.privateKey,
-    circle.members.indexOf(reviewer.pubkey),
+    externalProfileKind,
+    { rank: 86 + index },
+    reviewer.priv,
+    memberIndex(circle, reviewer.pub),
     { proofVersion },
   ),
 )
 
-const assertion = aggregateIdentifierContributions(
+export const assertion = withCreatedAt(aggregateIdentifierContributions(
   circle,
   packageId,
-  softwareProfileKind,
+  externalProfileKind,
   contributions,
   { proofVersion },
-)
+))
 
-const syntax = validateAssertionStrict(assertion)
-const proof = verifyProof(assertion, { requireProofVersion: 'v2' })
-if (!syntax.valid || !proof.valid) throw new Error('invalid package assertion')</code></pre>
+export const result = verifyUseCaseAssertion(slug, assertion, {
+  kind: NIP85_KINDS.IDENTIFIER,
+  subject: packageId,
+  subjectTag: 'k',
+  subjectTagValue: externalProfileKind,
+  circleId: circle.circleId,
+  minDistinctSigners: 3,
+  freshAfter: assertion.created_at - 300,
+})</code></pre>
 <h2>What to verify</h2>
 <ul><li>Strict syntax and a valid proof v2.</li><li>Kind 30385, with <code>d</code> equal to the canonical package, release, digest, commit, or maintainer subject and <code>k</code> equal to the software-review namespace.</li><li>The <code>veil-ring</code> matches an accepted reviewer circle with the right expertise and independence for the package class.</li><li>The threshold, freshness, and <code>rank</code> meaning match the consuming policy.</li><li>The external artefact checks still pass: registry metadata, digest, signature, provenance, SBOM, CI, and any required audit evidence.</li></ul>
 <h2>What this proves</h2>

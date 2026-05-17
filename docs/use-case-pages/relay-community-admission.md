@@ -46,41 +46,7 @@ separate access handshake and transport privacy.
 
 ## Worked example for today's building block
 
-```ts
-import {
-  aggregateContributions,
-  contributeAssertion,
-  createTrustCircle,
-  validateAssertionStrict,
-  verifyProof,
-} from 'nostr-veil'
-
-const proofVersion = 'v2' as const
-const candidatePubkey = applicantPubkey
-const circle = createTrustCircle(admissionMembers.map(m => m.pubkey))
-
-const contributions = admissionMembers.map((member) =>
-  contributeAssertion(
-    circle,
-    candidatePubkey,
-    { rank: member.admissionConfidence },
-    member.privateKey,
-    circle.members.indexOf(member.pubkey),
-    { proofVersion },
-  ),
-)
-
-const assertion = aggregateContributions(
-  circle,
-  candidatePubkey,
-  contributions,
-  { proofVersion },
-)
-
-const syntax = validateAssertionStrict(assertion)
-const proof = verifyProof(assertion, { requireProofVersion: 'v2' })
-const canApplyPolicy = syntax.valid && proof.valid && proof.distinctSigners >= 3
-```
+<!-- use-case-example: relay-community-admission -->
 
 ## What to verify
 

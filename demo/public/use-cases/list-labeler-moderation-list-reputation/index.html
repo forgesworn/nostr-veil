@@ -462,41 +462,53 @@
 <ol><li>Decide whether the subject is the list event, the list author, the labeler service, or an external feed.</li><li>Define what <code>rank</code> measures: accuracy, coverage, abuse resistance, freshness, political alignment, or operational reliability.</li><li>Use proof v2 and verify the expected subject, circle, namespace or address, threshold, and freshness.</li><li>Score list revisions separately when the contents materially change, or publish an expiry policy for living lists.</li><li>Let clients combine several circle scores instead of treating one list score as universal truth.</li></ol>
 <h2 id="worked-example">Worked example</h2>
 <pre><code class="language-ts">import {
+  NIP85_KINDS,
   aggregateAddressableContributions,
   contributeAddressableAssertion,
   createTrustCircle,
-  validateAssertionStrict,
-  verifyProof,
 } from 'nostr-veil'
+import {
+  authorPubkey,
+  defaultMembers,
+  memberIndex,
+  proofVersion,
+  verifyUseCaseAssertion,
+  withCreatedAt,
+} from './_shared.js'
 
-const proofVersion = 'v2' as const
-const listAddress = `30000:${listAuthorPubkey}:trusted-relays`
-const circle = createTrustCircle(curators.map(c =&gt; c.pubkey))
+const slug = 'list-labeler-moderation-list-reputation'
+const listAddress = `30000:${authorPubkey}:trusted-relays`
+const circle = createTrustCircle(defaultMembers.map(member =&gt; member.pub))
 
-const contributions = curators.map((curator) =&gt;
+const contributions = defaultMembers.map((curator, index) =&gt;
   contributeAddressableAssertion(
     circle,
     listAddress,
     {
-      rank: curator.listQualityRank,
-      reaction_cnt: curator.itemsReviewed,
+      rank: 76 + index * 3,
+      reaction_cnt: index + 1,
     },
-    curator.privateKey,
-    circle.members.indexOf(curator.pubkey),
+    curator.priv,
+    memberIndex(circle, curator.pub),
     { proofVersion },
   ),
 )
 
-const assertion = aggregateAddressableContributions(
+export const assertion = withCreatedAt(aggregateAddressableContributions(
   circle,
   listAddress,
   contributions,
   { proofVersion },
-)
+))
 
-const syntax = validateAssertionStrict(assertion)
-const proof = verifyProof(assertion, { requireProofVersion: 'v2' })
-if (!syntax.valid || !proof.valid) throw new Error('invalid list assertion')</code></pre>
+export const result = verifyUseCaseAssertion(slug, assertion, {
+  kind: NIP85_KINDS.ADDRESSABLE,
+  subject: listAddress,
+  subjectTag: 'a',
+  circleId: circle.circleId,
+  minDistinctSigners: 3,
+  freshAfter: assertion.created_at - 300,
+})</code></pre>
 <h2>What to verify</h2>
 <ul><li>Strict syntax and a valid proof v2.</li><li>The assertion kind and subject tag match the object the client is about to use: <code>a</code> for addressable lists, <code>p</code> for operators, or <code>k</code> for external feeds.</li><li>The curator circle is trusted for this curation domain and the threshold is high enough for the action.</li><li>The list or labeler revision being used is the one that was reviewed, or the profile explicitly allows living-list inheritance.</li><li>The metric direction is known before comparing scores across circles.</li></ul>
 <h2>What this proves</h2>
