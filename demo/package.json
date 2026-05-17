@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "prebuild": "node ../scripts/build-use-case-pages.mjs",
     "dev": "vite",
     "build": "vite build"
   },

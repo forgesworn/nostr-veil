@@ -293,6 +293,11 @@
       padding: 22px;
     }
     .contract-card h3 { font-size: 22px; line-height: 1.18; }
+    .contract-card p {
+      margin-top: 12px;
+      color: #b7c5cc;
+      font-size: 14px;
+    }
     .contract-card ul {
       display: grid;
       gap: 11px;
@@ -578,7 +583,7 @@
           </p>
           <div class="hero-actions">
             <a class="button primary" href="#atlas">Open the atlas</a>
-            <a class="button" href="https://github.com/forgesworn/nostr-veil/blob/main/docs/use-cases.md">Field guide</a>
+            <a class="button" href="./user-reputation-abuse-reporting/">Start with a worked example</a>
             <a class="button" href="https://github.com/forgesworn/nostr-veil/blob/main/examples/use-cases.ts">Runnable examples</a>
           </div>
         </div>
@@ -651,41 +656,41 @@
         <div class="section-head">
           <div>
             <span class="eyebrow">Proof contract</span>
-            <h2>Keep the cryptographic promise narrow and useful.</h2>
+            <h2>The implementation decisions are explicit.</h2>
           </div>
           <p>
-            nostr-veil gives applications a privacy-preserving threshold
-            signal. The surrounding workflow decides what evidence, policy,
-            expiry, and enforcement make that signal safe to use.
+            Each worked page shows the concrete subject, helper, metric,
+            verifier checks, and operational controls. This section is the
+            short checklist that keeps those implementations consistent.
           </p>
         </div>
 
         <div class="contract-grid">
           <article class="contract-card">
-            <h3>The proof verifies</h3>
+            <h3>1. Canonicalise the subject</h3>
+            <p>Why: proof v2 binds the exact kind and subject hint. If two clients score different strings, they are not scoring the same thing.</p>
             <ul>
-              <li>Each contribution came from some member of the published circle.</li>
-              <li>Distinct contributors are counted once for the same circle, subject, and scope.</li>
-              <li>The published aggregate matches the signed contribution messages.</li>
-              <li>Proof v2 binds the assertion kind and subject hint.</li>
+              <li>Use kind 30382 for a pubkey, 30383 for an event id, 30384 for a NIP-33 address, and 30385 for external identifiers.</li>
+              <li>Define identifier normalisation before signing: domains, relays, packages, releases, vendors, and maintainers all need stable strings.</li>
+              <li>Prefer digest-bound package or release identifiers when the exact artefact matters.</li>
             </ul>
           </article>
           <article class="contract-card policy">
-            <h3>The application decides</h3>
+            <h3>2. Publish verifier policy</h3>
+            <p>Why: the cryptography proves distinct circle members signed. The client still needs to know which circle and threshold are authoritative.</p>
             <ul>
-              <li>Circle admission, rotation, independence, and Sybil policy.</li>
-              <li>Evidence handling, appeals, reviewer criteria, and disputes.</li>
-              <li>Identifier canonicalisation for domains, packages, relays, and vendors.</li>
-              <li>Expiry, revocation, freshness, and incident response.</li>
+              <li>State the accepted circle ID, member admission rules, minimum threshold, and freshness window.</li>
+              <li>Define what <code>rank</code> means for this profile before contributors sign.</li>
+              <li>Choose the evidence or audit process that contributors must complete before adding a score.</li>
             </ul>
           </article>
           <article class="contract-card verify">
-            <h3>The verifier checks</h3>
+            <h3>3. Verify before action</h3>
+            <p>Why: NIP-85 tags are just event data until the client checks syntax, proof validity, subject binding, and local policy.</p>
             <ul>
-              <li>Strict NIP-85 syntax before relying on the event.</li>
-              <li><code>verifyProof(event, { requireProofVersion: 'v2' })</code> for new subject-bound workflows.</li>
-              <li>The expected circle, threshold, metric meaning, and policy action.</li>
-              <li>Federation scope when multiple circles are combined.</li>
+              <li>Run <code>validateAssertionStrict(event)</code> and reject malformed assertions.</li>
+              <li>Run <code>verifyProof(event, { requireProofVersion: 'v2' })</code> for new subject-bound workflows.</li>
+              <li>Check expected subject, circle, threshold, metric meaning, freshness, and federation scope before applying policy.</li>
             </ul>
           </article>
         </div>
@@ -706,7 +711,7 @@
             </p>
           </div>
           <div class="example-actions">
-            <a class="button light" href="https://github.com/forgesworn/nostr-veil/blob/main/docs/use-cases.md">Open the field guide</a>
+            <a class="button light" href="#atlas">Browse all profiles</a>
             <a class="button light" href="https://github.com/forgesworn/nostr-veil/blob/main/examples/use-cases.ts">Open the script</a>
           </div>
         </div>
@@ -758,7 +763,7 @@
                   </div>
                   <div class="requirement">Requires evidence workflow, appeals, circle admission, and timing-safe collection.</div>
                   <div class="case-links">
-                    <a href="https://github.com/forgesworn/nostr-veil/blob/main/docs/use-case-pages/user-reputation-abuse-reporting.md">Worked example</a>
+                    <a href="./user-reputation-abuse-reporting/">Worked example</a>
                   </div>
                 </article>
 
@@ -775,7 +780,7 @@
                   </div>
                   <div class="requirement">Requires admission policy, expiry, revocation, threshold rules, and post-admission moderation.</div>
                   <div class="case-links">
-                    <a href="https://github.com/forgesworn/nostr-veil/blob/main/docs/use-case-pages/privacy-preserving-onboarding.md">Worked example</a>
+                    <a href="./privacy-preserving-onboarding/">Worked example</a>
                   </div>
                 </article>
               </div>
@@ -800,7 +805,7 @@
                   </div>
                   <div class="requirement">Requires editorial verification, secure contact handling, identifier hygiene, and operational security.</div>
                   <div class="case-links">
-                    <a href="https://github.com/forgesworn/nostr-veil/blob/main/docs/use-case-pages/source-corroboration.md">Worked example</a>
+                    <a href="./source-corroboration/">Worked example</a>
                   </div>
                 </article>
 
@@ -817,7 +822,7 @@
                   </div>
                   <div class="requirement">Requires methodology, evidence links, correction events, and supersession rules.</div>
                   <div class="case-links">
-                    <a href="https://github.com/forgesworn/nostr-veil/blob/main/docs/use-case-pages/event-claim-verification.md">Worked example</a>
+                    <a href="./event-claim-verification/">Worked example</a>
                   </div>
                 </article>
 
@@ -834,7 +839,7 @@
                   </div>
                   <div class="requirement">Requires review criteria, conflict rules, revision policy, and optional review notes.</div>
                   <div class="case-links">
-                    <a href="https://github.com/forgesworn/nostr-veil/blob/main/docs/use-case-pages/article-research-review.md">Worked example</a>
+                    <a href="./article-research-review/">Worked example</a>
                   </div>
                 </article>
               </div>
@@ -859,7 +864,7 @@
                   </div>
                   <div class="requirement">Requires monitoring, service canonicalisation, expiry, and incident reports.</div>
                   <div class="case-links">
-                    <a href="https://github.com/forgesworn/nostr-veil/blob/main/docs/use-case-pages/relay-service-reputation.md">Worked example</a>
+                    <a href="./relay-service-reputation/">Worked example</a>
                   </div>
                 </article>
 
@@ -876,7 +881,7 @@
                   </div>
                   <div class="requirement">Requires DNS, HTTPS, NIP-05 resolution, canonicalisation, expiry, and provider checks.</div>
                   <div class="case-links">
-                    <a href="https://github.com/forgesworn/nostr-veil/blob/main/docs/use-case-pages/nip05-domain-service-provider-trust.md">Worked example</a>
+                    <a href="./nip05-domain-service-provider-trust/">Worked example</a>
                   </div>
                 </article>
 
@@ -893,7 +898,7 @@
                   </div>
                   <div class="requirement">Requires spot checks, list revision policy, freshness, and separate operator scoring.</div>
                   <div class="case-links">
-                    <a href="https://github.com/forgesworn/nostr-veil/blob/main/docs/use-case-pages/list-labeler-moderation-list-reputation.md">Worked example</a>
+                    <a href="./list-labeler-moderation-list-reputation/">Worked example</a>
                   </div>
                 </article>
 
@@ -910,7 +915,7 @@
                   </div>
                   <div class="requirement">Requires provenance, signatures, SBOMs, reproducible builds, CI, and audit policy.</div>
                   <div class="case-links">
-                    <a href="https://github.com/forgesworn/nostr-veil/blob/main/docs/use-case-pages/release-package-maintainer-reputation.md">Worked example</a>
+                    <a href="./release-package-maintainer-reputation/">Worked example</a>
                   </div>
                 </article>
               </div>
@@ -935,7 +940,7 @@
                   </div>
                   <div class="requirement">Requires dispute handling, refunds, evidence rules, identity checks, and recovery policy.</div>
                   <div class="case-links">
-                    <a href="https://github.com/forgesworn/nostr-veil/blob/main/docs/use-case-pages/vendor-marketplace-signals.md">Worked example</a>
+                    <a href="./vendor-marketplace-signals/">Worked example</a>
                   </div>
                 </article>
               </div>
@@ -960,7 +965,7 @@
                   </div>
                   <div class="requirement">Requires scope governance, overlap-risk review, disagreement policy, and federation membership rules.</div>
                   <div class="case-links">
-                    <a href="https://github.com/forgesworn/nostr-veil/blob/main/docs/use-case-pages/federated-moderation.md">Worked example</a>
+                    <a href="./federated-moderation/">Worked example</a>
                   </div>
                 </article>
 
@@ -977,7 +982,7 @@
                   </div>
                   <div class="requirement">Requires reviewer criteria, conflict declarations, appeals, and milestone checks.</div>
                   <div class="case-links">
-                    <a href="https://github.com/forgesworn/nostr-veil/blob/main/docs/use-case-pages/grant-funding-proposal-review.md">Worked example</a>
+                    <a href="./grant-funding-proposal-review/">Worked example</a>
                   </div>
                 </article>
               </div>
@@ -1002,7 +1007,7 @@
                   </div>
                   <div class="requirement">Requires holder binding, selective disclosure, presentation, expiry, and revocation.</div>
                   <div class="case-links">
-                    <a href="https://github.com/forgesworn/nostr-veil/blob/main/docs/use-case-pages/anonymous-credential-attestation-cosigning.md">Profile sketch</a>
+                    <a href="./anonymous-credential-attestation-cosigning/">Profile sketch</a>
                   </div>
                 </article>
 
@@ -1019,7 +1024,7 @@
                   </div>
                   <div class="requirement">Requires transport privacy, session continuity, expiry, bans, and replay protection.</div>
                   <div class="case-links">
-                    <a href="https://github.com/forgesworn/nostr-veil/blob/main/docs/use-case-pages/relay-community-admission.md">Profile sketch</a>
+                    <a href="./relay-community-admission/">Profile sketch</a>
                   </div>
                 </article>
               </div>
@@ -1044,7 +1049,7 @@
         <a href="../">Live demo</a>
         <a href="https://github.com/forgesworn/nostr-veil">GitHub repository</a>
         <a href="https://www.npmjs.com/package/nostr-veil">npm package</a>
-        <a href="https://github.com/forgesworn/nostr-veil/blob/main/docs/use-cases.md">Use-case guide</a>
+        <a href="./">Use-case guide</a>
       </div>
       <div class="footer-col">
         <h4>Companion libraries</h4>

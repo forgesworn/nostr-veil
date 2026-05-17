@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Event and claim verification | nostr-veil use cases</title>
+  <meta name="description" content="Use this when the subject is a specific Nostr event: a claim, announcement, report, moderation item, or fact-check target." />
+  <meta property="og:type" content="article" />
+  <meta property="og:title" content="Event and claim verification" />
+  <meta property="og:description" content="Use this when the subject is a specific Nostr event: a claim, announcement, report, moderation item, or fact-check target." />
+  <meta property="og:image" content="https://raw.githubusercontent.com/forgesworn/nostr-veil/main/social-preview.png" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='9' fill='none' stroke='%2340c7aa' stroke-width='3'/></svg>" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --ink: #111820;
+      --ink-2: #2b3844;
+      --muted: #627180;
+      --paper: #f7f8f5;
+      --paper-2: #eef2ed;
+      --white: #ffffff;
+      --line: #d9e0db;
+      --line-strong: #b7c4bc;
+      --dark: #07100f;
+      --dark-line: #213238;
+      --mint: #40c7aa;
+      --mint-dark: #0e7462;
+      --blue: #3d6fd9;
+      --shadow: 0 24px 70px rgba(17, 24, 32, 0.14);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      min-height: 100vh;
+      background:
+        linear-gradient(rgba(17, 24, 32, 0.035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(17, 24, 32, 0.035) 1px, transparent 1px),
+        var(--paper);
+      background-size: 36px 36px, 36px 36px, auto;
+      color: var(--ink);
+      font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.62;
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
+    }
+    a { color: inherit; text-decoration: none; }
+    a:hover { text-decoration: underline; text-underline-offset: 3px; }
+    code, pre, .mono { font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .wrap { width: min(1180px, calc(100% - 40px)); margin: 0 auto; }
+    .eyebrow {
+      color: var(--mint-dark);
+      font-family: "JetBrains Mono", ui-monospace, monospace;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      background: rgba(247, 248, 245, 0.9);
+      border-bottom: 1px solid var(--line);
+      backdrop-filter: blur(18px);
+    }
+    .nav-shell {
+      height: 66px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 24px;
+    }
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      font-family: "JetBrains Mono", ui-monospace, monospace;
+      font-size: 14px;
+      font-weight: 800;
+    }
+    .brand-mark {
+      width: 24px;
+      height: 24px;
+      border: 1px solid var(--ink);
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      background: var(--dark);
+    }
+    .brand-mark::before {
+      content: "";
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--mint);
+      box-shadow: 0 0 18px rgba(64, 199, 170, 0.7);
+    }
+    .nav {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      color: var(--ink-2);
+      font-family: "JetBrains Mono", ui-monospace, monospace;
+      font-size: 12px;
+      font-weight: 800;
+    }
+    .nav a:hover { color: var(--mint-dark); text-decoration: none; }
+    .nav .install {
+      min-height: 34px;
+      display: inline-flex;
+      align-items: center;
+      border-radius: 999px;
+      padding: 0 13px;
+      color: var(--white);
+      background: var(--ink);
+    }
+    .hero {
+      color: var(--white);
+      background: linear-gradient(135deg, var(--dark), #0b1319 58%, #12161c);
+      border-bottom: 1px solid var(--dark-line);
+    }
+    .hero-inner {
+      min-height: 430px;
+      display: grid;
+      grid-template-columns: minmax(0, 0.72fr) minmax(280px, 0.34fr);
+      gap: 54px;
+      align-items: end;
+      padding: 64px 0 58px;
+    }
+    .hero h1 {
+      max-width: 12ch;
+      margin-top: 16px;
+      font-size: clamp(42px, 6.4vw, 82px);
+      line-height: 0.96;
+      letter-spacing: 0;
+    }
+    .hero p {
+      max-width: 66ch;
+      margin-top: 22px;
+      color: #c7d2d9;
+      font-size: clamp(17px, 1.8vw, 20px);
+    }
+    .button-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 30px;
+    }
+    .button {
+      min-height: 42px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid var(--dark-line);
+      border-radius: 999px;
+      padding: 0 15px;
+      background: rgba(255,255,255,0.06);
+      color: var(--white);
+      font-family: "JetBrains Mono", ui-monospace, monospace;
+      font-size: 12px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+    .button:hover { border-color: var(--mint); color: var(--mint); text-decoration: none; }
+    .button.primary { background: var(--mint); border-color: var(--mint); color: #031412; }
+    .button.primary:hover { color: #031412; background: #6be0c9; }
+    .status-panel {
+      border: 1px solid var(--dark-line);
+      border-radius: 8px;
+      background: rgba(255,255,255,0.04);
+      padding: 20px;
+    }
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      min-height: 28px;
+      border-radius: 999px;
+      padding: 0 10px;
+      border: 1px solid rgba(255,255,255,0.16);
+      color: var(--white);
+      font-family: "JetBrains Mono", ui-monospace, monospace;
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    .status-pill.today { background: rgba(64, 199, 170, 0.18); color: #a7f1e0; }
+    .status-pill.future { background: rgba(243, 178, 75, 0.18); color: #ffd58b; }
+    .status-panel dl {
+      display: grid;
+      gap: 14px;
+      margin-top: 20px;
+      font-family: "JetBrains Mono", ui-monospace, monospace;
+      font-size: 12px;
+    }
+    .status-panel dt { color: #879ca6; text-transform: uppercase; letter-spacing: 0.08em; }
+    .status-panel dd { margin-top: 3px; color: #e6eef2; }
+    .layout {
+      display: grid;
+      grid-template-columns: 250px minmax(0, 1fr);
+      gap: 42px;
+      align-items: start;
+      padding: 74px 0;
+    }
+    .hero-inner > *,
+    .layout > *,
+    .next-grid > * {
+      min-width: 0;
+    }
+    .side-nav {
+      position: sticky;
+      top: 88px;
+      display: grid;
+      gap: 6px;
+      border-left: 3px solid var(--ink);
+      padding-left: 14px;
+      font-family: "JetBrains Mono", ui-monospace, monospace;
+      font-size: 12px;
+      font-weight: 800;
+    }
+    .side-nav a {
+      min-height: 30px;
+      display: flex;
+      align-items: center;
+      color: var(--muted);
+    }
+    .side-nav a[aria-current="page"] { color: var(--ink); }
+    .side-nav a:hover { color: var(--mint-dark); text-decoration: none; }
+    article {
+      max-width: 880px;
+      min-width: 0;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--white);
+      box-shadow: var(--shadow);
+      padding: clamp(24px, 4vw, 46px);
+    }
+    article h2 {
+      margin-top: 42px;
+      padding-top: 34px;
+      border-top: 1px solid var(--line);
+      font-size: clamp(26px, 3vw, 36px);
+      line-height: 1.08;
+      letter-spacing: 0;
+    }
+    article h2:first-child {
+      margin-top: 0;
+      padding-top: 0;
+      border-top: 0;
+    }
+    article h3 {
+      margin-top: 26px;
+      font-size: 21px;
+      line-height: 1.2;
+    }
+    article p,
+    article li {
+      color: var(--ink-2);
+      font-size: 16px;
+    }
+    article p { margin-top: 16px; }
+    article ul,
+    article ol {
+      display: grid;
+      gap: 10px;
+      margin: 16px 0 0 1.25rem;
+    }
+    article code {
+      border: 1px solid var(--line);
+      border-radius: 5px;
+      background: var(--paper-2);
+      padding: 0.08rem 0.28rem;
+      color: var(--mint-dark);
+      font-size: 0.92em;
+      overflow-wrap: anywhere;
+    }
+    pre {
+      max-width: 100%;
+      margin-top: 18px;
+      overflow-x: auto;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #07100f;
+      padding: 20px;
+      color: #e8f4f1;
+      font-size: 13px;
+      line-height: 1.62;
+    }
+    pre code {
+      border: 0;
+      background: transparent;
+      padding: 0;
+      color: inherit;
+      font-size: inherit;
+    }
+    .table-wrap {
+      max-width: 100%;
+      margin-top: 18px;
+      overflow-x: auto;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+    }
+    table {
+      width: 100%;
+      min-width: 640px;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+    th,
+    td {
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--line);
+      vertical-align: top;
+      text-align: left;
+    }
+    th {
+      background: var(--paper-2);
+      color: var(--ink);
+      font-family: "JetBrains Mono", ui-monospace, monospace;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    tr:last-child td { border-bottom: 0; }
+    td { color: var(--ink-2); }
+    .next-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+      margin-top: 28px;
+    }
+    .next-card {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--paper);
+      padding: 18px;
+    }
+    .next-card span {
+      color: var(--muted);
+      font-family: "JetBrains Mono", ui-monospace, monospace;
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+    .next-card strong {
+      display: block;
+      margin-top: 8px;
+      line-height: 1.25;
+    }
+    footer {
+      color: var(--white);
+      background: var(--dark);
+      border-top: 1px solid var(--dark-line);
+      padding: 42px 0;
+    }
+    footer p { color: #b7c5cc; }
+    @media (max-width: 980px) {
+      .hero-inner,
+      .layout { grid-template-columns: 1fr; }
+      .side-nav {
+        position: static;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        border-left: 0;
+        border-top: 3px solid var(--ink);
+        padding: 14px 0 0;
+      }
+    }
+    @media (max-width: 680px) {
+      html, body { overflow-x: hidden; }
+      .wrap { width: calc(100vw - 28px); }
+      h1, h2, h3, p, li, a, span, code { overflow-wrap: anywhere; }
+      .nav a:not(.install) { display: none; }
+      .hero-inner { min-height: auto; gap: 24px; padding: 34px 0 30px; }
+      .button { width: 100%; }
+      .layout { padding: 52px 0; gap: 28px; }
+      .side-nav,
+      .next-grid { grid-template-columns: 1fr; }
+      article { padding: 22px; }
+      table { min-width: 560px; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap nav-shell">
+      <a class="brand" href="../../" aria-label="nostr-veil demo">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <span>nostr-veil</span>
+      </a>
+      <nav class="nav" aria-label="Primary">
+        <a href="../">Use cases</a>
+        <a href="https://github.com/forgesworn/nostr-veil">GitHub</a>
+        <a class="install" href="https://www.npmjs.com/package/nostr-veil">npm</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="wrap hero-inner">
+        <div>
+          <span class="eyebrow">Content</span>
+          <h1>Event and claim verification</h1>
+          <p>Use this when the subject is a specific Nostr event: a claim, announcement, report, moderation item, or fact-check target.</p>
+          <div class="button-row">
+            <a class="button primary" href="#worked-example">Jump to worked example</a>
+            <a class="button" href="../">Back to atlas</a>
+          </div>
+        </div>
+        <aside class="status-panel" aria-label="Use-case status">
+          <span class="status-pill today">Supported today</span>
+          <dl>
+            <div>
+              <dt>Includes</dt>
+              <dd>Fit, recipe, proof checks, and controls</dd>
+            </div>
+            <div>
+              <dt>Profile</dt>
+              <dd>Content</dd>
+            </div>
+            <div>
+              <dt>Pages</dt>
+              <dd>14 worked examples</dd>
+            </div>
+          </dl>
+        </aside>
+      </div>
+    </section>
+
+    <div class="wrap layout">
+      <nav class="side-nav" aria-label="All use cases">
+        <a href="../user-reputation-abuse-reporting/">User reputation and abuse reporting</a>
+<a href="../privacy-preserving-onboarding/">Privacy-preserving onboarding</a>
+<a href="../source-corroboration/">Source corroboration</a>
+<a href="../event-claim-verification/" aria-current="page">Event and claim verification</a>
+<a href="../article-research-review/">Article, research, and long-form review</a>
+<a href="../relay-service-reputation/">Relay and service reputation</a>
+<a href="../nip05-domain-service-provider-trust/">NIP-05, domain, and service-provider trust</a>
+<a href="../list-labeler-moderation-list-reputation/">Community list, labeler, and moderation-list reputation</a>
+<a href="../release-package-maintainer-reputation/">Release, package, and maintainer reputation</a>
+<a href="../vendor-marketplace-signals/">Vendor and marketplace signals</a>
+<a href="../federated-moderation/">Federated moderation</a>
+<a href="../grant-funding-proposal-review/">Grant, funding, and proposal review</a>
+<a href="../anonymous-credential-attestation-cosigning/">Anonymous credential or attestation co-signing</a>
+<a href="../relay-community-admission/">Relay or community admission</a>
+      </nav>
+      <article>
+        <p>Use this when the subject is a specific Nostr event: a claim, announcement, report, moderation item, or fact-check target.</p>
+<h2>Fit</h2>
+<ul><li>Status: supported today.</li><li>NIP-85 kind: 30383 event assertion.</li><li>Subject: event id in both <code>d</code> and <code>e</code>.</li><li>Helpers: <code>contributeEventAssertion</code>, <code>aggregateEventContributions</code>.</li><li>Proof version: v2 recommended.</li><li>Useful metrics: <code>rank</code>, <code>comment_cnt</code>, <code>quote_cnt</code>, <code>repost_cnt</code>, <code>reaction_cnt</code>, <code>zap_cnt</code>, <code>zap_amount</code>.</li></ul>
+<h2>Implementation recipe</h2>
+<ol><li>Treat the event id as immutable: the score is about that exact event, not a later correction or paraphrase.</li><li>Publish the review method that maps reviewer judgement to <code>rank</code>.</li><li>Use proof v2 so the proof cannot be replayed as a user, addressable, or identifier assertion.</li><li>Verify strict syntax, the expected event id, the expected circle, the threshold, and any freshness or correction policy.</li><li>Link corrections or evidence with separate events if the client needs more than the numeric signal.</li></ol>
+<h2 id="worked-example">Worked example</h2>
+<pre><code class="language-ts">import {
+  aggregateEventContributions,
+  contributeEventAssertion,
+  createTrustCircle,
+  validateAssertionStrict,
+  verifyProof,
+} from 'nostr-veil'
+
+const proofVersion = 'v2' as const
+const claimEventId = 'aa'.repeat(32)
+const circle = createTrustCircle(factCheckers.map(m =&gt; m.pubkey))
+
+const contributions = factCheckers.map((checker) =&gt;
+  contributeEventAssertion(
+    circle,
+    claimEventId,
+    {
+      rank: checker.accuracyScore,
+      reaction_cnt: checker.reviewed ? 1 : 0,
+    },
+    checker.privateKey,
+    circle.members.indexOf(checker.pubkey),
+    { proofVersion },
+  ),
+)
+
+const assertion = aggregateEventContributions(
+  circle,
+  claimEventId,
+  contributions,
+  { proofVersion },
+)
+
+const syntax = validateAssertionStrict(assertion)
+const proof = verifyProof(assertion, { requireProofVersion: 'v2' })
+if (!syntax.valid || !proof.valid) throw new Error('invalid claim assertion')</code></pre>
+<h2>What this proves</h2>
+<ul><li>Distinct members of the fact-checking circle scored that exact event id.</li><li>The aggregate metric tags match the signed contribution messages.</li><li>Proof v2 prevents the same contribution being replayed as a user, addressable, or identifier assertion.</li></ul>
+<h2>Operational requirements</h2>
+<div class="table-wrap"><table><thead><tr><th>Risk to handle</th><th>Required control</th></tr></thead><tbody><tr><td>The proof does not prove the event content is objectively true.</td><td>Publish the fact-checking method, evidence links, and correction rules. Treat the nostr-veil assertion as the verifiable reviewer signal.</td></tr><tr><td>The proof does not explain reviewer methodology by itself.</td><td>Define a public provider profile for <code>rank</code>, quorum, eligible reviewers, conflicts, and freshness.</td></tr><tr><td>The subject event can be deleted or superseded.</td><td>Score the exact event id, then publish a new assertion for corrections or later versions. Clients should display supersession state separately.</td></tr></tbody></table></div>
+<h2>Policy choices</h2>
+<ul><li>Does <code>rank</code> mean accuracy, confidence, harm, or review quality?</li><li>Should clients show the score before a quorum is reached?</li><li>Should later corrections create a new assertion or update the same subject?</li><li>Should reviewers be independent, specialist, local, or community-selected?</li></ul>
+        <h2>Next examples</h2>
+        <div class="next-grid">
+          <a class="next-card" href="../source-corroboration/">
+            <span>Previous</span>
+            <strong>Source corroboration</strong>
+          </a>
+          <a class="next-card" href="../article-research-review/">
+            <span>Next</span>
+            <strong>Article, research, and long-form review</strong>
+          </a>
+        </div>
+      </article>
+    </div>
+  </main>
+
+  <footer>
+    <div class="wrap">
+      <p>nostr-veil: verifiable threshold-backed trust scores without naming the contributors.</p>
+    </div>
+  </footer>
+</body>
+</html>
