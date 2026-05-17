@@ -4,8 +4,10 @@ import { fileURLToPath } from 'node:url'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const docsDir = path.join(root, 'docs', 'use-case-pages')
+const relayChecksPath = path.join(root, 'docs', 'use-case-relay-checks.json')
 const examplesDir = path.join(root, 'examples', 'use-cases')
 const publicDir = path.join(root, 'demo', 'public', 'use-cases')
+const githubExampleBaseUrl = 'https://github.com/forgesworn/nostr-veil/blob/main/examples/use-cases'
 
 const cases = [
   {
@@ -290,13 +292,32 @@ function highlightTypeScript(source) {
   return html.join('')
 }
 
-function renderCodeBlock(lang, code) {
+function exampleSourceUrl(slug) {
+  return `${githubExampleBaseUrl}/${slug}.ts`
+}
+
+function renderCodeBlock(lang, code, exampleSlug) {
   const normalisedLang = lang.toLowerCase()
   const html = ['ts', 'tsx', 'js', 'jsx', 'typescript', 'javascript'].includes(normalisedLang)
     ? highlightTypeScript(code)
     : escapeHtml(code)
+  const codeBlock = `<pre><code class="language-${escapeHtml(lang)}">${html}</code></pre>`
 
-  return `<pre><code class="language-${escapeHtml(lang)}">${html}</code></pre>`
+  if (exampleSlug === undefined) return codeBlock
+
+  const sourcePath = `examples/use-cases/${exampleSlug}.ts`
+
+  return `<div class="code-sample" data-example-slug="${escapeHtml(exampleSlug)}">
+  <div class="code-sample-toolbar">
+    <span class="code-sample-path">${escapeHtml(sourcePath)}</span>
+    <div class="code-sample-actions">
+      <a href="${escapeHtml(exampleSourceUrl(exampleSlug))}" target="_blank" rel="noreferrer">Runnable source</a>
+      <a href="${escapeHtml(`${githubExampleBaseUrl}/_shared.ts`)}" target="_blank" rel="noreferrer">Shared harness</a>
+      <button class="code-copy" type="button" data-copy-code aria-label="Copy example source">Copy</button>
+    </div>
+  </div>
+  ${codeBlock}
+</div>`
 }
 
 function inlineMarkdown(value) {
@@ -363,11 +384,19 @@ function renderMarkdown(markdown) {
   const lines = markdown.split(/\r?\n/)
   const html = []
   let i = 0
+  let pendingExampleSlug
 
   while (i < lines.length) {
     const line = lines[i]
 
     if (line.trim() === '') {
+      i += 1
+      continue
+    }
+
+    const exampleSourceMatch = line.match(/^<!--\s*use-case-example-source:\s*([a-z0-9-]+)\s*-->$/)
+    if (exampleSourceMatch) {
+      pendingExampleSlug = exampleSourceMatch[1]
       i += 1
       continue
     }
@@ -381,7 +410,8 @@ function renderMarkdown(markdown) {
         i += 1
       }
       i += 1
-      html.push(renderCodeBlock(lang, code.join('\n')))
+      html.push(renderCodeBlock(lang, code.join('\n'), pendingExampleSlug))
+      pendingExampleSlug = undefined
       continue
     }
 
@@ -430,6 +460,7 @@ function renderMarkdown(markdown) {
         next.startsWith('#') ||
         next.startsWith('|') ||
         next.startsWith('```') ||
+        next.match(/^<!--\s*use-case-example-source:\s*([a-z0-9-]+)\s*-->$/) ||
         /^-\s+/.test(next) ||
         /^\d+\.\s+/.test(next)
       ) {
@@ -464,6 +495,15 @@ function stripTitle(markdown) {
   return markdown.replace(/^#\s+.+\n+/, '').trim()
 }
 
+async function readRelayReport() {
+  try {
+    return JSON.parse(await readFile(relayChecksPath, 'utf8'))
+  } catch (error) {
+    if (error && typeof error === 'object' && error.code === 'ENOENT') return undefined
+    throw error
+  }
+}
+
 async function includeExecutableExamples(markdown) {
   const exampleRefs = [...markdown.matchAll(/<!--\s*use-case-example:\s*([a-z0-9-]+)\s*-->/g)]
   let rendered = markdown
@@ -472,7 +512,10 @@ async function includeExecutableExamples(markdown) {
     const slug = match[1]
     const examplePath = path.join(examplesDir, `${slug}.ts`)
     const source = (await readFile(examplePath, 'utf8')).trimEnd()
-    rendered = rendered.replace(match[0], `\`\`\`ts\n${source}\n\`\`\``)
+    rendered = rendered.replace(
+      match[0],
+      `<!-- use-case-example-source: ${slug} -->\n\`\`\`ts\n${source}\n\`\`\``,
+    )
   }
 
   return rendered
@@ -489,6 +532,61 @@ function renderNav(activeSlug) {
       return `<a href="../${useCase.slug}/"${active}>${escapeHtml(useCase.title)}</a>`
     })
     .join('\n')
+}
+
+function shortEventId(id) {
+  return `${id.slice(0, 12)}...${id.slice(-8)}`
+}
+
+function renderCheck(label, passed) {
+  return `<li class="${passed ? 'pass' : 'fail'}"><span aria-hidden="true"></span>${escapeHtml(label)}</li>`
+}
+
+function renderRelayEvidence(useCase, relayReport) {
+  const relayCheck = useCase.relayCheck
+  if (relayReport === undefined || relayCheck === undefined) return ''
+
+  const proofDetails = relayCheck.proof.threshold === undefined
+    ? `${relayCheck.proof.distinctSigners} distinct signers across ${relayCheck.proof.circleCount} circles`
+    : `${relayCheck.proof.distinctSigners}/${relayCheck.proof.threshold} threshold from a ${relayCheck.proof.circleSize}-member ring`
+  const checks = [
+    ['Canonical example passes locally', relayCheck.checks.localExample],
+    ['Relay stored and returned every signed event', relayCheck.checks.relayStored],
+    ['Fetched Nostr event signatures are valid', relayCheck.checks.nostrSignature],
+    ['Fetched tags match the canonical example', relayCheck.checks.canonicalTags],
+    ['NIP-85 syntax validation passes', relayCheck.checks.syntax],
+    ['nostr-veil proof verification passes', relayCheck.checks.proof],
+  ]
+
+  return `<h2>Live relay test</h2>
+<p>The opt-in relay test signs this canonical example as real Nostr event data, publishes it to <code>${escapeHtml(relayReport.relay)}</code>, fetches it back by id, and re-runs the application, syntax, Nostr signature, canonical tag, and proof checks.</p>
+<div class="relay-evidence ${relayCheck.status}">
+  <div class="relay-evidence-head">
+    <span>${relayCheck.status === 'pass' ? 'Passed' : 'Failed'}</span>
+    <strong>${escapeHtml(new Date(relayReport.checkedAt).toISOString())}</strong>
+  </div>
+  <dl>
+    <div>
+      <dt>Events</dt>
+      <dd>${relayCheck.fetched}/${relayCheck.events} fetched from relay</dd>
+    </div>
+    <div>
+      <dt>Proof</dt>
+      <dd>${escapeHtml(proofDetails)}</dd>
+    </div>
+    <div>
+      <dt>Run</dt>
+      <dd><code>${escapeHtml(relayReport.runId)}</code></dd>
+    </div>
+  </dl>
+  <ul class="relay-checks">
+    ${checks.map(([label, passed]) => renderCheck(label, passed)).join('\n    ')}
+  </ul>
+  <div class="relay-event-ids">
+    ${relayCheck.eventIds.map(id => `<code title="${escapeHtml(id)}">${escapeHtml(shortEventId(id))}</code>`).join('\n    ')}
+  </div>
+  <p class="relay-command">Run the same check with <code>${escapeHtml(relayReport.command)}</code>.</p>
+</div>`
 }
 
 function renderPage(useCase, index) {
@@ -796,6 +894,68 @@ function renderPage(useCase, index) {
       color: inherit;
       font-size: inherit;
     }
+    .code-sample {
+      max-width: 100%;
+      margin-top: 18px;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #07100f;
+    }
+    .code-sample pre {
+      margin-top: 0;
+      border: 0;
+      border-radius: 0;
+    }
+    .code-sample-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      border-bottom: 1px solid var(--dark-line);
+      background: #0b1716;
+      padding: 10px 12px;
+      color: #b7c5cc;
+      font-family: "JetBrains Mono", ui-monospace, monospace;
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .code-sample-path {
+      min-width: 0;
+      overflow-wrap: anywhere;
+    }
+    .code-sample-actions {
+      display: flex;
+      flex-wrap: wrap;
+      flex: 0 0 auto;
+      gap: 8px;
+    }
+    .code-sample-actions a,
+    .code-copy {
+      min-height: 30px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid #31464b;
+      border-radius: 6px;
+      background: rgba(255,255,255,0.04);
+      color: #e6eef2;
+      padding: 0 10px;
+      font: inherit;
+      font-size: 11px;
+      line-height: 1;
+      white-space: nowrap;
+    }
+    .code-sample-actions a:hover,
+    .code-copy:hover {
+      border-color: var(--mint);
+      color: var(--mint);
+      text-decoration: none;
+    }
+    .code-copy {
+      cursor: pointer;
+    }
+    .code-copy[hidden] { display: none; }
     .tok-comment { color: #7f9993; font-style: italic; }
     .tok-keyword { color: #7dd3fc; font-weight: 700; }
     .tok-string { color: #a7f3d0; }
@@ -809,6 +969,102 @@ function renderPage(useCase, index) {
       overflow-x: auto;
       border: 1px solid var(--line);
       border-radius: 8px;
+    }
+    .relay-evidence {
+      margin-top: 18px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--paper);
+      overflow: hidden;
+    }
+    .relay-evidence.pass { border-color: rgba(14, 116, 98, 0.34); }
+    .relay-evidence.fail { border-color: rgba(190, 18, 60, 0.34); }
+    .relay-evidence-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      border-bottom: 1px solid var(--line);
+      background: var(--white);
+      padding: 14px 16px;
+      font-family: "JetBrains Mono", ui-monospace, monospace;
+      font-size: 12px;
+      font-weight: 800;
+    }
+    .relay-evidence-head span {
+      color: var(--mint-dark);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+    .relay-evidence-head strong {
+      color: var(--ink-2);
+      overflow-wrap: anywhere;
+    }
+    .relay-evidence dl {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 1px;
+      background: var(--line);
+    }
+    .relay-evidence dl div {
+      min-width: 0;
+      background: var(--paper);
+      padding: 14px 16px;
+    }
+    .relay-evidence dt {
+      color: var(--muted);
+      font-family: "JetBrains Mono", ui-monospace, monospace;
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+    .relay-evidence dd {
+      margin-top: 5px;
+      color: var(--ink-2);
+      font-size: 14px;
+      line-height: 1.45;
+      overflow-wrap: anywhere;
+    }
+    .relay-checks {
+      margin: 0;
+      padding: 16px;
+      list-style: none;
+      border-top: 1px solid var(--line);
+    }
+    .relay-checks li {
+      display: flex;
+      align-items: flex-start;
+      gap: 9px;
+      color: var(--ink-2);
+      font-size: 14px;
+    }
+    .relay-checks li span {
+      width: 9px;
+      height: 9px;
+      flex: 0 0 auto;
+      margin-top: 8px;
+      border-radius: 50%;
+      background: #be123c;
+    }
+    .relay-checks li.pass span { background: var(--mint-dark); }
+    .relay-event-ids {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      border-top: 1px solid var(--line);
+      padding: 14px 16px;
+    }
+    .relay-event-ids code,
+    .relay-command code {
+      overflow-wrap: anywhere;
+    }
+    .relay-command {
+      margin: 0;
+      border-top: 1px solid var(--line);
+      padding: 14px 16px;
+      color: var(--muted);
+      font-size: 14px;
     }
     table {
       width: 100%;
@@ -887,7 +1143,19 @@ function renderPage(useCase, index) {
       article { order: 1; padding: 22px; }
       .side-nav { order: 2; }
       .side-nav,
-      .next-grid { grid-template-columns: 1fr; }
+      .next-grid,
+      .relay-evidence dl { grid-template-columns: 1fr; }
+      .code-sample-toolbar {
+        align-items: stretch;
+        flex-direction: column;
+      }
+      .code-sample-actions {
+        width: 100%;
+      }
+      .code-sample-actions a,
+      .code-copy {
+        flex: 1 1 140px;
+      }
       table { min-width: 560px; }
     }
   </style>
@@ -945,6 +1213,7 @@ function renderPage(useCase, index) {
       </nav>
       <article>
         ${body.replace('<h2>Worked example', '<h2 id="worked-example">Worked example')}
+        ${renderRelayEvidence(useCase, relayReport)}
         <h2>Next examples</h2>
         <div class="next-grid">
           <a class="next-card" href="../${previous.slug}/">
@@ -965,10 +1234,37 @@ function renderPage(useCase, index) {
       <p>nostr-veil: verifiable threshold-backed trust scores without naming the contributors.</p>
     </div>
   </footer>
+  <script>
+    document.querySelectorAll('[data-copy-code]').forEach((button) => {
+      const sample = button.closest('.code-sample')
+      const code = sample ? sample.querySelector('code') : null
+
+      if (!code || !navigator.clipboard) {
+        button.hidden = true
+        return
+      }
+
+      const originalLabel = button.textContent || 'Copy'
+      button.addEventListener('click', async () => {
+        try {
+          await navigator.clipboard.writeText(code.textContent || '')
+          button.textContent = 'Copied'
+        } catch {
+          button.textContent = 'Unavailable'
+        }
+        window.setTimeout(() => {
+          button.textContent = originalLabel
+        }, 1400)
+      })
+    })
+  </script>
 </body>
 </html>
 `
 }
+
+const relayReport = await readRelayReport()
+const relayCheckBySlug = new Map((relayReport?.useCases ?? []).map((check) => [check.slug, check]))
 
 await mkdir(publicDir, { recursive: true })
 
@@ -977,6 +1273,7 @@ for (const useCase of cases) {
   useCase.markdown = await includeExecutableExamples(markdown)
   useCase.title = extractTitle(markdown)
   useCase.intro = extractIntro(markdown)
+  useCase.relayCheck = relayCheckBySlug.get(useCase.slug)
 }
 
 for (const useCase of cases) {

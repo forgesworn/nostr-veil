@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest'
 const root = process.cwd()
 const docsDir = join(root, 'docs/use-case-pages')
 const exampleDir = join(root, 'examples/use-cases')
+const relayChecksPath = join(root, 'docs/use-case-relay-checks.json')
 const publicUseCasesDir = join(root, 'demo/public/use-cases')
 
 const readText = (path: string) => readFileSync(path, 'utf8')
@@ -108,6 +109,47 @@ describe('public use-case pages', () => {
       expect(page, pagePath).toContain('class="tok-fn"')
     }
   })
+
+  it('links worked examples to their canonical runnable source', () => {
+    for (const slug of slugs) {
+      const page = readText(join(publicUseCasesDir, slug, 'index.html'))
+
+      expect(page, slug).toContain(`data-example-slug="${slug}"`)
+      expect(page, slug).toContain(
+        `href="https://github.com/forgesworn/nostr-veil/blob/main/examples/use-cases/${slug}.ts"`,
+      )
+      expect(page, slug).toContain(
+        'href="https://github.com/forgesworn/nostr-veil/blob/main/examples/use-cases/_shared.ts"',
+      )
+      expect(page, slug).toContain('data-copy-code')
+    }
+  })
+
+  it('publishes live relay evidence for every worked example', () => {
+    const report = JSON.parse(readText(relayChecksPath)) as {
+      relay: string
+      checkedAt: string
+      summary: { useCases: number, passed: number }
+      useCases: Array<{ slug: string, status: string, eventIds: string[] }>
+    }
+
+    expect(report.relay).toBe('wss://relay.trotters.cc')
+    expect(report.summary.useCases).toBe(14)
+    expect(report.summary.passed).toBe(14)
+    expect(Number.isNaN(Date.parse(report.checkedAt))).toBe(false)
+
+    for (const slug of slugs) {
+      const check = report.useCases.find(useCase => useCase.slug === slug)
+      const page = readText(join(publicUseCasesDir, slug, 'index.html'))
+
+      expect(check, `${slug} is missing live relay evidence`).toBeDefined()
+      expect(check?.status, slug).toBe('pass')
+      expect(check?.eventIds.every(id => /^[0-9a-f]{64}$/.test(id)), slug).toBe(true)
+      expect(page, slug).toContain('<h2>Live relay test</h2>')
+      expect(page, slug).toContain('wss://relay.trotters.cc')
+      expect(page, slug).toContain(check!.eventIds[0].slice(0, 12))
+    }
+  })
 })
 
 describe('use-case source pages', () => {
@@ -143,6 +185,17 @@ describe('executable use-case examples', () => {
 
     for (const slug of slugs) {
       expect(output).toContain(`${slug}: proof=yes`)
+    }
+  })
+
+  it('dry-runs the live relay harness without publishing', { timeout: 30_000 }, () => {
+    const output = execFileSync('npx', ['tsx', join(root, 'examples/use-cases-relay.ts'), '--dry-run'], {
+      cwd: root,
+      encoding: 'utf8',
+    })
+
+    for (const slug of slugs) {
+      expect(output).toContain(`${slug}: local=yes signed=yes`)
     }
   })
 })

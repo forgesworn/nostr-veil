@@ -12,6 +12,7 @@ npx tsx examples/partial-threshold.ts
 npx tsx examples/nip85-provider.ts
 npx tsx examples/typed-assertions.ts
 npx tsx examples/use-cases.ts
+npm run test:use-cases:relay -- --dry-run
 ```
 
 Requires [tsx](https://github.com/privatenumber/tsx) (`npx tsx` works without installing).
@@ -22,3 +23,13 @@ Requires [tsx](https://github.com/privatenumber/tsx) (`npx tsx` works without in
 `examples/use-cases/`. The generated detail pages in `demo/public/use-cases/`
 render those same files, so the public snippets drift only when the executable
 examples drift.
+
+`use-cases-relay.ts` is an opt-in live relay check. It signs every canonical
+use-case example as a Nostr event, publishes the events to
+`wss://relay.trotters.cc`, fetches them back by id, and verifies the fetched
+events again. Use `--dry-run` to check signing and proof verification without
+network publication. To refresh the public evidence file:
+
+```bash
+npm run test:use-cases:relay -- --write docs/use-case-relay-checks.json
+```

@@ -35,6 +35,8 @@
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "lint": "tsc --noEmit",
+    "test:use-cases": "tsx examples/use-cases.ts",
+    "test:use-cases:relay": "tsx examples/use-cases-relay.ts",
     "demo": "cd demo && npm run dev",
     "prepublishOnly": "npm run build",
     "prepare": "npm run build"

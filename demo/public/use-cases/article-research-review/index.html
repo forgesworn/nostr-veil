@@ -297,6 +297,68 @@
       color: inherit;
       font-size: inherit;
     }
+    .code-sample {
+      max-width: 100%;
+      margin-top: 18px;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #07100f;
+    }
+    .code-sample pre {
+      margin-top: 0;
+      border: 0;
+      border-radius: 0;
+    }
+    .code-sample-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      border-bottom: 1px solid var(--dark-line);
+      background: #0b1716;
+      padding: 10px 12px;
+      color: #b7c5cc;
+      font-family: "JetBrains Mono", ui-monospace, monospace;
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .code-sample-path {
+      min-width: 0;
+      overflow-wrap: anywhere;
+    }
+    .code-sample-actions {
+      display: flex;
+      flex-wrap: wrap;
+      flex: 0 0 auto;
+      gap: 8px;
+    }
+    .code-sample-actions a,
+    .code-copy {
+      min-height: 30px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid #31464b;
+      border-radius: 6px;
+      background: rgba(255,255,255,0.04);
+      color: #e6eef2;
+      padding: 0 10px;
+      font: inherit;
+      font-size: 11px;
+      line-height: 1;
+      white-space: nowrap;
+    }
+    .code-sample-actions a:hover,
+    .code-copy:hover {
+      border-color: var(--mint);
+      color: var(--mint);
+      text-decoration: none;
+    }
+    .code-copy {
+      cursor: pointer;
+    }
+    .code-copy[hidden] { display: none; }
     .tok-comment { color: #7f9993; font-style: italic; }
     .tok-keyword { color: #7dd3fc; font-weight: 700; }
     .tok-string { color: #a7f3d0; }
@@ -310,6 +372,102 @@
       overflow-x: auto;
       border: 1px solid var(--line);
       border-radius: 8px;
+    }
+    .relay-evidence {
+      margin-top: 18px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--paper);
+      overflow: hidden;
+    }
+    .relay-evidence.pass { border-color: rgba(14, 116, 98, 0.34); }
+    .relay-evidence.fail { border-color: rgba(190, 18, 60, 0.34); }
+    .relay-evidence-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      border-bottom: 1px solid var(--line);
+      background: var(--white);
+      padding: 14px 16px;
+      font-family: "JetBrains Mono", ui-monospace, monospace;
+      font-size: 12px;
+      font-weight: 800;
+    }
+    .relay-evidence-head span {
+      color: var(--mint-dark);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+    .relay-evidence-head strong {
+      color: var(--ink-2);
+      overflow-wrap: anywhere;
+    }
+    .relay-evidence dl {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 1px;
+      background: var(--line);
+    }
+    .relay-evidence dl div {
+      min-width: 0;
+      background: var(--paper);
+      padding: 14px 16px;
+    }
+    .relay-evidence dt {
+      color: var(--muted);
+      font-family: "JetBrains Mono", ui-monospace, monospace;
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+    .relay-evidence dd {
+      margin-top: 5px;
+      color: var(--ink-2);
+      font-size: 14px;
+      line-height: 1.45;
+      overflow-wrap: anywhere;
+    }
+    .relay-checks {
+      margin: 0;
+      padding: 16px;
+      list-style: none;
+      border-top: 1px solid var(--line);
+    }
+    .relay-checks li {
+      display: flex;
+      align-items: flex-start;
+      gap: 9px;
+      color: var(--ink-2);
+      font-size: 14px;
+    }
+    .relay-checks li span {
+      width: 9px;
+      height: 9px;
+      flex: 0 0 auto;
+      margin-top: 8px;
+      border-radius: 50%;
+      background: #be123c;
+    }
+    .relay-checks li.pass span { background: var(--mint-dark); }
+    .relay-event-ids {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      border-top: 1px solid var(--line);
+      padding: 14px 16px;
+    }
+    .relay-event-ids code,
+    .relay-command code {
+      overflow-wrap: anywhere;
+    }
+    .relay-command {
+      margin: 0;
+      border-top: 1px solid var(--line);
+      padding: 14px 16px;
+      color: var(--muted);
+      font-size: 14px;
     }
     table {
       width: 100%;
@@ -388,7 +546,19 @@
       article { order: 1; padding: 22px; }
       .side-nav { order: 2; }
       .side-nav,
-      .next-grid { grid-template-columns: 1fr; }
+      .next-grid,
+      .relay-evidence dl { grid-template-columns: 1fr; }
+      .code-sample-toolbar {
+        align-items: stretch;
+        flex-direction: column;
+      }
+      .code-sample-actions {
+        width: 100%;
+      }
+      .code-sample-actions a,
+      .code-copy {
+        flex: 1 1 140px;
+      }
       table { min-width: 560px; }
     }
   </style>
@@ -468,7 +638,16 @@
 <h2>Implementation recipe</h2>
 <ol><li>Decide whether the scored object is the work as a whole, a specific revision, or the author's standing.</li><li>Define what <code>rank</code> means for this venue: quality, confidence, relevance, safety, or acceptance likelihood.</li><li>Use a stable NIP-33 address for the artefact and proof v2 for new deployments.</li><li>Verify the expected address, circle, threshold, and freshness before showing the score as review guidance.</li><li>Publish comments, review criteria, and conflict handling separately if the venue needs them.</li></ol>
 <h2 id="worked-example">Worked example</h2>
-<pre><code class="language-ts"><span class="tok-keyword">import</span> {
+<div class="code-sample" data-example-slug="article-research-review">
+  <div class="code-sample-toolbar">
+    <span class="code-sample-path">examples/use-cases/article-research-review.ts</span>
+    <div class="code-sample-actions">
+      <a href="https://github.com/forgesworn/nostr-veil/blob/main/examples/use-cases/article-research-review.ts" target="_blank" rel="noreferrer">Runnable source</a>
+      <a href="https://github.com/forgesworn/nostr-veil/blob/main/examples/use-cases/_shared.ts" target="_blank" rel="noreferrer">Shared harness</a>
+      <button class="code-copy" type="button" data-copy-code aria-label="Copy example source">Copy</button>
+    </div>
+  </div>
+  <pre><code class="language-ts"><span class="tok-keyword">import</span> {
   NIP85_KINDS,
   aggregateAddressableContributions,
   contributeAddressableAssertion,
@@ -516,6 +695,7 @@
   minDistinctSigners: <span class="tok-number">3</span>,
   freshAfter: assertion.created_at - <span class="tok-number">300</span>,
 })</code></pre>
+</div>
 <h2>What to verify</h2>
 <ul><li>Strict syntax and a valid proof v2.</li><li>Kind 30384, with <code>d</code> and <code>a</code> equal to the addressable artefact under review.</li><li>The reviewer ring is approved for this venue, subject area, or funding programme.</li><li>The score has enough distinct signers and uses the venue's documented metric direction.</li><li>The assertion is still valid for the current revision or has a clear supersession path.</li></ul>
 <h2>What this proves</h2>
@@ -528,6 +708,40 @@
 <div class="table-wrap"><table><thead><tr><th>Risk to handle</th><th>Required control</th></tr></thead><tbody><tr><td>The proof does not prove the research is correct.</td><td>Pair it with review criteria, reproducibility artefacts, open data where possible, and correction policy.</td></tr><tr><td>The proof does not reveal reviewer comments.</td><td>Publish redacted review notes, structured comments, or reviewer rationale events when the workflow needs explanations.</td></tr><tr><td>Conflicts of interest are not solved by cryptography.</td><td>Define reviewer eligibility, conflict declarations, recusal rules, and circle rotation outside the proof.</td></tr><tr><td>Revisions can change the artefact being reviewed.</td><td>Score exact revisions when precision matters, or document that the address represents a living record with expiry.</td></tr></tbody></table></div>
 <h2>Policy choices</h2>
 <ul><li>Which addressable kind represents the artefact in your profile?</li><li>Is <code>rank</code> quality, confidence, relevance, safety, or acceptance likelihood?</li><li>Does the score expire when the artefact is revised?</li><li>Should each revision use a new <code>d</code> tag or reuse the same address?</li></ul>
+        <h2>Live relay test</h2>
+<p>The opt-in relay test signs this canonical example as real Nostr event data, publishes it to <code>wss://relay.trotters.cc</code>, fetches it back by id, and re-runs the application, syntax, Nostr signature, canonical tag, and proof checks.</p>
+<div class="relay-evidence pass">
+  <div class="relay-evidence-head">
+    <span>Passed</span>
+    <strong>2026-05-17T14:07:53.000Z</strong>
+  </div>
+  <dl>
+    <div>
+      <dt>Events</dt>
+      <dd>1/1 fetched from relay</dd>
+    </div>
+    <div>
+      <dt>Proof</dt>
+      <dd>3/3 threshold from a 3-member ring</dd>
+    </div>
+    <div>
+      <dt>Run</dt>
+      <dd><code>tf6px5-f6fa87cf8c</code></dd>
+    </div>
+  </dl>
+  <ul class="relay-checks">
+    <li class="pass"><span aria-hidden="true"></span>Canonical example passes locally</li>
+    <li class="pass"><span aria-hidden="true"></span>Relay stored and returned every signed event</li>
+    <li class="pass"><span aria-hidden="true"></span>Fetched Nostr event signatures are valid</li>
+    <li class="pass"><span aria-hidden="true"></span>Fetched tags match the canonical example</li>
+    <li class="pass"><span aria-hidden="true"></span>NIP-85 syntax validation passes</li>
+    <li class="pass"><span aria-hidden="true"></span>nostr-veil proof verification passes</li>
+  </ul>
+  <div class="relay-event-ids">
+    <code title="bce17e48a007aad2a42a73a9e72b5b03c88572e82ac399bdc9850d711b6a1c68">bce17e48a007...1b6a1c68</code>
+  </div>
+  <p class="relay-command">Run the same check with <code>npm run test:use-cases:relay -- --write docs/use-case-relay-checks.json</code>.</p>
+</div>
         <h2>Next examples</h2>
         <div class="next-grid">
           <a class="next-card" href="../event-claim-verification/">
@@ -548,5 +762,29 @@
       <p>nostr-veil: verifiable threshold-backed trust scores without naming the contributors.</p>
     </div>
   </footer>
+  <script>
+    document.querySelectorAll('[data-copy-code]').forEach((button) => {
+      const sample = button.closest('.code-sample')
+      const code = sample ? sample.querySelector('code') : null
+
+      if (!code || !navigator.clipboard) {
+        button.hidden = true
+        return
+      }
+
+      const originalLabel = button.textContent || 'Copy'
+      button.addEventListener('click', async () => {
+        try {
+          await navigator.clipboard.writeText(code.textContent || '')
+          button.textContent = 'Copied'
+        } catch {
+          button.textContent = 'Unavailable'
+        }
+        window.setTimeout(() => {
+          button.textContent = originalLabel
+        }, 1400)
+      })
+    })
+  </script>
 </body>
 </html>

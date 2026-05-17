@@ -1,0 +1,381 @@
+{
+  "version": 1,
+  "relay": "wss://relay.trotters.cc",
+  "checkedAt": "2026-05-17T14:07:53.000Z",
+  "runId": "tf6px5-f6fa87cf8c",
+  "mode": "live-relay",
+  "command": "npm run test:use-cases:relay -- --write docs/use-case-relay-checks.json",
+  "summary": {
+    "useCases": 14,
+    "events": 15,
+    "passed": 14,
+    "failed": 0
+  },
+  "useCases": [
+    {
+      "slug": "user-reputation-abuse-reporting",
+      "status": "pass",
+      "eventIds": [
+        "4b85b122788bdceb5c2bcda99abceefa6c1a67d2fc5e068fe68b1dfc21ed94b2"
+      ],
+      "events": 1,
+      "accepted": 1,
+      "fetched": 1,
+      "checks": {
+        "localExample": true,
+        "relayStored": true,
+        "nostrSignature": true,
+        "canonicalTags": true,
+        "syntax": true,
+        "proof": true
+      },
+      "proof": {
+        "valid": true,
+        "distinctSigners": 3,
+        "threshold": 3,
+        "circleSize": 3,
+        "errors": []
+      },
+      "publishMessages": []
+    },
+    {
+      "slug": "privacy-preserving-onboarding",
+      "status": "pass",
+      "eventIds": [
+        "93aa925c865fc3fbcd5fd2110493f6644f6d34066b424fc6932b7338d8ab3a0d"
+      ],
+      "events": 1,
+      "accepted": 1,
+      "fetched": 1,
+      "checks": {
+        "localExample": true,
+        "relayStored": true,
+        "nostrSignature": true,
+        "canonicalTags": true,
+        "syntax": true,
+        "proof": true
+      },
+      "proof": {
+        "valid": true,
+        "distinctSigners": 3,
+        "threshold": 3,
+        "circleSize": 3,
+        "errors": []
+      },
+      "publishMessages": []
+    },
+    {
+      "slug": "source-corroboration",
+      "status": "pass",
+      "eventIds": [
+        "0de3a92cd86b5f42f96850d8967e3d19ecfbe41fa90f618b47fd523a5334a143"
+      ],
+      "events": 1,
+      "accepted": 1,
+      "fetched": 1,
+      "checks": {
+        "localExample": true,
+        "relayStored": true,
+        "nostrSignature": true,
+        "canonicalTags": true,
+        "syntax": true,
+        "proof": true
+      },
+      "proof": {
+        "valid": true,
+        "distinctSigners": 3,
+        "threshold": 3,
+        "circleSize": 3,
+        "errors": []
+      },
+      "publishMessages": []
+    },
+    {
+      "slug": "event-claim-verification",
+      "status": "pass",
+      "eventIds": [
+        "0b3d67f3ce0e9dced5426115208f8213ad06f7375d7012e639920bc54710611a"
+      ],
+      "events": 1,
+      "accepted": 1,
+      "fetched": 1,
+      "checks": {
+        "localExample": true,
+        "relayStored": true,
+        "nostrSignature": true,
+        "canonicalTags": true,
+        "syntax": true,
+        "proof": true
+      },
+      "proof": {
+        "valid": true,
+        "distinctSigners": 3,
+        "threshold": 3,
+        "circleSize": 3,
+        "errors": []
+      },
+      "publishMessages": []
+    },
+    {
+      "slug": "article-research-review",
+      "status": "pass",
+      "eventIds": [
+        "bce17e48a007aad2a42a73a9e72b5b03c88572e82ac399bdc9850d711b6a1c68"
+      ],
+      "events": 1,
+      "accepted": 1,
+      "fetched": 1,
+      "checks": {
+        "localExample": true,
+        "relayStored": true,
+        "nostrSignature": true,
+        "canonicalTags": true,
+        "syntax": true,
+        "proof": true
+      },
+      "proof": {
+        "valid": true,
+        "distinctSigners": 3,
+        "threshold": 3,
+        "circleSize": 3,
+        "errors": []
+      },
+      "publishMessages": []
+    },
+    {
+      "slug": "relay-service-reputation",
+      "status": "pass",
+      "eventIds": [
+        "06ae422938f39a6f84071b8f94d07356669d8e9665f271aa6f741b005c9fd325"
+      ],
+      "events": 1,
+      "accepted": 1,
+      "fetched": 1,
+      "checks": {
+        "localExample": true,
+        "relayStored": true,
+        "nostrSignature": true,
+        "canonicalTags": true,
+        "syntax": true,
+        "proof": true
+      },
+      "proof": {
+        "valid": true,
+        "distinctSigners": 3,
+        "threshold": 3,
+        "circleSize": 3,
+        "errors": []
+      },
+      "publishMessages": []
+    },
+    {
+      "slug": "nip05-domain-service-provider-trust",
+      "status": "pass",
+      "eventIds": [
+        "a890a66b05e61d6db38cb632d9b945c48060296add4df3e648859c47b9a68817"
+      ],
+      "events": 1,
+      "accepted": 1,
+      "fetched": 1,
+      "checks": {
+        "localExample": true,
+        "relayStored": true,
+        "nostrSignature": true,
+        "canonicalTags": true,
+        "syntax": true,
+        "proof": true
+      },
+      "proof": {
+        "valid": true,
+        "distinctSigners": 3,
+        "threshold": 3,
+        "circleSize": 3,
+        "errors": []
+      },
+      "publishMessages": []
+    },
+    {
+      "slug": "list-labeler-moderation-list-reputation",
+      "status": "pass",
+      "eventIds": [
+        "04a63c47eb78e1e3bc7eb0c128809a6fda5c30455a16dda8224e2022e1a0e448"
+      ],
+      "events": 1,
+      "accepted": 1,
+      "fetched": 1,
+      "checks": {
+        "localExample": true,
+        "relayStored": true,
+        "nostrSignature": true,
+        "canonicalTags": true,
+        "syntax": true,
+        "proof": true
+      },
+      "proof": {
+        "valid": true,
+        "distinctSigners": 3,
+        "threshold": 3,
+        "circleSize": 3,
+        "errors": []
+      },
+      "publishMessages": []
+    },
+    {
+      "slug": "release-package-maintainer-reputation",
+      "status": "pass",
+      "eventIds": [
+        "ddf1570337ea425f3db0b76095d79aa1462311dc95d59b3f3eb8aab57578014f"
+      ],
+      "events": 1,
+      "accepted": 1,
+      "fetched": 1,
+      "checks": {
+        "localExample": true,
+        "relayStored": true,
+        "nostrSignature": true,
+        "canonicalTags": true,
+        "syntax": true,
+        "proof": true
+      },
+      "proof": {
+        "valid": true,
+        "distinctSigners": 3,
+        "threshold": 3,
+        "circleSize": 3,
+        "errors": []
+      },
+      "publishMessages": []
+    },
+    {
+      "slug": "vendor-marketplace-signals",
+      "status": "pass",
+      "eventIds": [
+        "611c036d22c9fbeaf3d3070fdae766c4c424104c42c7eebb484cd08a4b3940c9"
+      ],
+      "events": 1,
+      "accepted": 1,
+      "fetched": 1,
+      "checks": {
+        "localExample": true,
+        "relayStored": true,
+        "nostrSignature": true,
+        "canonicalTags": true,
+        "syntax": true,
+        "proof": true
+      },
+      "proof": {
+        "valid": true,
+        "distinctSigners": 3,
+        "threshold": 3,
+        "circleSize": 3,
+        "errors": []
+      },
+      "publishMessages": []
+    },
+    {
+      "slug": "federated-moderation",
+      "status": "pass",
+      "eventIds": [
+        "db771674262f779f785713ef4ea43d0bbc33a66e86fcccd2f6ac0426e1850b18",
+        "c9f74ca83a86ba44037c3b182d83a4c9f460c392977100c5a52f12d888aa408a"
+      ],
+      "events": 2,
+      "accepted": 2,
+      "fetched": 2,
+      "checks": {
+        "localExample": true,
+        "relayStored": true,
+        "nostrSignature": true,
+        "canonicalTags": true,
+        "syntax": true,
+        "proof": true
+      },
+      "proof": {
+        "valid": true,
+        "distinctSigners": 4,
+        "circleCount": 2,
+        "totalSignatures": 6,
+        "errors": []
+      },
+      "publishMessages": []
+    },
+    {
+      "slug": "grant-funding-proposal-review",
+      "status": "pass",
+      "eventIds": [
+        "a935d14acb9a7bd2775d445af27a1cb9f1bace58949fc374ce87d4ccba2426fa"
+      ],
+      "events": 1,
+      "accepted": 1,
+      "fetched": 1,
+      "checks": {
+        "localExample": true,
+        "relayStored": true,
+        "nostrSignature": true,
+        "canonicalTags": true,
+        "syntax": true,
+        "proof": true
+      },
+      "proof": {
+        "valid": true,
+        "distinctSigners": 3,
+        "threshold": 3,
+        "circleSize": 3,
+        "errors": []
+      },
+      "publishMessages": []
+    },
+    {
+      "slug": "anonymous-credential-attestation-cosigning",
+      "status": "pass",
+      "eventIds": [
+        "b0f0548344fdfaabc934e3ceef6184f9b73c54cd490b3c07159badcfef2cba2f"
+      ],
+      "events": 1,
+      "accepted": 1,
+      "fetched": 1,
+      "checks": {
+        "localExample": true,
+        "relayStored": true,
+        "nostrSignature": true,
+        "canonicalTags": true,
+        "syntax": true,
+        "proof": true
+      },
+      "proof": {
+        "valid": true,
+        "distinctSigners": 3,
+        "threshold": 3,
+        "circleSize": 3,
+        "errors": []
+      },
+      "publishMessages": []
+    },
+    {
+      "slug": "relay-community-admission",
+      "status": "pass",
+      "eventIds": [
+        "27bed504d23ef71d9c8f57e2bac35fa4e475bc62119cf8664194462058579818"
+      ],
+      "events": 1,
+      "accepted": 1,
+      "fetched": 1,
+      "checks": {
+        "localExample": true,
+        "relayStored": true,
+        "nostrSignature": true,
+        "canonicalTags": true,
+        "syntax": true,
+        "proof": true
+      },
+      "proof": {
+        "valid": true,
+        "distinctSigners": 3,
+        "threshold": 3,
+        "circleSize": 3,
+        "errors": []
+      },
+      "publishMessages": []
+    }
+  ]
+}

@@ -297,6 +297,68 @@
       color: inherit;
       font-size: inherit;
     }
+    .code-sample {
+      max-width: 100%;
+      margin-top: 18px;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #07100f;
+    }
+    .code-sample pre {
+      margin-top: 0;
+      border: 0;
+      border-radius: 0;
+    }
+    .code-sample-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      border-bottom: 1px solid var(--dark-line);
+      background: #0b1716;
+      padding: 10px 12px;
+      color: #b7c5cc;
+      font-family: "JetBrains Mono", ui-monospace, monospace;
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .code-sample-path {
+      min-width: 0;
+      overflow-wrap: anywhere;
+    }
+    .code-sample-actions {
+      display: flex;
+      flex-wrap: wrap;
+      flex: 0 0 auto;
+      gap: 8px;
+    }
+    .code-sample-actions a,
+    .code-copy {
+      min-height: 30px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid #31464b;
+      border-radius: 6px;
+      background: rgba(255,255,255,0.04);
+      color: #e6eef2;
+      padding: 0 10px;
+      font: inherit;
+      font-size: 11px;
+      line-height: 1;
+      white-space: nowrap;
+    }
+    .code-sample-actions a:hover,
+    .code-copy:hover {
+      border-color: var(--mint);
+      color: var(--mint);
+      text-decoration: none;
+    }
+    .code-copy {
+      cursor: pointer;
+    }
+    .code-copy[hidden] { display: none; }
     .tok-comment { color: #7f9993; font-style: italic; }
     .tok-keyword { color: #7dd3fc; font-weight: 700; }
     .tok-string { color: #a7f3d0; }
@@ -310,6 +372,102 @@
       overflow-x: auto;
       border: 1px solid var(--line);
       border-radius: 8px;
+    }
+    .relay-evidence {
+      margin-top: 18px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--paper);
+      overflow: hidden;
+    }
+    .relay-evidence.pass { border-color: rgba(14, 116, 98, 0.34); }
+    .relay-evidence.fail { border-color: rgba(190, 18, 60, 0.34); }
+    .relay-evidence-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      border-bottom: 1px solid var(--line);
+      background: var(--white);
+      padding: 14px 16px;
+      font-family: "JetBrains Mono", ui-monospace, monospace;
+      font-size: 12px;
+      font-weight: 800;
+    }
+    .relay-evidence-head span {
+      color: var(--mint-dark);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+    .relay-evidence-head strong {
+      color: var(--ink-2);
+      overflow-wrap: anywhere;
+    }
+    .relay-evidence dl {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 1px;
+      background: var(--line);
+    }
+    .relay-evidence dl div {
+      min-width: 0;
+      background: var(--paper);
+      padding: 14px 16px;
+    }
+    .relay-evidence dt {
+      color: var(--muted);
+      font-family: "JetBrains Mono", ui-monospace, monospace;
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+    .relay-evidence dd {
+      margin-top: 5px;
+      color: var(--ink-2);
+      font-size: 14px;
+      line-height: 1.45;
+      overflow-wrap: anywhere;
+    }
+    .relay-checks {
+      margin: 0;
+      padding: 16px;
+      list-style: none;
+      border-top: 1px solid var(--line);
+    }
+    .relay-checks li {
+      display: flex;
+      align-items: flex-start;
+      gap: 9px;
+      color: var(--ink-2);
+      font-size: 14px;
+    }
+    .relay-checks li span {
+      width: 9px;
+      height: 9px;
+      flex: 0 0 auto;
+      margin-top: 8px;
+      border-radius: 50%;
+      background: #be123c;
+    }
+    .relay-checks li.pass span { background: var(--mint-dark); }
+    .relay-event-ids {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      border-top: 1px solid var(--line);
+      padding: 14px 16px;
+    }
+    .relay-event-ids code,
+    .relay-command code {
+      overflow-wrap: anywhere;
+    }
+    .relay-command {
+      margin: 0;
+      border-top: 1px solid var(--line);
+      padding: 14px 16px;
+      color: var(--muted);
+      font-size: 14px;
     }
     table {
       width: 100%;
@@ -388,7 +546,19 @@
       article { order: 1; padding: 22px; }
       .side-nav { order: 2; }
       .side-nav,
-      .next-grid { grid-template-columns: 1fr; }
+      .next-grid,
+      .relay-evidence dl { grid-template-columns: 1fr; }
+      .code-sample-toolbar {
+        align-items: stretch;
+        flex-direction: column;
+      }
+      .code-sample-actions {
+        width: 100%;
+      }
+      .code-sample-actions a,
+      .code-copy {
+        flex: 1 1 140px;
+      }
       table { min-width: 560px; }
     }
   </style>
@@ -468,7 +638,16 @@
 <h2>Implementation recipe</h2>
 <ol><li>Agree the federation <code>scope</code> before any circle publishes assertions.</li><li>Use the same subject and assertion kind across all participating circles.</li><li>Verify each event independently, then call <code>verifyFederation</code> to count scoped key images once.</li><li>Decide whether every circle must meet its own threshold before the federation-level count is accepted.</li><li>Use isolated circles instead of a shared scope if cross-circle overlap would create unacceptable privacy risk.</li></ol>
 <h2 id="worked-example">Worked example</h2>
-<pre><code class="language-ts"><span class="tok-keyword">import</span> {
+<div class="code-sample" data-example-slug="federated-moderation">
+  <div class="code-sample-toolbar">
+    <span class="code-sample-path">examples/use-cases/federated-moderation.ts</span>
+    <div class="code-sample-actions">
+      <a href="https://github.com/forgesworn/nostr-veil/blob/main/examples/use-cases/federated-moderation.ts" target="_blank" rel="noreferrer">Runnable source</a>
+      <a href="https://github.com/forgesworn/nostr-veil/blob/main/examples/use-cases/_shared.ts" target="_blank" rel="noreferrer">Shared harness</a>
+      <button class="code-copy" type="button" data-copy-code aria-label="Copy example source">Copy</button>
+    </div>
+  </div>
+  <pre><code class="language-ts"><span class="tok-keyword">import</span> {
   NIP85_KINDS,
   aggregateContributions,
   contributeAssertion,
@@ -523,6 +702,7 @@
   scope,
   minDistinctSigners: <span class="tok-number">4</span>,
 })</code></pre>
+</div>
 <h2>What to verify</h2>
 <ul><li>Each event verifies independently with <code>verifyProof</code>, using proof v2 for new deployments.</li><li><code>verifyFederation(events).valid</code> is true, with one shared subject and one shared scope.</li><li>Each participating circle is accepted by the federation policy.</li><li>The federation-level <code>distinctSigners</code> count and any per-circle thresholds meet the action threshold.</li><li>Clients understand that repeated scoped key images reveal cross-circle membership overlap for an otherwise anonymous contributor.</li></ul>
 <h2>What this proves</h2>
@@ -535,6 +715,41 @@
 <div class="table-wrap"><table><thead><tr><th>Risk to handle</th><th>Required control</th></tr></thead><tbody><tr><td>Scoped federation reveals that the same unknown contributor appeared in more than one circle.</td><td>Use scoped federation only when deduplication is worth that overlap signal. Otherwise keep circles unscoped and display separate circle results.</td></tr><tr><td>The proof does not prove circles are independent.</td><td>Publish federation membership rules, circle admission policies, and governance for conflicts or captured circles.</td></tr><tr><td>Unscoped events cannot be deduplicated across circles.</td><td>Create circles with the same <code>scope</code> before collecting contributions; do not try to retrofit deduplication onto isolated events.</td></tr><tr><td>Different circles may disagree.</td><td>Define client policy for thresholds, weighting, abstentions, and whether disagreement blocks action or lowers confidence.</td></tr></tbody></table></div>
 <h2>Policy choices</h2>
 <ul><li>Is revealing cross-circle overlap acceptable for this federation?</li><li>Which communities are allowed to share the scope?</li><li>Does the federation require every circle to meet its own threshold first?</li><li>How should clients display disagreement between circles?</li></ul>
+        <h2>Live relay test</h2>
+<p>The opt-in relay test signs this canonical example as real Nostr event data, publishes it to <code>wss://relay.trotters.cc</code>, fetches it back by id, and re-runs the application, syntax, Nostr signature, canonical tag, and proof checks.</p>
+<div class="relay-evidence pass">
+  <div class="relay-evidence-head">
+    <span>Passed</span>
+    <strong>2026-05-17T14:07:53.000Z</strong>
+  </div>
+  <dl>
+    <div>
+      <dt>Events</dt>
+      <dd>2/2 fetched from relay</dd>
+    </div>
+    <div>
+      <dt>Proof</dt>
+      <dd>4 distinct signers across 2 circles</dd>
+    </div>
+    <div>
+      <dt>Run</dt>
+      <dd><code>tf6px5-f6fa87cf8c</code></dd>
+    </div>
+  </dl>
+  <ul class="relay-checks">
+    <li class="pass"><span aria-hidden="true"></span>Canonical example passes locally</li>
+    <li class="pass"><span aria-hidden="true"></span>Relay stored and returned every signed event</li>
+    <li class="pass"><span aria-hidden="true"></span>Fetched Nostr event signatures are valid</li>
+    <li class="pass"><span aria-hidden="true"></span>Fetched tags match the canonical example</li>
+    <li class="pass"><span aria-hidden="true"></span>NIP-85 syntax validation passes</li>
+    <li class="pass"><span aria-hidden="true"></span>nostr-veil proof verification passes</li>
+  </ul>
+  <div class="relay-event-ids">
+    <code title="db771674262f779f785713ef4ea43d0bbc33a66e86fcccd2f6ac0426e1850b18">db771674262f...e1850b18</code>
+    <code title="c9f74ca83a86ba44037c3b182d83a4c9f460c392977100c5a52f12d888aa408a">c9f74ca83a86...88aa408a</code>
+  </div>
+  <p class="relay-command">Run the same check with <code>npm run test:use-cases:relay -- --write docs/use-case-relay-checks.json</code>.</p>
+</div>
         <h2>Next examples</h2>
         <div class="next-grid">
           <a class="next-card" href="../vendor-marketplace-signals/">
@@ -555,5 +770,29 @@
       <p>nostr-veil: verifiable threshold-backed trust scores without naming the contributors.</p>
     </div>
   </footer>
+  <script>
+    document.querySelectorAll('[data-copy-code]').forEach((button) => {
+      const sample = button.closest('.code-sample')
+      const code = sample ? sample.querySelector('code') : null
+
+      if (!code || !navigator.clipboard) {
+        button.hidden = true
+        return
+      }
+
+      const originalLabel = button.textContent || 'Copy'
+      button.addEventListener('click', async () => {
+        try {
+          await navigator.clipboard.writeText(code.textContent || '')
+          button.textContent = 'Copied'
+        } catch {
+          button.textContent = 'Unavailable'
+        }
+        window.setTimeout(() => {
+          button.textContent = originalLabel
+        }, 1400)
+      })
+    })
+  </script>
 </body>
 </html>
