@@ -29,6 +29,14 @@
 
 # [0.12.0](https://github.com/forgesworn/nostr-veil/compare/v0.11.0...v0.12.0) (2026-05-16)
 
+## 0.28.0 (2026-05-18)
+
+### Features
+
+- add companion evidence collectors
+
+
+
 ## 0.27.0 (2026-05-18)
 
 ### Features
