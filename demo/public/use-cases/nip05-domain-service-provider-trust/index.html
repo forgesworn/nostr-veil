@@ -792,6 +792,36 @@
 <div class="table-wrap"><table><thead><tr><th>Risk to handle</th><th>Required control</th></tr></thead><tbody><tr><td>The proof does not prove domain control.</td><td>Perform DNS, HTTPS, NIP-05, LNURL, or service-specific checks before reviewers contribute.</td></tr><tr><td>The proof does not perform NIP-05 resolution.</td><td>Resolve and cache the NIP-05 result in the application; use nostr-veil only for the circle's assessment of that identifier.</td></tr><tr><td>Providers can change behaviour after review.</td><td>Use expiry, periodic re-review, incident assertions, and revocation once the profile supports it.</td></tr><tr><td>DNS, HTTPS, and provider accounts are not made anonymous.</td><td>Use normal operational security for lookups and account management; nostr-veil hides only which circle members contributed.</td></tr></tbody></table></div>
 <h2>Policy choices</h2>
 <ul><li>How are domains canonicalised: lowercase, punycode, trailing slash, scheme?</li><li>Does <code>rank</code> mean identity confidence, operational reliability, abuse risk, or provider trust?</li><li>Should a domain and a specific NIP-05 name be separate subjects?</li><li>What expiry should identity trust carry?</li></ul>
+        <h2>Companion evidence smoke test</h2>
+<p>The companion-evidence smoke test runs the collector path for this profile and then verifies the derived evidence ids. The checked-in public report is a deterministic fixture dry run so the page stays reproducible; operators can run the same harness in live mode when they want npm, OSV, NIP-05, HTTPS, and relay I/O.</p>
+<div class="relay-evidence pass">
+  <div class="relay-evidence-head">
+    <span>Passed</span>
+    <strong>2026-05-18T13:55:28.000Z</strong>
+  </div>
+  <dl>
+    <div>
+      <dt>Subject</dt>
+      <dd><code>nip05:jack@primal.net</code></dd>
+    </div>
+    <div>
+      <dt>Mode</dt>
+      <dd>deterministic fixture dry run</dd>
+    </div>
+    <div>
+      <dt>Evidence</dt>
+      <dd>3/3 passing</dd>
+    </div>
+  </dl>
+  <ul class="relay-checks">
+    <li class="pass"><span aria-hidden="true"></span>Collector Returned All Evidence</li>
+    <li class="pass"><span aria-hidden="true"></span>Resolver Fetched Current Document</li>
+    <li class="pass"><span aria-hidden="true"></span>nip05-resolution: pass</li>
+    <li class="pass"><span aria-hidden="true"></span>https-probe: pass</li>
+    <li class="pass"><span aria-hidden="true"></span>dns-owner-check: pass</li>
+  </ul>
+  <p class="relay-command">Run the deterministic check with <code>npm run test:companion-evidence</code>. For live I/O, run <code>npm run test:companion-evidence:live</code>.</p>
+</div>
         <h2>NIP-85 kind reference</h2>
 <p>NIP-85 defines the assertion kind by the subject being scored. The kind number is part of the proof v2 context, so deployments should verify both the number and the subject hint tag.</p>
 <div class="kind-reference">

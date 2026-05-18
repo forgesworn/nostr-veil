@@ -793,6 +793,36 @@
 <div class="table-wrap"><table><thead><tr><th>Risk to handle</th><th>Required control</th></tr></thead><tbody><tr><td>The proof does not prove every item in the list is correct.</td><td>Use spot checks, item-level review where needed, freshness windows, and correction channels.</td></tr><tr><td>A list score does not prove the author is trustworthy in general.</td><td>Score operator pubkeys separately when author reputation matters. Keep list quality and operator reputation distinct.</td></tr><tr><td>The reviewed list or labeler is public.</td><td>Use nostr-veil to hide reviewers, not the subject. If the subject itself is sensitive, use an app-private identifier and access-controlled context.</td></tr><tr><td>Different communities may value different curation choices.</td><td>Publish the scoring profile and let clients choose circles aligned with their own policy.</td></tr></tbody></table></div>
 <h2>Policy choices</h2>
 <ul><li>Is the subject the list event, the list author, or the external labeler feed?</li><li>Does <code>rank</code> mean accuracy, coverage, abuse resistance, political alignment, freshness, or some combination?</li><li>How should clients handle disagreement between several circles?</li><li>Should list revisions inherit older scores?</li></ul>
+        <h2>Companion evidence smoke test</h2>
+<p>The companion-evidence smoke test runs the collector path for this profile and then verifies the derived evidence ids. The checked-in public report is a deterministic fixture dry run so the page stays reproducible; operators can run the same harness in live mode when they want npm, OSV, NIP-05, HTTPS, and relay I/O.</p>
+<div class="relay-evidence pass">
+  <div class="relay-evidence-head">
+    <span>Passed</span>
+    <strong>2026-05-18T13:55:28.000Z</strong>
+  </div>
+  <dl>
+    <div>
+      <dt>Subject</dt>
+      <dd><code>30000:5ab4689e400a4a160cf01cd44730845a54768df8547dcdf073d964f109f18c30:companion-evidence-fixture</code></dd>
+    </div>
+    <div>
+      <dt>Mode</dt>
+      <dd>deterministic fixture dry run</dd>
+    </div>
+    <div>
+      <dt>Evidence</dt>
+      <dd>3/3 passing</dd>
+    </div>
+  </dl>
+  <ul class="relay-checks">
+    <li class="pass"><span aria-hidden="true"></span>Collector Returned All Evidence</li>
+    <li class="pass"><span aria-hidden="true"></span>Relay Event Published</li>
+    <li class="pass"><span aria-hidden="true"></span>list-revision-fetch: pass</li>
+    <li class="pass"><span aria-hidden="true"></span>sample-review: pass</li>
+    <li class="pass"><span aria-hidden="true"></span>correction-channel: pass</li>
+  </ul>
+  <p class="relay-command">Run the deterministic check with <code>npm run test:companion-evidence</code>. For live I/O, run <code>npm run test:companion-evidence:live</code>.</p>
+</div>
         <h2>NIP-85 kind reference</h2>
 <p>NIP-85 defines the assertion kind by the subject being scored. The kind number is part of the proof v2 context, so deployments should verify both the number and the subject hint tag.</p>
 <div class="kind-reference">

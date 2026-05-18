@@ -198,6 +198,9 @@ security boundary, and policy choices for one use case:
 
 The runnable cross-check for these shapes is
 [`examples/use-cases.ts`](../examples/use-cases.ts).
+The collector cross-check for package, NIP-05/domain, and list/labeler
+companion evidence is
+[`examples/companion-evidence-live.ts`](../examples/companion-evidence-live.ts).
 
 ## Supported today
 

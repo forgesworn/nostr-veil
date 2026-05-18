@@ -95,6 +95,12 @@ the observations. The evidence still flows through the same signed deployment
 policy, so missing, failed, stale, or wrong-subject observations produce stable
 `companion.*` issue codes.
 
+Run `npm run test:companion-evidence` to exercise the collector path with
+deterministic fixtures. Run `npm run test:companion-evidence:live` when you
+want the same harness to use live npm, OSV, NIP-05, HTTPS, and relay I/O.
+Live package checks should be expected to fail closed unless npm exposes
+trusted-publishing provenance and a real SBOM URL is supplied.
+
 The production verifier is intentionally stricter than
 `verifyDeploymentBundle()`: by default it requires a trusted bundle publisher,
 an expiring signed bundle, and a bundled policy that requires valid Nostr event

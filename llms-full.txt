@@ -132,6 +132,11 @@ helpers over hand-written `pass` records:
 `listLabelerCompanionEvidenceRequirements()` with
 `collectListLabelerCompanionEvidence()` or
 `resolveListLabelerCompanionEvidence()`.
+Run `npm run test:companion-evidence` for the deterministic collector smoke
+test. Run `npm run test:companion-evidence:live` when you intentionally want
+live npm, OSV, NIP-05, HTTPS, and relay I/O; package checks may fail closed
+unless npm exposes trusted-publishing provenance and SBOM observations are
+available.
 
 ## Type Definitions
 

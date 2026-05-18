@@ -6,6 +6,7 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const docsDir = path.join(root, 'docs', 'use-case-pages')
 const relayChecksPath = path.join(root, 'docs', 'use-case-relay-checks.json')
 const admissionRelayChecksPath = path.join(root, 'docs', 'admission-gate-relay-check.json')
+const companionEvidenceChecksPath = path.join(root, 'docs', 'companion-evidence-checks.json')
 const examplesDir = path.join(root, 'examples', 'use-cases')
 const publicDir = path.join(root, 'demo', 'public', 'use-cases')
 const githubExampleBaseUrl = 'https://github.com/forgesworn/nostr-veil/blob/main/examples/use-cases'
@@ -533,6 +534,15 @@ async function readAdmissionRelayReport() {
   }
 }
 
+async function readCompanionEvidenceReport() {
+  try {
+    return JSON.parse(await readFile(companionEvidenceChecksPath, 'utf8'))
+  } catch (error) {
+    if (error && typeof error === 'object' && error.code === 'ENOENT') return undefined
+    throw error
+  }
+}
+
 async function includeExecutableExamples(markdown) {
   const exampleRefs = [...markdown.matchAll(/<!--\s*use-case-example:\s*([a-z0-9-]+)\s*-->/g)]
   let rendered = markdown
@@ -569,6 +579,12 @@ function shortEventId(id) {
 
 function renderCheck(label, passed) {
   return `<li class="${passed ? 'pass' : 'fail'}"><span aria-hidden="true"></span>${escapeHtml(label)}</li>`
+}
+
+function labeliseCheckName(value) {
+  return value
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .replace(/^./, char => char.toUpperCase())
 }
 
 function renderRelayEvidence(useCase, relayReport) {
@@ -616,6 +632,50 @@ function renderRelayEvidence(useCase, relayReport) {
     ${relayCheck.eventIds.map(id => `<code title="${escapeHtml(id)}">${escapeHtml(shortEventId(id))}</code>`).join('\n    ')}
   </div>
   <p class="relay-command">Run the same check with <code>${escapeHtml(relayReport.command)}</code>.</p>
+</div>`
+}
+
+function renderCompanionEvidence(useCase, companionEvidenceReport) {
+  const companionCheck = useCase.companionEvidenceCheck
+  if (companionEvidenceReport === undefined || companionCheck === undefined) return ''
+
+  const evidenceChecks = companionCheck.evidence.map(item => [
+    `${item.id}: ${item.status}`,
+    item.status === 'pass',
+  ])
+  const workflowChecks = Object.entries(companionCheck.checks).map(([name, passed]) => [
+    labeliseCheckName(name),
+    passed,
+  ])
+  const mode = companionEvidenceReport.mode === 'fixture-dry-run'
+    ? 'deterministic fixture dry run'
+    : 'live network run'
+
+  return `<h2>Companion evidence smoke test</h2>
+<p>The companion-evidence smoke test runs the collector path for this profile and then verifies the derived evidence ids. The checked-in public report is a ${escapeHtml(mode)} so the page stays reproducible; operators can run the same harness in live mode when they want npm, OSV, NIP-05, HTTPS, and relay I/O.</p>
+<div class="relay-evidence ${companionCheck.status}">
+  <div class="relay-evidence-head">
+    <span>${companionCheck.status === 'pass' ? 'Passed' : 'Failed'}</span>
+    <strong>${escapeHtml(new Date(companionEvidenceReport.checkedAt).toISOString())}</strong>
+  </div>
+  <dl>
+    <div>
+      <dt>Subject</dt>
+      <dd><code>${escapeHtml(companionCheck.subject)}</code></dd>
+    </div>
+    <div>
+      <dt>Mode</dt>
+      <dd>${escapeHtml(mode)}</dd>
+    </div>
+    <div>
+      <dt>Evidence</dt>
+      <dd>${companionCheck.evidence.filter(item => item.status === 'pass').length}/${companionCheck.evidence.length} passing</dd>
+    </div>
+  </dl>
+  <ul class="relay-checks">
+    ${[...workflowChecks, ...evidenceChecks].map(([label, passed]) => renderCheck(label, passed)).join('\n    ')}
+  </ul>
+  <p class="relay-command">Run the deterministic check with <code>${escapeHtml(companionEvidenceReport.command)}</code>. For live I/O, run <code>npm run test:companion-evidence:live</code>.</p>
 </div>`
 }
 
@@ -698,6 +758,8 @@ function renderPage(useCase, index) {
   const intro = inlineMarkdown(useCase.intro)
   const admissionRelayEvidence = renderAdmissionRelayEvidence(useCase, admissionRelayReport)
   const admissionRelayBlock = admissionRelayEvidence === '' ? '' : `\n        ${admissionRelayEvidence}`
+  const companionEvidence = renderCompanionEvidence(useCase, companionEvidenceReport)
+  const companionEvidenceBlock = companionEvidence === '' ? '' : `\n        ${companionEvidence}`
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -1377,7 +1439,7 @@ function renderPage(useCase, index) {
         ${renderNav(useCase.slug)}
       </nav>
       <article>
-        ${body.replace('<h2>Worked example', '<h2 id="worked-example">Worked example')}${admissionRelayBlock}
+        ${body.replace('<h2>Worked example', '<h2 id="worked-example">Worked example')}${admissionRelayBlock}${companionEvidenceBlock}
         ${renderNip85KindReference()}
         ${renderRelayEvidence(useCase, relayReport)}
         ${renderSafetyMatrix()}
@@ -1432,7 +1494,9 @@ function renderPage(useCase, index) {
 
 const relayReport = await readRelayReport()
 const admissionRelayReport = await readAdmissionRelayReport()
+const companionEvidenceReport = await readCompanionEvidenceReport()
 const relayCheckBySlug = new Map((relayReport?.useCases ?? []).map((check) => [check.slug, check]))
+const companionEvidenceCheckBySlug = new Map((companionEvidenceReport?.useCases ?? []).map((check) => [check.slug, check]))
 
 await mkdir(publicDir, { recursive: true })
 
@@ -1442,6 +1506,7 @@ for (const useCase of cases) {
   useCase.title = extractTitle(markdown)
   useCase.intro = extractIntro(markdown)
   useCase.relayCheck = relayCheckBySlug.get(useCase.slug)
+  useCase.companionEvidenceCheck = companionEvidenceCheckBySlug.get(useCase.slug)
 }
 
 for (const useCase of cases) {

@@ -41,6 +41,8 @@
     "lint": "tsc --noEmit",
     "test:use-cases": "tsx examples/use-cases.ts",
     "test:production-recipes": "tsx examples/production-recipes.ts",
+    "test:companion-evidence": "tsx examples/companion-evidence-live.ts --dry-run",
+    "test:companion-evidence:live": "tsx examples/companion-evidence-live.ts --live",
     "test:admission-gate": "node --import tsx examples/admission-gate.ts",
     "test:admission-gate:relay": "node --import tsx examples/admission-gate-relay.ts",
     "test:use-cases:relay": "tsx examples/use-cases-relay.ts",

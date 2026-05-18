@@ -170,6 +170,41 @@ describe('companion evidence collectors', () => {
     ])
   })
 
+  it('treats npm trusted-publishing attestations as provenance observations', async () => {
+    const subject = canonicalNpmPackageSubject('nostr-veil', '0.28.0')
+    const fetch = fetchFixture({
+      'https://registry.npmjs.org/nostr-veil': jsonResponse({
+        versions: {
+          '0.28.0': {
+            name: 'nostr-veil',
+            version: '0.28.0',
+            dist: {
+              attestations: {
+                provenance: { predicateType: 'https://slsa.dev/provenance/v1' },
+                url: 'https://registry.npmjs.org/-/npm/v1/attestations/nostr-veil@0.28.0',
+              },
+              integrity: 'sha512-fixture',
+            },
+          },
+        },
+      }),
+      'https://api.osv.dev/v1/query': jsonResponse({ vulns: [] }),
+    })
+
+    const metadata = await fetchNpmPackageVersionEvidence('nostr-veil', '0.28.0', { fetch })
+    const evidence = await collectPackageReleaseCompanionEvidence({
+      checkedAt,
+      fetch,
+      osv: true,
+      sbom: { packageName: 'nostr-veil', version: '0.28.0' },
+      subject,
+    })
+
+    expect(metadata.provenance).toEqual({ verified: true })
+    expect(metadata.dist?.attestations?.url).toContain('attestations/nostr-veil@0.28.0')
+    expect(evidence.find(item => item.id === 'npm-provenance')?.status).toBe('pass')
+  })
+
   it('normalises SPDX and CycloneDX SBOM documents without claiming package safety', () => {
     expect(normaliseSbomEvidence({
       spdxVersion: 'SPDX-2.3',

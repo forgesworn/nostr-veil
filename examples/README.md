@@ -13,6 +13,7 @@ npx tsx examples/nip85-provider.ts
 npx tsx examples/typed-assertions.ts
 npx tsx examples/use-cases.ts
 npm run test:production-recipes
+npm run test:companion-evidence
 npm run test:admission-gate
 npm run test:admission-gate:relay -- --dry-run
 npm run test:use-cases:relay -- --dry-run
@@ -49,6 +50,13 @@ Those examples use the collector helpers so evidence is derived from fixture
 fetches, DNS callbacks, relay/list observations, and correction probes instead
 of static pass records. They use NIP-85 kind names such as "kind 30385
 identifier assertion" so the subject route is explicit.
+
+`companion-evidence-live.ts` is the dedicated smoke test for those collectors.
+`npm run test:companion-evidence` uses deterministic fixtures and can refresh
+`docs/companion-evidence-checks.json`. `npm run test:companion-evidence:live`
+uses live npm/OSV/NIP-05/HTTPS/relay I/O; package release checks intentionally
+fail closed unless npm exposes trusted-publishing provenance and an SBOM URL is
+supplied.
 
 `admission-gate.ts` shows the additive relay/community admission pattern. The
 vouch remains a normal NIP-85 kind 30382 user assertion with `veil-*` proof
@@ -93,4 +101,10 @@ To refresh the relay-backed admission gate evidence:
 
 ```bash
 npm run test:admission-gate:relay -- --write docs/admission-gate-relay-check.json
+```
+
+To refresh the companion-evidence smoke-test report:
+
+```bash
+npm run test:companion-evidence -- --write docs/companion-evidence-checks.json
 ```

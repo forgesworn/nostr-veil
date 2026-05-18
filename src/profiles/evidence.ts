@@ -58,6 +58,12 @@ export type EvidenceFetch = (input: string | URL, init?: EvidenceFetchInit) => P
 
 export interface NpmPackageVersionEvidence {
   dist?: {
+    attestations?: {
+      provenance?: {
+        predicateType?: string
+      }
+      url?: string
+    }
     integrity?: string
     shasum?: string
     tarball?: string
@@ -316,6 +322,17 @@ function provenanceValue(value: unknown): NpmPackageVersionEvidence['provenance'
   return typeof verified === 'boolean' ? { verified } : undefined
 }
 
+function npmAttestationProvenanceValue(value: unknown): NpmPackageVersionEvidence['provenance'] | undefined {
+  const attestations = record(value)
+  const provenance = record(attestations?.provenance)
+  const predicateType = stringValue(provenance?.predicateType)
+  const url = stringValue(attestations?.url)
+  if (predicateType === undefined || url === undefined) return undefined
+  return {
+    verified: predicateType.startsWith('https://slsa.dev/provenance/'),
+  }
+}
+
 function parseNpmPackageSubject(subject: string): NpmSubjectParts {
   let packageSubject = subject
   let digest: PackageArtefactDigestEvidence | undefined
@@ -376,12 +393,30 @@ function packageVersionEvidenceFromJson(value: unknown, expectedName: string, ex
   }
 
   const dist = record(candidate.dist)
-  const provenance = provenanceValue(candidate.provenance)
+  const attestations = record(dist?.attestations)
+  const attestationProvenance = record(attestations?.provenance)
+  const attestationPredicateType = stringValue(attestationProvenance?.predicateType)
+  const attestationUrl = stringValue(attestations?.url)
+  const provenance = provenanceValue(candidate.provenance) ?? npmAttestationProvenanceValue(attestations)
   return {
     ...(dist === undefined
       ? {}
       : {
           dist: {
+            ...(attestations === undefined
+              ? {}
+              : {
+                  attestations: {
+                    ...(attestationProvenance === undefined
+                      ? {}
+                      : {
+                          provenance: {
+                            ...(attestationPredicateType === undefined ? {} : { predicateType: attestationPredicateType }),
+                          },
+                        }),
+                    ...(attestationUrl === undefined ? {} : { url: attestationUrl }),
+                  },
+                }),
             ...(stringValue(dist.integrity) === undefined ? {} : { integrity: stringValue(dist.integrity) }),
             ...(stringValue(dist.shasum) === undefined ? {} : { shasum: stringValue(dist.shasum) }),
             ...(stringValue(dist.tarball) === undefined ? {} : { tarball: stringValue(dist.tarball) }),

@@ -8,6 +8,7 @@ const docsDir = join(root, 'docs/use-case-pages')
 const exampleDir = join(root, 'examples/use-cases')
 const relayChecksPath = join(root, 'docs/use-case-relay-checks.json')
 const admissionRelayChecksPath = join(root, 'docs/admission-gate-relay-check.json')
+const companionEvidenceChecksPath = join(root, 'docs/companion-evidence-checks.json')
 const publicUseCasesDir = join(root, 'demo/public/use-cases')
 
 const readText = (path: string) => readFileSync(path, 'utf8')
@@ -273,6 +274,31 @@ describe('public use-case pages', () => {
       }
     }
   })
+
+  it('publishes companion evidence smoke-test results for off-chain supported profiles', () => {
+    const report = JSON.parse(readText(companionEvidenceChecksPath)) as {
+      mode: string
+      summary: { useCases: number, passed: number }
+      useCases: Array<{ slug: string, status: string, subject: string, evidence: Array<{ id: string, status: string }> }>
+    }
+
+    expect(report.mode).toBe('fixture-dry-run')
+    expect(report.summary.useCases).toBe(3)
+    expect(report.summary.passed).toBe(3)
+
+    for (const useCase of report.useCases) {
+      const page = readText(join(publicUseCasesDir, useCase.slug, 'index.html'))
+
+      expect(useCase.status, useCase.slug).toBe('pass')
+      expect(useCase.evidence.every(item => item.status === 'pass'), useCase.slug).toBe(true)
+      expect(page, useCase.slug).toContain('<h2>Companion evidence smoke test</h2>')
+      expect(page, useCase.slug).toContain('npm run test:companion-evidence')
+      expect(page, useCase.slug).toContain(useCase.subject)
+      for (const item of useCase.evidence) {
+        expect(page, `${useCase.slug} is missing ${item.id}`).toContain(`${item.id}: ${item.status}`)
+      }
+    }
+  })
 })
 
 describe('use-case source pages', () => {
@@ -321,6 +347,18 @@ describe('executable use-case examples', () => {
       expect(output).toContain(`${slug}: local=yes signed=yes`)
       expect(output).toContain(`${slug}: local=yes signed=yes tags=yes proof=yes profile=yes`)
     }
+  })
+
+  it('dry-runs the companion evidence harness without network side effects', { timeout: 30_000 }, () => {
+    const output = execFileSync('npm', ['run', 'test:companion-evidence'], {
+      cwd: root,
+      encoding: 'utf8',
+    })
+
+    expect(output).toContain('release-package-maintainer-reputation: status=pass')
+    expect(output).toContain('nip05-domain-service-provider-trust: status=pass')
+    expect(output).toContain('list-labeler-moderation-list-reputation: status=pass')
+    expect(output).toContain('summary: 3/3 companion evidence checks passed (fixture-dry-run)')
   })
 })
 

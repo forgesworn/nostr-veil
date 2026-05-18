@@ -792,6 +792,36 @@
 <div class="table-wrap"><table><thead><tr><th>Risk to handle</th><th>Required control</th></tr></thead><tbody><tr><td>nostr-veil does not scan code.</td><td>Run static analysis, dependency review, tests, malware checks, and human audit before reviewers contribute.</td></tr><tr><td>A threshold score does not prove a package is safe.</td><td>Treat it as reviewer consensus and combine it with signatures, provenance, SBOMs, reproducible builds, and incident response.</td></tr><tr><td>The package identifier is not canonical by default.</td><td>Define canonical identifiers for registry, version, digest, repo, commit, and maintainer subjects. Prefer digest-bound subjects for high-risk releases.</td></tr><tr><td>Maintainer and release risk are different.</td><td>Publish separate assertions for package versions, release artefacts, repositories, and maintainer identities.</td></tr></tbody></table></div>
 <h2>Policy choices</h2>
 <ul><li>Is the subject a package name, exact version, tarball digest, repository commit, maintainer account, or release artefact?</li><li>What review work is required before a member may contribute?</li><li>Does a compromised release get a new assertion or a revocation profile?</li><li>Should package and maintainer scores be separate?</li></ul>
+        <h2>Companion evidence smoke test</h2>
+<p>The companion-evidence smoke test runs the collector path for this profile and then verifies the derived evidence ids. The checked-in public report is a deterministic fixture dry run so the page stays reproducible; operators can run the same harness in live mode when they want npm, OSV, NIP-05, HTTPS, and relay I/O.</p>
+<div class="relay-evidence pass">
+  <div class="relay-evidence-head">
+    <span>Passed</span>
+    <strong>2026-05-18T13:55:28.000Z</strong>
+  </div>
+  <dl>
+    <div>
+      <dt>Subject</dt>
+      <dd><code>npm:nostr-veil@0.28.0</code></dd>
+    </div>
+    <div>
+      <dt>Mode</dt>
+      <dd>deterministic fixture dry run</dd>
+    </div>
+    <div>
+      <dt>Evidence</dt>
+      <dd>3/3 passing</dd>
+    </div>
+  </dl>
+  <ul class="relay-checks">
+    <li class="pass"><span aria-hidden="true"></span>Collector Returned All Evidence</li>
+    <li class="pass"><span aria-hidden="true"></span>Fail Closed When Controls Missing</li>
+    <li class="pass"><span aria-hidden="true"></span>npm-provenance: pass</li>
+    <li class="pass"><span aria-hidden="true"></span>sbom: pass</li>
+    <li class="pass"><span aria-hidden="true"></span>vulnerability-feed: pass</li>
+  </ul>
+  <p class="relay-command">Run the deterministic check with <code>npm run test:companion-evidence</code>. For live I/O, run <code>npm run test:companion-evidence:live</code>.</p>
+</div>
         <h2>NIP-85 kind reference</h2>
 <p>NIP-85 defines the assertion kind by the subject being scored. The kind number is part of the proof v2 context, so deployments should verify both the number and the subject hint tag.</p>
 <div class="kind-reference">
