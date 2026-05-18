@@ -35,6 +35,14 @@ function cloneEvent(event: EventTemplate): EventTemplate {
   }
 }
 
+const META_TAGS = new Set(['d', 'p', 'e', 'a', 'k'])
+
+function publishedMetricNames(event: EventTemplate): string[] {
+  return event.tags
+    .map(tag => tag[0])
+    .filter(name => !META_TAGS.has(name) && !name.startsWith('veil-'))
+}
+
 function profileFor(result: UseCaseResult) {
   const profile = USE_CASE_PROFILE_BY_ID[result.slug]
   if (profile === undefined) throw new Error(`missing profile for ${result.slug}`)
@@ -56,6 +64,18 @@ describe('verifyUseCaseProfile', () => {
       })
 
       expect(verification.valid, `${result.slug}: ${verification.errors.join('; ')}`).toBe(true)
+    }
+  })
+
+  it('documents every metric tag used by the canonical executable examples', () => {
+    for (const result of useCaseResults) {
+      const profileMetrics = new Set(profileFor(result).metrics.map(metric => metric.name))
+
+      for (const event of eventsFor(result)) {
+        for (const name of publishedMetricNames(event)) {
+          expect(profileMetrics.has(name), `${result.slug} uses undocumented metric ${name}`).toBe(true)
+        }
+      }
     }
   })
 

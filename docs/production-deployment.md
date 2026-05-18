@@ -118,6 +118,9 @@ five production-shaped flows:
   namespace, rank, and count-like metric are all policy-valid;
 - NIP-05/domain warning: display a provider trust signal without replacing DNS,
   HTTPS, or NIP-05 verification;
+- list/labeler selection: prefer a curation source only when the exact
+  addressable list, accepted review circle, rank, and count-like corroboration
+  metric pass policy;
 - federated moderation review: use cross-circle evidence to queue human review,
   not to auto-ban;
 - relay/community admission: feed the score into a separate admission and rate

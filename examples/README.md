@@ -34,8 +34,10 @@ deployment API, not only the low-level proof verifier.
 `createCircleManifest()`, `createDeploymentPolicy()`,
 `createSignedDeploymentBundle()`, and `verifyProductionDeployment()`: package
 release reputation, relay preference, NIP-05/domain trust, federated moderation
-review, and relay/community admission. The recipes use stable issue codes for
-audit/error handling. Production apps can pass those codes to
+review, list/labeler selection, and relay/community admission. The recipes run
+`validateUseCaseProfileDefinition()` before building each deployment policy, so
+custom profile mistakes are caught before a score drives automation. The recipes
+use stable issue codes for audit/error handling. Production apps can pass those codes to
 `explainVerificationIssue()` or `remediationForIssue()` to show the corrective
 operator action, or use `verifyProductionDeploymentReport()` when they need the
 decision, control status, and remediation text in one object. The recipes also

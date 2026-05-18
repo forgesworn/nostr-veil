@@ -5,18 +5,22 @@ import {
 import type { EventTemplate } from 'nostr-veil'
 import {
   FEDERATED_MODERATION_PROFILE,
+  LIST_LABELER_MODERATION_LIST_REPUTATION_PROFILE,
   NIP05_DOMAIN_SERVICE_PROVIDER_TRUST_PROFILE,
   RELAY_COMMUNITY_ADMISSION_PROFILE,
   RELAY_SERVICE_REPUTATION_PROFILE,
   RELEASE_PACKAGE_MAINTAINER_REPUTATION_PROFILE,
+  type UseCaseProfile,
   canonicalNip05Subject,
   canonicalNpmPackageSubject,
   createProductionDecisionReport,
   createCircleManifest,
   createDeploymentPolicy,
   createSignedDeploymentBundle,
+  validateUseCaseProfileDefinition,
   verifyProductionDeployment,
 } from 'nostr-veil/profiles'
+import { assertion as listLabelerAssertion } from './use-cases/list-labeler-moderation-list-reputation.js'
 import { assertion as nip05Assertion } from './use-cases/nip05-domain-service-provider-trust.js'
 import { assertion as packageAssertion } from './use-cases/release-package-maintainer-reputation.js'
 import { assertion as relayAdmissionAssertion } from './use-cases/relay-community-admission.js'
@@ -30,6 +34,7 @@ interface RecipeResult {
   issueCodes: string[]
   kind: string
   name: string
+  profileDefinitionWarnings: string[]
   remediations: string[]
   valid: boolean
   verifierAction: string
@@ -76,6 +81,14 @@ function sumMetric(metrics: Record<string, number[]>, name: string): number {
   return metrics[name]?.reduce((sum, value) => sum + value, 0) ?? 0
 }
 
+function profileDefinitionWarnings(profile: UseCaseProfile): string[] {
+  const validation = validateUseCaseProfileDefinition(profile)
+  if (!validation.valid) {
+    throw new Error(`${profile.id} profile definition failed: ${validation.errors.join('; ')}`)
+  }
+  return validation.warnings
+}
+
 function normaliseEvents(events: EventTemplate | readonly EventTemplate[]): EventTemplate[] {
   return Array.isArray(events) ? [...events] : [events as EventTemplate]
 }
@@ -112,6 +125,7 @@ function recipeDiagnostics(result: ReturnType<typeof verifyWithSignedBundle>) {
 }
 
 function packageReleaseGate(): RecipeResult {
+  const profileWarnings = profileDefinitionWarnings(RELEASE_PACKAGE_MAINTAINER_REPUTATION_PROFILE)
   const subject = canonicalNpmPackageSubject('nostr-veil', '0.14.0')
   const policy = createDeploymentPolicy(RELEASE_PACKAGE_MAINTAINER_REPUTATION_PROFILE, {
     circleManifests: [
@@ -132,11 +146,13 @@ function packageReleaseGate(): RecipeResult {
     ...recipeDiagnostics(result),
     kind: describeNip85Kind(RELEASE_PACKAGE_MAINTAINER_REPUTATION_PROFILE.kind),
     name: 'package-release-gate',
+    profileDefinitionWarnings: profileWarnings,
     valid: result.valid,
   }
 }
 
 function relayServicePreference(): RecipeResult {
+  const profileWarnings = profileDefinitionWarnings(RELAY_SERVICE_REPUTATION_PROFILE)
   const policy = createDeploymentPolicy(RELAY_SERVICE_REPUTATION_PROFILE, {
     circleManifests: [
       manifestFor(relayReputationAssertion, RELAY_SERVICE_REPUTATION_PROFILE.id, 'Relay reviewers', 'Relay and service review'),
@@ -158,11 +174,13 @@ function relayServicePreference(): RecipeResult {
     ...recipeDiagnostics(result),
     kind: describeNip85Kind(RELAY_SERVICE_REPUTATION_PROFILE.kind),
     name: 'relay-service-preference',
+    profileDefinitionWarnings: profileWarnings,
     valid: result.valid,
   }
 }
 
 function nip05DomainWarning(): RecipeResult {
+  const profileWarnings = profileDefinitionWarnings(NIP05_DOMAIN_SERVICE_PROVIDER_TRUST_PROFILE)
   const subject = canonicalNip05Subject('alice@example.com')
   const policy = createDeploymentPolicy(NIP05_DOMAIN_SERVICE_PROVIDER_TRUST_PROFILE, {
     circleManifests: [
@@ -184,11 +202,41 @@ function nip05DomainWarning(): RecipeResult {
     ...recipeDiagnostics(result),
     kind: describeNip85Kind(NIP05_DOMAIN_SERVICE_PROVIDER_TRUST_PROFILE.kind),
     name: 'nip05-domain-warning',
+    profileDefinitionWarnings: profileWarnings,
+    valid: result.valid,
+  }
+}
+
+function listLabelerSelection(): RecipeResult {
+  const profileWarnings = profileDefinitionWarnings(LIST_LABELER_MODERATION_LIST_REPUTATION_PROFILE)
+  const policy = createDeploymentPolicy(LIST_LABELER_MODERATION_LIST_REPUTATION_PROFILE, {
+    circleManifests: [
+      manifestFor(listLabelerAssertion, LIST_LABELER_MODERATION_LIST_REPUTATION_PROFILE.id, 'List reviewers', 'List and labeler review'),
+    ],
+    expectedSubject: tagValue(listLabelerAssertion, 'd'),
+    metricPolicies: {
+      rank: { required: true, min: 0, max: 100, integer: true },
+      reaction_cnt: { required: true, min: 0, integer: true },
+    },
+    rejectUnknownMetrics: true,
+    requireNostrSignature: true,
+  })
+  const result = verifyWithSignedBundle(listLabelerAssertion, policy)
+  const rank = result.valid ? firstMetric(result.deployment.metrics, 'rank') : 0
+  const reactions = result.valid ? firstMetric(result.deployment.metrics, 'reaction_cnt') : 0
+
+  return {
+    action: result.valid && rank >= 75 && reactions >= 1 ? 'prefer-curation-source' : 'manual-list-review',
+    ...recipeDiagnostics(result),
+    kind: describeNip85Kind(LIST_LABELER_MODERATION_LIST_REPUTATION_PROFILE.kind),
+    name: 'list-labeler-selection',
+    profileDefinitionWarnings: profileWarnings,
     valid: result.valid,
   }
 }
 
 function federatedModerationReview(): RecipeResult {
+  const profileWarnings = profileDefinitionWarnings(FEDERATED_MODERATION_PROFILE)
   const policy = createDeploymentPolicy(FEDERATED_MODERATION_PROFILE, {
     circleManifests: moderationEvents.map((event, index) =>
       manifestFor(event, FEDERATED_MODERATION_PROFILE.id, `Moderation circle ${index + 1}`, 'Federated moderation review'),
@@ -209,11 +257,13 @@ function federatedModerationReview(): RecipeResult {
     ...recipeDiagnostics(result),
     kind: describeNip85Kind(FEDERATED_MODERATION_PROFILE.kind),
     name: 'federated-moderation-review',
+    profileDefinitionWarnings: profileWarnings,
     valid: result.valid,
   }
 }
 
 function relayAdmissionGate(): RecipeResult {
+  const profileWarnings = profileDefinitionWarnings(RELAY_COMMUNITY_ADMISSION_PROFILE)
   const policy = createDeploymentPolicy(RELAY_COMMUNITY_ADMISSION_PROFILE, {
     circleManifests: [
       manifestFor(relayAdmissionAssertion, RELAY_COMMUNITY_ADMISSION_PROFILE.id, 'Admission reviewers', 'Relay or community admission review'),
@@ -233,6 +283,7 @@ function relayAdmissionGate(): RecipeResult {
     ...recipeDiagnostics(result),
     kind: describeNip85Kind(RELAY_COMMUNITY_ADMISSION_PROFILE.kind),
     name: 'relay-admission-gate',
+    profileDefinitionWarnings: profileWarnings,
     valid: result.valid,
   }
 }
@@ -241,15 +292,19 @@ export const productionRecipeResults = [
   packageReleaseGate(),
   relayServicePreference(),
   nip05DomainWarning(),
+  listLabelerSelection(),
   federatedModerationReview(),
   relayAdmissionGate(),
 ]
 
 for (const result of productionRecipeResults) {
-  console.log(`${result.name}: valid=${result.valid ? 'yes' : 'no'} kind="${result.kind}" action=${result.action} verifier=${result.verifierAction}`)
+  console.log(`${result.name}: valid=${result.valid ? 'yes' : 'no'} kind="${result.kind}" action=${result.action} verifier=${result.verifierAction} profileWarnings=${result.profileDefinitionWarnings.length}`)
   if (!result.valid) {
     console.log(`  errors=${result.errors.join('; ')}`)
     console.log(`  issueCodes=${result.issueCodes.join(',')}`)
     console.log(`  remediations=${result.remediations.join(' | ')}`)
+  }
+  if (result.profileDefinitionWarnings.length > 0) {
+    console.log(`  profileWarnings=${result.profileDefinitionWarnings.join(' | ')}`)
   }
 }

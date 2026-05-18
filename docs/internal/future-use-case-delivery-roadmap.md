@@ -38,6 +38,15 @@ to `supported`.
 | Relay evidence | The worked example passes the live relay harness before the public page calls it production-ready. |
 | Public wording | Public docs say what the profile proves, what it does not prove, and which operational controls close the gap. |
 
+## Milestone ledger
+
+| Milestone | Status | Exit criteria |
+| --- | --- | --- |
+| Supported expansion hardening | In progress | Package, NIP-05/domain, and list/labeler use cases have profile-definition checks, production recipes, documented verifier actions, and tests proving executable examples do not use undocumented metrics. |
+| Relay/community admission prototype | Not started | A reference gate verifies a vouch plus a separate challenge, rejects replay and wrong-relay presentations, and keeps admission policy outside the proof. |
+| Credential/attestation co-signing profile research | Blocked on profile shape | A credential or attestation event format defines holder binding, presentation, expiry, and revocation before nostr-veil adds helper APIs. |
+| Public promotion review | Not started | A future profile moves to `supported` only after companion protocol tests, production recipe, live relay evidence, and public wording all pass. |
+
 ## Candidate roadmap
 
 ### Anonymous credential or attestation co-signing

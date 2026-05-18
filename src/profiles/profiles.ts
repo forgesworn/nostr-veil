@@ -13,6 +13,12 @@ const reactionMetric: MetricProfile = {
   direction: 'count',
 }
 
+const commentMetric: MetricProfile = {
+  name: 'comment_cnt',
+  meaning: 'Count-like review or discussion signal.',
+  direction: 'count',
+}
+
 const reportMetric: MetricProfile = {
   name: 'reports_cnt_recd',
   meaning: 'Count of received reports included in the signed reviewer signal.',
@@ -219,7 +225,7 @@ export const ARTICLE_RESEARCH_REVIEW_PROFILE = profile({
   proofVersion: 'v2',
   minDistinctSigners: 3,
   maxAgeSeconds: 300,
-  metrics: [rankMetric, reactionMetric],
+  metrics: [rankMetric, commentMetric, reactionMetric],
   failurePolicy: commonFailurePolicy,
   ...safety({
     proofClaims: [
@@ -325,7 +331,7 @@ export const LIST_LABELER_MODERATION_LIST_REPUTATION_PROFILE = profile({
   proofVersion: 'v2',
   minDistinctSigners: 3,
   maxAgeSeconds: 300,
-  metrics: [rankMetric],
+  metrics: [rankMetric, reactionMetric],
   failurePolicy: commonFailurePolicy,
   ...safety({
     proofClaims: [

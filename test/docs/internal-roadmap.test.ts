@@ -13,6 +13,8 @@ describe('internal future use-case roadmap', () => {
     const roadmap = readText(roadmapPath)
     expect(roadmap).toContain('Internal planning note')
     expect(roadmap).toContain('## Promotion gates')
+    expect(roadmap).toContain('## Milestone ledger')
+    expect(roadmap).toContain('Supported expansion hardening')
     expect(roadmap).toContain('Anonymous credential or attestation co-signing')
     expect(roadmap).toContain('Relay or community admission')
 
