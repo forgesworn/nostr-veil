@@ -1,5 +1,5 @@
 {
-  "checkedAt": "2026-05-18T13:55:28.000Z",
+  "checkedAt": "2026-05-18T14:10:09.000Z",
   "command": "npm run test:companion-evidence",
   "mode": "fixture-dry-run",
   "relay": "wss://relay.trotters.cc",
@@ -16,19 +16,19 @@
       },
       "evidence": [
         {
-          "checkedAt": 1779112528,
+          "checkedAt": 1779113409,
           "id": "npm-provenance",
           "status": "pass",
           "summary": "npm package metadata, artefact digest, and provenance statement match the reviewed subject"
         },
         {
-          "checkedAt": 1779112528,
+          "checkedAt": 1779113409,
           "id": "sbom",
           "status": "pass",
           "summary": "SBOM metadata matches the reviewed package subject"
         },
         {
-          "checkedAt": 1779112528,
+          "checkedAt": 1779113409,
           "id": "vulnerability-feed",
           "status": "pass",
           "summary": "vulnerability feed reports no high or critical findings for the reviewed subject"
@@ -36,7 +36,7 @@
       ],
       "slug": "release-package-maintainer-reputation",
       "status": "pass",
-      "subject": "npm:nostr-veil@0.28.0"
+      "subject": "npm:nostr-veil@0.28.1"
     },
     {
       "checks": {
@@ -45,19 +45,19 @@
       },
       "evidence": [
         {
-          "checkedAt": 1779112528,
+          "checkedAt": 1779113409,
           "id": "nip05-resolution",
           "status": "pass",
           "summary": "NIP-05 document resolves the reviewed name to the expected pubkey"
         },
         {
-          "checkedAt": 1779112528,
+          "checkedAt": 1779113409,
           "id": "https-probe",
           "status": "pass",
           "summary": "HTTPS probe succeeded for the reviewed provider subject"
         },
         {
-          "checkedAt": 1779112528,
+          "checkedAt": 1779113409,
           "id": "dns-owner-check",
           "status": "pass",
           "summary": "DNS owner check matches the reviewed provider subject"
@@ -74,19 +74,19 @@
       },
       "evidence": [
         {
-          "checkedAt": 1779112528,
+          "checkedAt": 1779113409,
           "id": "list-revision-fetch",
           "status": "pass",
           "summary": "fetched list revision matches the reviewed addressable subject and signature policy"
         },
         {
-          "checkedAt": 1779112528,
+          "checkedAt": 1779113409,
           "id": "sample-review",
           "status": "pass",
           "summary": "list sampling policy reviewed enough entries"
         },
         {
-          "checkedAt": 1779112528,
+          "checkedAt": 1779113409,
           "id": "correction-channel",
           "status": "pass",
           "summary": "correction channel is reachable for disputes or superseding assertions"
