@@ -171,7 +171,7 @@ security boundary, and policy choices for one use case:
 | Privacy-preserving onboarding | Supported today | [privacy-preserving onboarding](./use-case-pages/privacy-preserving-onboarding.md) |
 | Grant, funding, and proposal review | Supported today | [grant, funding, and proposal review](./use-case-pages/grant-funding-proposal-review.md) |
 | Anonymous credential or attestation co-signing | Future profile | [anonymous credential co-signing](./use-case-pages/anonymous-credential-attestation-cosigning.md) |
-| Relay or community admission | Future profile | [relay or community admission](./use-case-pages/relay-community-admission.md) |
+| Relay or community admission | Supported admission gate; full anonymous profile future | [relay or community admission](./use-case-pages/relay-community-admission.md) |
 
 The runnable cross-check for these shapes is
 [`examples/use-cases.ts`](../examples/use-cases.ts).
@@ -394,6 +394,11 @@ pubkey. A relay or community can use that as an input to admission policy, and
 `createAdmissionChallenge()`, `createAdmissionPresentation()`, and
 `verifyAdmissionRequest()` provide a reference pubkey-bound challenge around
 that existing kind 30382 vouch.
+
+The relay-backed smoke test in `examples/admission-gate-relay.ts` publishes the
+kind 30382 vouch and a separate NIP-78 kind 30078 deployment-bundle carrier to
+`wss://relay.trotters.cc`, fetches both back by id, and verifies the fetched
+material with `verifyAdmissionRequest()`.
 
 A full anonymous admission flow still needs more than NIP-85: the verifier must
 check the proof without learning which trusted member opened the door, session

@@ -14,6 +14,7 @@ npx tsx examples/typed-assertions.ts
 npx tsx examples/use-cases.ts
 npm run test:production-recipes
 npm run test:admission-gate
+npm run test:admission-gate:relay -- --dry-run
 npm run test:use-cases:relay -- --dry-run
 ```
 
@@ -51,6 +52,13 @@ tags. The admission challenge and applicant presentation are separate protocol
 objects verified by `verifyAdmissionRequest()` alongside the signed deployment
 bundle.
 
+`admission-gate-relay.ts` is the live version of the same gate. It publishes
+the signed kind 30382 admission vouch to the relay, carries the signed
+nostr-veil deployment bundle in a separate NIP-78 kind 30078 application data
+event, fetches both back by id, and then runs `verifyAdmissionRequest()` against
+the fetched material. Kind 30078 is only a transport wrapper for this example;
+it is not a new NIP-85 assertion kind.
+
 The built-in profiles also expose `proofClaims`, `proofLimitations`,
 `requiredControls`, and `recommendedActions`. Use those fields when rendering a
 production decision so the UI says what the proof supports and which real-world
@@ -75,4 +83,10 @@ network publication. To refresh the public evidence file:
 
 ```bash
 npm run test:use-cases:relay -- --write docs/use-case-relay-checks.json
+```
+
+To refresh the relay-backed admission gate evidence:
+
+```bash
+npm run test:admission-gate:relay -- --write docs/admission-gate-relay-check.json
 ```

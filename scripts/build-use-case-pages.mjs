@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url'
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const docsDir = path.join(root, 'docs', 'use-case-pages')
 const relayChecksPath = path.join(root, 'docs', 'use-case-relay-checks.json')
+const admissionRelayChecksPath = path.join(root, 'docs', 'admission-gate-relay-check.json')
 const examplesDir = path.join(root, 'examples', 'use-cases')
 const publicDir = path.join(root, 'demo', 'public', 'use-cases')
 const githubExampleBaseUrl = 'https://github.com/forgesworn/nostr-veil/blob/main/examples/use-cases'
@@ -92,7 +93,7 @@ const cases = [
     slug: 'relay-community-admission',
     file: 'relay-community-admission.md',
     group: 'Future profiles',
-    status: 'Profile needed',
+    status: 'Gate supported',
   },
 ]
 
@@ -523,6 +524,15 @@ async function readRelayReport() {
   }
 }
 
+async function readAdmissionRelayReport() {
+  try {
+    return JSON.parse(await readFile(admissionRelayChecksPath, 'utf8'))
+  } catch (error) {
+    if (error && typeof error === 'object' && error.code === 'ENOENT') return undefined
+    throw error
+  }
+}
+
 async function includeExecutableExamples(markdown) {
   const exampleRefs = [...markdown.matchAll(/<!--\s*use-case-example:\s*([a-z0-9-]+)\s*-->/g)]
   let rendered = markdown
@@ -609,6 +619,53 @@ function renderRelayEvidence(useCase, relayReport) {
 </div>`
 }
 
+function renderAdmissionRelayEvidence(useCase, admissionRelayReport) {
+  if (useCase.slug !== 'relay-community-admission' || admissionRelayReport === undefined) return ''
+
+  const checks = [
+    ['Local admission gate verifies before publishing', admissionRelayReport.checks.localAdmission],
+    ['NIP-85 kind 30382 vouch was fetched from relay', admissionRelayReport.checks.vouchFetched],
+    ['Vouch Nostr signature verifies after relay fetch', admissionRelayReport.checks.vouchNostrSignature],
+    ['Vouch tags stayed unchanged from the canonical example', admissionRelayReport.checks.vouchTagsUnchanged],
+    ['NIP-78 kind 30078 bundle carrier was fetched from relay', admissionRelayReport.checks.bundleFetched],
+    ['Bundle carrier Nostr signature verifies', admissionRelayReport.checks.bundleTransportSignature],
+    ['Signed deployment bundle signature verifies', admissionRelayReport.checks.bundleSignature],
+    ['Applicant challenge presentation verifies', admissionRelayReport.checks.presentationVerification],
+    ['verifyAdmissionRequest() admits the fetched material', admissionRelayReport.checks.admissionVerification],
+  ]
+
+  return `<h2>Live admission gate test</h2>
+<p>The opt-in admission gate test publishes the normal NIP-85 kind 30382 vouch and a separate NIP-78 kind 30078 carrier for the signed deployment bundle to <code>${escapeHtml(admissionRelayReport.relay)}</code>, fetches both back by id, and runs <code>verifyAdmissionRequest()</code> against the fetched material.</p>
+<div class="relay-evidence ${admissionRelayReport.status}">
+  <div class="relay-evidence-head">
+    <span>${admissionRelayReport.status === 'pass' ? 'Passed' : 'Failed'}</span>
+    <strong>${escapeHtml(new Date(admissionRelayReport.checkedAt).toISOString())}</strong>
+  </div>
+  <dl>
+    <div>
+      <dt>Decision</dt>
+      <dd>${escapeHtml(admissionRelayReport.result.decision)} at rank ${escapeHtml(String(admissionRelayReport.result.rank ?? 'missing'))}</dd>
+    </div>
+    <div>
+      <dt>Vouch</dt>
+      <dd>kind ${escapeHtml(String(admissionRelayReport.events.vouchKind))} NIP-85 user assertion</dd>
+    </div>
+    <div>
+      <dt>Bundle</dt>
+      <dd>kind ${escapeHtml(String(admissionRelayReport.events.bundleEventKind))} NIP-78 application data carrier</dd>
+    </div>
+  </dl>
+  <ul class="relay-checks">
+    ${checks.map(([label, passed]) => renderCheck(label, passed)).join('\n    ')}
+  </ul>
+  <div class="relay-event-ids">
+    <code title="${escapeHtml(admissionRelayReport.events.vouchEventId)}">vouch ${escapeHtml(shortEventId(admissionRelayReport.events.vouchEventId))}</code>
+    <code title="${escapeHtml(admissionRelayReport.events.bundleEventId)}">bundle ${escapeHtml(shortEventId(admissionRelayReport.events.bundleEventId))}</code>
+  </div>
+  <p class="relay-command">Run the same check with <code>${escapeHtml(admissionRelayReport.command)}</code>.</p>
+</div>`
+}
+
 function renderSafetyMatrix() {
   return `<h2>Safety checks</h2>
 <p>Each canonical use-case example is also exercised by an adversarial test harness. These are the failure modes a production verifier should reject before acting on the score.</p>
@@ -639,6 +696,8 @@ function renderPage(useCase, index) {
   const next = cases[(index + 1) % cases.length]
   const body = renderMarkdown(stripTitle(useCase.markdown))
   const intro = inlineMarkdown(useCase.intro)
+  const admissionRelayEvidence = renderAdmissionRelayEvidence(useCase, admissionRelayReport)
+  const admissionRelayBlock = admissionRelayEvidence === '' ? '' : `\n        ${admissionRelayEvidence}`
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -1318,7 +1377,7 @@ function renderPage(useCase, index) {
         ${renderNav(useCase.slug)}
       </nav>
       <article>
-        ${body.replace('<h2>Worked example', '<h2 id="worked-example">Worked example')}
+        ${body.replace('<h2>Worked example', '<h2 id="worked-example">Worked example')}${admissionRelayBlock}
         ${renderNip85KindReference()}
         ${renderRelayEvidence(useCase, relayReport)}
         ${renderSafetyMatrix()}
@@ -1372,6 +1431,7 @@ function renderPage(useCase, index) {
 }
 
 const relayReport = await readRelayReport()
+const admissionRelayReport = await readAdmissionRelayReport()
 const relayCheckBySlug = new Map((relayReport?.useCases ?? []).map((check) => [check.slug, check]))
 
 await mkdir(publicDir, { recursive: true })

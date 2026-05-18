@@ -7,6 +7,7 @@ const root = process.cwd()
 const docsDir = join(root, 'docs/use-case-pages')
 const exampleDir = join(root, 'examples/use-cases')
 const relayChecksPath = join(root, 'docs/use-case-relay-checks.json')
+const admissionRelayChecksPath = join(root, 'docs/admission-gate-relay-check.json')
 const publicUseCasesDir = join(root, 'demo/public/use-cases')
 
 const readText = (path: string) => readFileSync(path, 'utf8')
@@ -151,6 +152,46 @@ describe('public use-case pages', () => {
       expect(page, slug).toContain('Deployment profile verifier passes')
       expect(page, slug).toContain(check!.eventIds[0].slice(0, 12))
     }
+  })
+
+  it('publishes live relay evidence for the admission gate handshake', () => {
+    const report = JSON.parse(readText(admissionRelayChecksPath)) as {
+      relay: string
+      checkedAt: string
+      status: string
+      events: { bundleEventId: string, bundleEventKind: number, vouchEventId: string, vouchKind: number }
+      checks: {
+        admissionVerification: boolean
+        bundleFetched: boolean
+        bundleSignature: boolean
+        bundleTransportSignature: boolean
+        localAdmission: boolean
+        presentationVerification: boolean
+        vouchFetched: boolean
+        vouchKind30382: boolean
+        vouchNostrSignature: boolean
+        vouchTagsUnchanged: boolean
+      }
+      result: { decision: string, valid: boolean }
+    }
+    const page = readText(join(publicUseCasesDir, 'relay-community-admission', 'index.html'))
+
+    expect(report.relay).toBe('wss://relay.trotters.cc')
+    expect(report.status).toBe('pass')
+    expect(Number.isNaN(Date.parse(report.checkedAt))).toBe(false)
+    expect(report.events.vouchKind).toBe(30382)
+    expect(report.events.bundleEventKind).toBe(30078)
+    expect(report.events.vouchEventId).toMatch(/^[0-9a-f]{64}$/)
+    expect(report.events.bundleEventId).toMatch(/^[0-9a-f]{64}$/)
+    expect(report.result.valid).toBe(true)
+    expect(report.result.decision).toBe('admit')
+    expect(Object.values(report.checks).every(Boolean)).toBe(true)
+    expect(page).toContain('<h2>Live admission gate test</h2>')
+    expect(page).toContain('NIP-85 kind 30382 vouch')
+    expect(page).toContain('NIP-78 kind 30078 carrier')
+    expect(page).toContain('verifyAdmissionRequest() admits the fetched material')
+    expect(page).toContain(report.events.vouchEventId.slice(0, 12))
+    expect(page).toContain(report.events.bundleEventId.slice(0, 12))
   })
 
   it('publishes the adversarial safety matrix on every worked example', () => {

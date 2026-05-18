@@ -43,7 +43,7 @@ to `supported`.
 | Milestone | Status | Exit criteria |
 | --- | --- | --- |
 | Supported expansion hardening | In progress | Package, NIP-05/domain, and list/labeler use cases have profile-definition checks, production recipes, documented verifier actions, and tests proving executable examples do not use undocumented metrics. |
-| Relay/community admission prototype | In progress | A reference gate verifies a vouch plus a separate challenge, rejects replay and wrong-relay presentations, and keeps admission policy outside the proof. |
+| Relay/community admission gate | Shipped as building block | A reference gate verifies a kind 30382 vouch plus a separate challenge, rejects replay and wrong-relay presentations, keeps admission policy outside the proof, and has live relay evidence for the fetched vouch plus signed bundle carrier. |
 | Credential/attestation co-signing profile research | Blocked on profile shape | A credential or attestation event format defines holder binding, presentation, expiry, and revocation before nostr-veil adds helper APIs. |
 | Public promotion review | Not started | A future profile moves to `supported` only after companion protocol tests, production recipe, live relay evidence, and public wording all pass. |
 
@@ -90,9 +90,19 @@ an applicant pubkey and verify a reference challenge/presentation around that
 vouch. A relay or community can use that as one policy input. That is not the
 same as anonymous access control.
 
-What must exist before promotion:
+What has shipped as the pubkey-bound gate:
 
-- A production challenge/response flow owned by the relay or community.
+- `createAdmissionChallenge()`, `createAdmissionPresentation()`, and
+  `verifyAdmissionRequest()` as additive helpers around the existing kind 30382
+  vouch.
+- A live relay smoke test that publishes the vouch and a separate NIP-78 kind
+  30078 signed-bundle carrier, fetches both back by id, and verifies the fetched
+  material.
+- A public operator recipe that distinguishes `admit`, `manual-review`,
+  `rate-limit`, `deny`, and `revoke`.
+
+What must exist before promotion to full anonymous admission:
+
 - A subject-binding decision: admitted pubkey, session key, capability token,
   account record, or credential presentation.
 - Replay protection tied to a nonce, relay, community, expiry, and session.
@@ -101,8 +111,8 @@ What must exist before promotion:
 - Rate-limit and staged-permission policy after admission.
 - Metadata guidance for IP address, timing, relay logs, and failed admission
   attempts.
-- A production recipe that distinguishes `admit`, `manual-review`,
-  `rate-limit`, `deny`, and `revoke`.
+- A production relay/community implementation that proves the session and
+  revocation model under real abuse handling.
 
 Likely nostr-veil work:
 

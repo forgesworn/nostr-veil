@@ -306,11 +306,13 @@ Supported today:
 - Community list, labeler, and moderation-list reputation where users can compare curation sources without mapping every reviewer.
 - Federated moderation where scoped circles count overlapping contributors once, not once per circle.
 - Privacy-preserving onboarding where an already-trusted circle can vouch for a new account without naming the individual vouchees.
+- Relay or community admission gate building blocks, using a standard NIP-85
+  kind 30382 vouch plus the additive admission challenge helpers.
 
 Future profiles:
 
 - Anonymous credential or attestation co-signing, once endorsement event formats define subject, expiry, revocation, and presentation rules.
-- Relay or community admission, once a gated-access handshake exists; today nostr-veil can publish the threshold-backed assertion, but it is not the whole anonymous access-control protocol.
+- Full anonymous relay or community admission, once credential/session continuity, revocation, and transport privacy semantics are defined.
 
 nostr-veil proves that distinct keys from a public trust circle contributed. Trust-circle formation, Sybil policy, revocation, and anonymous access control are separate application-layer decisions.
 

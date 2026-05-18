@@ -97,10 +97,13 @@ The shipped primitives cover these concrete shapes:
 For new workflows, prefer proof v2 and verify with
 `verifyProof(event, { requireProofVersion: 'v2' })`. Pubkey-bound
 relay/community admission can use a standard kind 30382 vouch plus the
-admission challenge helpers. Credential co-signing and fully anonymous gated
-access are still future profiles: nostr-veil can provide the threshold proof,
-but those flows need separate credential, session, revocation, and transport
-rules.
+admission challenge helpers. The live admission-gate example publishes that
+kind 30382 vouch plus a separate NIP-78 kind 30078 deployment-bundle carrier to
+a relay, fetches both back, and verifies the fetched material with
+`verifyAdmissionRequest()`. Kind 30078 is only a transport wrapper, not a NIP-85
+assertion. Credential co-signing and fully anonymous gated access are still
+future profiles: nostr-veil can provide the threshold proof, but those flows
+need separate credential, session, revocation, and transport rules.
 
 The use-case documentation is written as implementation profiles. Each page
 should identify the subject shape, helper, metric meaning, proof version,
@@ -740,6 +743,12 @@ vouch and signed deployment bundle. It returns a decision such as `admit`,
 `rate-limit`, `manual-review`, `deny`, or `revoke`. It does not grant relay
 access by itself; relay policy, sessions, revocation, logging, and transport
 privacy remain application controls.
+
+`examples/admission-gate-relay.ts` is the opt-in live relay check. It publishes
+the signed NIP-85 kind 30382 vouch and a separate NIP-78 kind 30078 application
+data event carrying the signed deployment bundle, fetches both back by id, and
+then calls `verifyAdmissionRequest()` on the fetched objects. Do not treat kind
+30078 as a new NIP-85 assertion kind.
 
 Canonical subject helpers cover Nostr-native subjects plus relays, service
 endpoints, NIP-05, domains, LNURLp, NIP-96, npm packages, git repositories,

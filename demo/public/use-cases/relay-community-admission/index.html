@@ -4,10 +4,10 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Relay or community admission | nostr-veil use cases</title>
-  <meta name="description" content="This is a future full anonymous-access profile. nostr-veil can publish a threshold-backed vouch assertion about a candidate and provides a reference pubkey-bound admission challenge around that vouch. A complete anonymous admission system still needs session continuity, abuse handling, and transport privacy outside the NIP-85 assertion." />
+  <meta name="description" content="Use this when a relay, forum, chat, marketplace, or private community wants a threshold-backed admission signal without exposing which reviewers vouched for the applicant. nostr-veil supports the admission-gate building block today: a normal NIP-85 kind 30382 vouch for the applicant pubkey, plus an additive challenge/presentation handshake that proves the live applicant controls that pubkey. A complete anonymous-access system still needs session continuity, transport privacy, revocation, rate limiting, and abuse handling outside the NIP-85 assertion. Treat nostr-veil as the verifiable admission evidence, not as the whole relay policy engine." />
   <meta property="og:type" content="article" />
   <meta property="og:title" content="Relay or community admission" />
-  <meta property="og:description" content="This is a future full anonymous-access profile. nostr-veil can publish a threshold-backed vouch assertion about a candidate and provides a reference pubkey-bound admission challenge around that vouch. A complete anonymous admission system still needs session continuity, abuse handling, and transport privacy outside the NIP-85 assertion." />
+  <meta property="og:description" content="Use this when a relay, forum, chat, marketplace, or private community wants a threshold-backed admission signal without exposing which reviewers vouched for the applicant. nostr-veil supports the admission-gate building block today: a normal NIP-85 kind 30382 vouch for the applicant pubkey, plus an additive challenge/presentation handshake that proves the live applicant controls that pubkey. A complete anonymous-access system still needs session continuity, transport privacy, revocation, rate limiting, and abuse handling outside the NIP-85 assertion. Treat nostr-veil as the verifiable admission evidence, not as the whole relay policy engine." />
   <meta property="og:image" content="https://raw.githubusercontent.com/forgesworn/nostr-veil/main/social-preview.png" />
   <meta name="twitter:card" content="summary_large_image" />
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='9' fill='none' stroke='%2340c7aa' stroke-width='3'/></svg>" />
@@ -645,14 +645,14 @@
         <div>
           <span class="eyebrow">Future profiles</span>
           <h1>Relay or community admission</h1>
-          <p>This is a future full anonymous-access profile. nostr-veil can publish a threshold-backed vouch assertion about a candidate and provides a reference pubkey-bound admission challenge around that vouch. A complete anonymous admission system still needs session continuity, abuse handling, and transport privacy outside the NIP-85 assertion.</p>
+          <p>Use this when a relay, forum, chat, marketplace, or private community wants a threshold-backed admission signal without exposing which reviewers vouched for the applicant. nostr-veil supports the admission-gate building block today: a normal NIP-85 kind 30382 vouch for the applicant pubkey, plus an additive challenge/presentation handshake that proves the live applicant controls that pubkey. A complete anonymous-access system still needs session continuity, transport privacy, revocation, rate limiting, and abuse handling outside the NIP-85 assertion. Treat nostr-veil as the verifiable admission evidence, not as the whole relay policy engine.</p>
           <div class="button-row">
             <a class="button primary" href="#worked-example">Jump to worked example</a>
             <a class="button" href="../">Back to atlas</a>
           </div>
         </div>
         <aside class="status-panel" aria-label="Use-case status">
-          <span class="status-pill future">Profile needed</span>
+          <span class="status-pill today">Gate supported</span>
           <dl>
             <div>
               <dt>Includes</dt>
@@ -689,16 +689,38 @@
 <a href="../relay-community-admission/" aria-current="page">Relay or community admission</a>
       </nav>
       <article>
-        <p>This is a future full anonymous-access profile. nostr-veil can publish a threshold-backed vouch assertion about a candidate and provides a reference pubkey-bound admission challenge around that vouch. A complete anonymous admission system still needs session continuity, abuse handling, and transport privacy outside the NIP-85 assertion.</p>
+        <p>Use this when a relay, forum, chat, marketplace, or private community wants a threshold-backed admission signal without exposing which reviewers vouched for the applicant. nostr-veil supports the admission-gate building block today: a normal NIP-85 kind 30382 vouch for the applicant pubkey, plus an additive challenge/presentation handshake that proves the live applicant controls that pubkey.</p>
+<p>A complete anonymous-access system still needs session continuity, transport privacy, revocation, rate limiting, and abuse handling outside the NIP-85 assertion. Treat nostr-veil as the verifiable admission evidence, not as the whole relay policy engine.</p>
 <h2>Fit</h2>
-<ul><li>Status: future profile, with a supported vouch assertion today.</li><li>Current NIP-85 shape: kind 30382 user assertion for the candidate pubkey.</li><li>Subject: candidate account pubkey.</li><li>Helpers today: <code>contributeAssertion</code>, <code>aggregateContributions</code>, <code>verifyProof</code>, <code>createAdmissionChallenge</code>, <code>createAdmissionPresentation</code>, and <code>verifyAdmissionRequest</code>.</li><li>Proof version: v2 recommended.</li><li>Useful metric today: <code>rank</code> as admission confidence.</li></ul>
+<ul><li>Status: supported admission-gate building block today; full anonymous-access profile still future.</li><li>Current NIP-85 shape: kind 30382 user assertion for the candidate pubkey.</li><li>Subject: candidate account pubkey in <code>d</code>, mirrored in <code>p</code>.</li><li>Helper path: <code>createAdmissionChallenge()</code>, <code>createAdmissionPresentation()</code>, and <code>verifyAdmissionRequest()</code>.</li><li>Proof version: v2 recommended because it binds the kind and subject hint to the proof context.</li><li>Useful metric today: <code>rank</code> as admission confidence, sponsor confidence, or policy completeness.</li></ul>
 <h2>Subject design</h2>
-<ul><li>Today, the subject is the candidate pubkey and the output is a portable vouch assertion.</li><li>Use kind 30382 with <code>d</code> and <code>p</code> equal to the candidate pubkey.</li><li>Do not treat that public vouch as anonymous relay entry. The reference challenge proves a live applicant controls the vouched pubkey; transport privacy and session policy are still separate.</li><li>A full profile must decide whether the admitted identity is a pubkey, credential presentation, session key, relay account, or community-specific capability.</li></ul>
+<ul><li>The NIP-85 subject is the applicant pubkey. Use kind 30382, with <code>d</code> and <code>p</code> equal to that pubkey.</li><li>The admission challenge is separate from the NIP-85 event. It binds a single admission attempt to the applicant pubkey, the relay or community audience, an expiry, and a nonce.</li><li>The applicant presentation is also separate from the NIP-85 event. It is a Schnorr signature by the applicant pubkey over the challenge context.</li><li>The deployment bundle is signed operator policy. It says which admission circle, threshold, subject, freshness, and metric bounds the verifier accepts.</li><li>If the bundle is distributed over Nostr, carry it in a separate application event such as NIP-78 kind 30078. That transport event is not a NIP-85 assertion and must not be counted as the vouch.</li></ul>
 <h2>What to publish</h2>
-<ul><li>Today: a kind 30382 vouch assertion created with <code>aggregateContributions</code>.</li><li>A <code>rank</code> profile such as admission confidence, sponsor confidence, or policy completeness.</li><li>Proof v2 tags, accepted admission-circle policy, threshold, expiry, and revocation or ban rules.</li><li>Admission challenge and presentation data for replay protection, plus future profile data for session continuity, transport privacy, and post-admission abuse handling.</li></ul>
-<h2>Implementation recipe for today's building block</h2>
-<ol><li>Publish a threshold-backed vouch assertion about the candidate pubkey.</li><li>Have the relay or community create an admission challenge for that pubkey and audience.</li><li>Have the applicant sign the challenge with the vouched pubkey.</li><li>Use <code>verifyAdmissionRequest()</code> to verify the signed presentation, signed deployment bundle, expected circle, threshold, subject, freshness, and rank.</li><li>Apply ordinary access policy based on that verified result.</li><li>Keep transport privacy, account creation, session continuity, revocation, and abuse handling outside nostr-veil until a full admission profile exists.</li></ol>
-<h2 id="worked-example">Worked example for today's building block</h2>
+<ul><li>Publish the vouch as a signed NIP-85 kind 30382 event produced by <code>aggregateContributions()</code>.</li><li>Keep the vouch tags canonical: <code>d</code>, <code>p</code>, metric tags such as <code>rank</code>, and <code>veil-*</code> proof tags. Do not add <code>admission-*</code> tags to the NIP-85 event.</li><li>Publish or distribute the signed deployment bundle from a trusted operator key. This can be HTTPS, a release artefact, operator config, or a NIP-78 kind 30078 application data event.</li><li>Do not publish the challenge as long-lived state. It is an admission attempt, so keep it short-lived and store only the replay cache or audit record needed by the relay.</li></ul>
+<h2>Operator recipe</h2>
+<ol><li>Build an admission circle manifest with the reviewer pubkeys and the <code>relay-community-admission</code> profile id.</li><li>Build a deployment policy for the applicant pubkey, requiring <code>rank</code>, proof v2, an accepted circle, fresh events, and valid Nostr signatures.</li><li>Sign that policy with <code>createSignedDeploymentBundle()</code> and pin the bundle signer in relay config.</li><li>When an applicant connects, create an admission challenge for <code>relay:wss://your-relay.example</code>.</li><li>Ask the applicant to return <code>createAdmissionPresentation(challenge, applicantPrivateKey)</code>, or the equivalent wallet/client signature.</li><li>Fetch the applicant's signed kind 30382 vouch and the current signed bundle.</li><li>Call <code>verifyAdmissionRequest(vouch, bundle, challenge, presentation, { trustedPublishers, expectedAudience, usedChallengeIds, revokedApplicantPubkeys })</code>.</li><li>Act on the decision band: <code>admit</code>, <code>rate-limit</code>, <code>manual-review</code>, <code>deny</code>, or <code>revoke</code>.</li></ol>
+<pre><code class="language-ts"><span class="tok-keyword">const</span> challenge = <span class="tok-fn">createAdmissionChallenge</span>({
+  applicantPubkey,
+  audience: <span class="tok-string">'relay:wss://relay.example.com'</span>,
+  maxAgeSeconds: <span class="tok-number">120</span>,
+})
+
+<span class="tok-keyword">const</span> result = <span class="tok-fn">verifyAdmissionRequest</span>(vouchFromRelay, signedBundle, challenge, presentation, {
+  admitRank: <span class="tok-number">90</span>,
+  expectedAudience: <span class="tok-string">'relay:wss://relay.example.com'</span>,
+  now: Math.<span class="tok-fn">floor</span>(Date.<span class="tok-fn">now</span>() / <span class="tok-number">1000</span>),
+  rateLimitRank: <span class="tok-number">75</span>,
+  revokedApplicantPubkeys,
+  trustedPublishers: [operatorBundlePubkey],
+  usedChallengeIds,
+})
+
+<span class="tok-keyword">if</span> (result.decision === <span class="tok-string">'admit'</span>) <span class="tok-fn">admit</span>(applicantPubkey)
+<span class="tok-keyword">if</span> (result.decision === <span class="tok-string">'rate-limit'</span>) <span class="tok-fn">admitWithLimits</span>(applicantPubkey)
+<span class="tok-keyword">if</span> (result.decision === <span class="tok-string">'manual-review'</span>) <span class="tok-fn">queueReview</span>(applicantPubkey, result.errors)
+<span class="tok-keyword">if</span> (result.decision === <span class="tok-string">'deny'</span>) <span class="tok-fn">rejectAdmission</span>(applicantPubkey, result.errors)
+<span class="tok-keyword">if</span> (result.decision === <span class="tok-string">'revoke'</span>) <span class="tok-fn">revokeSession</span>(applicantPubkey)</code></pre>
+<h2 id="worked-example">Worked example for the vouch</h2>
 <div class="code-sample" data-example-slug="relay-community-admission">
   <div class="code-sample-toolbar">
     <span class="code-sample-path">examples/use-cases/relay-community-admission.ts</span>
@@ -754,18 +776,62 @@
   freshAfter: assertion.created_at - <span class="tok-number">300</span>,
 })</code></pre>
 </div>
+<h2>Live relay proof</h2>
+<p>The public live smoke test publishes two signed events to <code>wss://relay.trotters.cc</code>:</p>
+<ul><li>a NIP-85 kind 30382 admission vouch whose tags stay byte-for-byte aligned with the canonical example;</li><li>a NIP-78 kind 30078 application data event that carries the signed deployment bundle for the verifier.</li></ul>
+<p>The test fetches both events back by id, verifies their Nostr signatures, parses the signed bundle, verifies the bundle signature and trusted publisher, then runs <code>verifyAdmissionRequest()</code> against the fetched vouch. Run it locally with:</p>
+<pre><code class="language-bash">npm run test:admission-gate:relay -- --dry-run
+npm run test:admission-gate:relay -- --write docs/admission-gate-relay-check.json</code></pre>
 <h2>What to verify</h2>
-<ul><li>Today: strict syntax and a valid proof v2.</li><li>Kind 30382, with <code>d</code> and <code>p</code> equal to the applicant pubkey.</li><li>The admission circle is accepted by the relay or community and has enough distinct signers.</li><li>The vouch is fresh, not revoked, and has a documented <code>rank</code> meaning.</li><li>The admission challenge is fresh, for the expected relay or community audience, not replayed, and signed by the vouched applicant pubkey.</li><li>For full anonymous admission, also verify session binding and transport requirements defined by the future profile.</li></ul>
+<ul><li>The vouch is NIP-85 kind 30382, with <code>d</code> and <code>p</code> equal to the applicant pubkey.</li><li>The vouch has strict syntax and a valid proof v2.</li><li>The vouch Nostr event signature is valid after relay fetch.</li><li>The admission circle is accepted by the signed deployment bundle and has enough distinct signers.</li><li>The <code>rank</code> metric is present, numeric, bounded, and has a documented decision meaning.</li><li>The deployment bundle is signed, unexpired, and signed by a trusted operator key.</li><li>The challenge is fresh, for the expected relay or community audience, and not in the replay cache.</li><li>The presentation signature verifies against the applicant pubkey.</li><li>The presentation applicant matches the vouch subject.</li><li>The applicant is not revoked, banned, or already rate-limited by local policy.</li></ul>
 <h2>What this proves today</h2>
-<ul><li>Enough distinct members vouched for the candidate pubkey.</li><li>No individual member is named.</li><li>The applicant controlled the vouched pubkey for this admission challenge.</li><li>A relay or community can use the verified result as one policy input.</li></ul>
-<h2>What a full admission profile still needs</h2>
-<ul><li>Rules for presenting a proof without leaking equivalent metadata.</li><li>Shared expiry and revocation semantics.</li><li>How the admitted user proves continuity after admission.</li><li>Abuse handling after a vouched user is admitted.</li></ul>
+<ul><li>Enough distinct admission-circle members vouched for the applicant pubkey.</li><li>The public vouch does not reveal which circle members contributed.</li><li>The live applicant controlled the vouched pubkey for this challenge.</li><li>The relay can make an admission decision using signed policy instead of handwritten glue.</li></ul>
+<h2>What this does not solve by itself</h2>
+<div class="table-wrap"><table><thead><tr><th>Boundary</th><th>What to do</th></tr></thead><tbody><tr><td>The applicant pubkey is public in the kind 30382 vouch.</td><td>Use this as pubkey-bound admission today. For anonymous admission, add a credential/session profile that does not reuse the public applicant pubkey as the access token.</td></tr><tr><td>IP address, timing, and relay metadata are outside the proof.</td><td>Add transport privacy, batching, short logs, and metadata-minimising client flows.</td></tr><tr><td>A valid vouch is not a permanent right to enter.</td><td>Keep bans, revocation, expiry, rate limits, and appeal policy in the relay/community system.</td></tr><tr><td>A signed bundle says what policy was configured, not that the policy is socially good.</td><td>Govern circle membership, reviewer independence, conflicts, evidence retention, and incident response.</td></tr><tr><td>Replay protection is local state.</td><td>Store used challenge ids until expiry and reject duplicates before applying the admission decision.</td></tr></tbody></table></div>
 <h2>What not to claim</h2>
-<ul><li>Do not claim nostr-veil currently implements anonymous access control.</li><li>Do not claim the vouch hides the candidate pubkey; today's building block is a public assertion about that pubkey.</li><li>Do not claim a valid vouch overrides relay policy, bans, rate limits, or abuse response.</li></ul>
+<ul><li>Do not claim nostr-veil currently implements complete anonymous relay access.</li><li>Do not claim the vouch hides the applicant pubkey; today's building block is a public assertion about that pubkey.</li><li>Do not claim a valid vouch overrides relay policy, bans, rate limits, moderation action, or abuse response.</li><li>Do not treat the NIP-78 kind 30078 bundle transport event as a NIP-85 assertion. It is just a signed carrier for operator policy in the live test.</li></ul>
 <h2>Failure handling</h2>
-<ul><li>Reject vouches for the wrong pubkey, unknown admission circles, stale assertions, missing revocation checks, or insufficient thresholds.</li><li>Reject presentations for the wrong audience, expired challenges, replayed challenges, invalid applicant signatures, or a pubkey that does not match the vouch subject.</li><li>Fall back to manual or non-anonymous admission when the full handshake is not implemented.</li><li>Publish revocation or expiry state for admitted users who later violate community rules.</li><li>Design the future profile so failed presentations do not reveal more metadata than a normal denied admission attempt.</li></ul>
-<h2>Operational requirements</h2>
-<div class="table-wrap"><table><thead><tr><th>Risk to handle</th><th>Required control</th></tr></thead><tbody><tr><td>nostr-veil does not currently implement complete anonymous access control.</td><td>Use the reference challenge for pubkey-bound admission, then add session continuity, transport privacy, and community access policy.</td></tr><tr><td>IP address, timing, and relay metadata are outside the proof.</td><td>Add transport privacy, batching, careful relay logs, and metadata-minimising admission flows.</td></tr><tr><td>A user cannot enter a relay without relay policy.</td><td>Define policy for accepted circles, threshold, freshness, and what happens after admission.</td></tr><tr><td>Revocation and ban evasion are separate problems.</td><td>Add expiry, revocation, session continuity, abuse response, and re-admission rules.</td></tr></tbody></table></div>
+<ul><li>Reject vouches for the wrong pubkey, wrong kind, stale proof, unknown circle, insufficient threshold, or invalid Nostr signature.</li><li>Reject bundles that are missing, expired, unsigned, tampered, or signed by an untrusted publisher.</li><li>Reject presentations for the wrong audience, expired challenges, replayed challenge ids, invalid applicant signatures, or a pubkey mismatch.</li><li>Move to manual review when the proof is valid but the score falls into the manual band.</li><li>Rate-limit instead of fully admitting when the score is enough to reduce friction but not enough for normal privileges.</li><li>Revoke or deny when the applicant is in local revocation, ban, or abuse state, even if the old vouch still verifies.</li></ul>
+<h2>Operational controls</h2>
+<div class="table-wrap"><table><thead><tr><th>Risk to handle</th><th>Required control</th></tr></thead><tbody><tr><td>Challenge replay</td><td>Short challenge TTL, replay cache keyed by challenge id, and one decision per challenge.</td></tr><tr><td>Clock skew</td><td>Small tolerance in the relay, short bundle/assertion expiry, and monitoring for future-dated events.</td></tr><tr><td>Stale reviewers</td><td>Circle manifests with expiry, supersession, and revoked circle ids.</td></tr><tr><td>Untrusted policy updates</td><td>Pin trusted bundle publisher pubkeys and rotate with an explicit operator process.</td></tr><tr><td>Applicant compromise</td><td>Revocation list, re-admission rules, session invalidation, and appeal path.</td></tr><tr><td>Reviewer abuse</td><td>Circle governance, independence rules, evidence retention, audit logs, and conflict handling.</td></tr></tbody></table></div>
+        <h2>Live admission gate test</h2>
+<p>The opt-in admission gate test publishes the normal NIP-85 kind 30382 vouch and a separate NIP-78 kind 30078 carrier for the signed deployment bundle to <code>wss://relay.trotters.cc</code>, fetches both back by id, and runs <code>verifyAdmissionRequest()</code> against the fetched material.</p>
+<div class="relay-evidence pass">
+  <div class="relay-evidence-head">
+    <span>Passed</span>
+    <strong>2026-05-18T08:55:39.000Z</strong>
+  </div>
+  <dl>
+    <div>
+      <dt>Decision</dt>
+      <dd>admit at rank 92</dd>
+    </div>
+    <div>
+      <dt>Vouch</dt>
+      <dd>kind 30382 NIP-85 user assertion</dd>
+    </div>
+    <div>
+      <dt>Bundle</dt>
+      <dd>kind 30078 NIP-78 application data carrier</dd>
+    </div>
+  </dl>
+  <ul class="relay-checks">
+    <li class="pass"><span aria-hidden="true"></span>Local admission gate verifies before publishing</li>
+    <li class="pass"><span aria-hidden="true"></span>NIP-85 kind 30382 vouch was fetched from relay</li>
+    <li class="pass"><span aria-hidden="true"></span>Vouch Nostr signature verifies after relay fetch</li>
+    <li class="pass"><span aria-hidden="true"></span>Vouch tags stayed unchanged from the canonical example</li>
+    <li class="pass"><span aria-hidden="true"></span>NIP-78 kind 30078 bundle carrier was fetched from relay</li>
+    <li class="pass"><span aria-hidden="true"></span>Bundle carrier Nostr signature verifies</li>
+    <li class="pass"><span aria-hidden="true"></span>Signed deployment bundle signature verifies</li>
+    <li class="pass"><span aria-hidden="true"></span>Applicant challenge presentation verifies</li>
+    <li class="pass"><span aria-hidden="true"></span>verifyAdmissionRequest() admits the fetched material</li>
+  </ul>
+  <div class="relay-event-ids">
+    <code title="4a288c5fceca7f0189ce59dfd01e4d6b335dce7f48c911b698b9405f5dfd0d5b">vouch 4a288c5fceca...5dfd0d5b</code>
+    <code title="131b014e498281c3aa892a4d79a0d6c293cfe5daab3b0770d57b1a7a32bc0634">bundle 131b014e4982...32bc0634</code>
+  </div>
+  <p class="relay-command">Run the same check with <code>npm run test:admission-gate:relay -- --write docs/admission-gate-relay-check.json</code>.</p>
+</div>
         <h2>NIP-85 kind reference</h2>
 <p>NIP-85 defines the assertion kind by the subject being scored. The kind number is part of the proof v2 context, so deployments should verify both the number and the subject hint tag.</p>
 <div class="kind-reference">

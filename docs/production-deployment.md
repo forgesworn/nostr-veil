@@ -138,6 +138,14 @@ kind 30382 vouch. The relay or community creates an admission challenge, the
 applicant signs a presentation, and `verifyAdmissionRequest()` verifies that
 presentation together with the existing signed vouch and deployment bundle.
 
+[`examples/admission-gate-relay.ts`](../examples/admission-gate-relay.ts) is
+the opt-in live relay smoke test for that handshake. It publishes the signed
+kind 30382 admission vouch to `wss://relay.trotters.cc`, publishes the signed
+deployment bundle as a separate NIP-78 kind 30078 application data event, fetches
+both objects back by id, and verifies the fetched material. Kind 30078 is only a
+transport wrapper for the signed bundle; it is not a NIP-85 assertion and does
+not change the vouch.
+
 ## Fail closed
 
 A production verifier should reject, or move to manual review, when:
