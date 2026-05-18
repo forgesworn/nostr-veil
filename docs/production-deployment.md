@@ -29,6 +29,8 @@ import {
   createCircleManifest,
   createDeploymentPolicy,
   createSignedDeploymentBundle,
+  packageReleaseCompanionEvidenceRequirements,
+  resolvePackageReleaseCompanionEvidence,
   validateUseCaseProfileDefinition,
   verifyProductionDeploymentReport,
 } from 'nostr-veil/profiles'
@@ -50,11 +52,7 @@ const packageReviewCircle = createCircleManifest({
 })
 const policy = createDeploymentPolicy(RELEASE_PACKAGE_MAINTAINER_REPUTATION_PROFILE, {
   circleManifests: [packageReviewCircle],
-  companionEvidence: [
-    { id: 'npm-provenance', expectedSubject: subject, maxAgeSeconds: 300 },
-    { id: 'sbom', expectedSubject: subject, maxAgeSeconds: 300 },
-    { id: 'vulnerability-feed', expectedSubject: subject, maxAgeSeconds: 300 },
-  ],
+  companionEvidence: packageReleaseCompanionEvidenceRequirements(subject, { maxAgeSeconds: 300 }),
   expectedSubject: subject,
   metricPolicies: {
     rank: { required: true, min: 0, max: 100, integer: true },
@@ -68,13 +66,16 @@ const bundle = createSignedDeploymentBundle(policy, {
   expiresAt: now + 900,
   privateKey: operatorPrivateKey,
 })
+const companionEvidence = resolvePackageReleaseCompanionEvidence({
+  checkedAt: now,
+  packageVersion: npmVersionMetadata,
+  sbom,
+  subject,
+  vulnerabilityReport,
+})
 
 const report = verifyProductionDeploymentReport(assertionFromRelay, bundle, {
-  companionEvidence: [
-    { id: 'npm-provenance', status: 'pass', subject, checkedAt: now },
-    { id: 'sbom', status: 'pass', subject, checkedAt: now },
-    { id: 'vulnerability-feed', status: 'pass', subject, checkedAt: now },
-  ],
+  companionEvidence,
   now,
   trustedPublishers: trustedPolicyPublishers,
 })
@@ -84,6 +85,12 @@ if (!report.valid) {
   throw new Error(report.issues.map(issue => issue.code).join('; '))
 }
 ```
+
+For supported off-chain controls, prefer resolver helpers such as
+`resolvePackageReleaseCompanionEvidence()` over hand-written `pass` evidence.
+The resolver output still flows through the same signed deployment policy, so
+missing, failed, stale, or wrong-subject observations produce stable
+`companion.*` issue codes.
 
 The production verifier is intentionally stricter than
 `verifyDeploymentBundle()`: by default it requires a trusted bundle publisher,

@@ -35,6 +35,8 @@ import {
   createCircleManifest,
   createDeploymentPolicy,
   createSignedDeploymentBundle,
+  packageReleaseCompanionEvidenceRequirements,
+  resolvePackageReleaseCompanionEvidence,
   validateUseCaseProfileDefinition,
   verifyProductionDeploymentReport,
 } from 'nostr-veil/profiles'
@@ -56,11 +58,7 @@ const circle = createCircleManifest({
 })
 const policy = createDeploymentPolicy(RELEASE_PACKAGE_MAINTAINER_REPUTATION_PROFILE, {
   circleManifests: [circle],
-  companionEvidence: [
-    { id: 'npm-provenance', expectedSubject: subject, maxAgeSeconds: 300 },
-    { id: 'sbom', expectedSubject: subject, maxAgeSeconds: 300 },
-    { id: 'vulnerability-feed', expectedSubject: subject, maxAgeSeconds: 300 },
-  ],
+  companionEvidence: packageReleaseCompanionEvidenceRequirements(subject, { maxAgeSeconds: 300 }),
   expectedSubject: subject,
   metricPolicies: {
     rank: { required: true, min: 0, max: 100, integer: true },
@@ -74,12 +72,15 @@ const bundle = createSignedDeploymentBundle(policy, {
   expiresAt: now + 900,
   privateKey: operatorPrivateKey,
 })
+const companionEvidence = resolvePackageReleaseCompanionEvidence({
+  checkedAt: now,
+  packageVersion: npmVersionMetadata,
+  sbom,
+  subject,
+  vulnerabilityReport,
+})
 const report = verifyProductionDeploymentReport(assertion, bundle, {
-  companionEvidence: [
-    { id: 'npm-provenance', status: 'pass', subject, checkedAt: now },
-    { id: 'sbom', status: 'pass', subject, checkedAt: now },
-    { id: 'vulnerability-feed', status: 'pass', subject, checkedAt: now },
-  ],
+  companionEvidence,
   now,
   trustedPublishers: trustedPolicyPublishers,
 })
@@ -90,6 +91,12 @@ for (const control of report.profile.requiredControls) {
   auditControl(control.risk, control.control)
 }
 ```
+
+Use the companion-evidence resolver helpers for supported package, provider,
+and list profiles so off-chain facts are checked before they become verifier
+evidence. Hand-written evidence records are still useful for tests and custom
+integrations, but production code should derive them from real registry,
+service, or list observations.
 
 See [circle governance](./circle-governance.md) for the operational controls
 that make a circle safe to trust, and

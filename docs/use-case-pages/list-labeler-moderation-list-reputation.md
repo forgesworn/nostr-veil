@@ -59,25 +59,28 @@ publishing a graph of everyone who reviews labelers, lists, or filter feeds.
 
 The proof says accepted curators scored the same list or labeler subject. It
 does not prove the fetched list revision is the revision they reviewed, or that
-sample checks and correction paths exist. Require those checks explicitly.
+sample checks and correction paths exist. Require those checks explicitly and
+derive the evidence from the fetched list event plus your sampling workflow.
+The default list evidence ids are `list-revision-fetch`, `sample-review`, and
+`correction-channel`.
 
 ```ts
 const policy = createDeploymentPolicy(LIST_LABELER_MODERATION_LIST_REPUTATION_PROFILE, {
-  companionEvidence: [
-    { id: 'list-revision-fetch', expectedSubject: subject, maxAgeSeconds: 300 },
-    { id: 'sample-review', expectedSubject: subject, maxAgeSeconds: 300 },
-    { id: 'correction-channel', expectedSubject: subject, maxAgeSeconds: 300 },
-  ],
+  companionEvidence: listLabelerCompanionEvidenceRequirements(subject, { maxAgeSeconds: 300 }),
   expectedSubject: subject,
   // accepted circles, metrics, freshness, and signature policy omitted here
 })
 
+const companionEvidence = resolveListLabelerCompanionEvidence({
+  checkedAt: now,
+  correctionChannel,
+  listEvent,
+  sampleReview,
+  subject,
+})
+
 const result = verifyProductionDeployment(assertionFromRelay, bundle, {
-  companionEvidence: [
-    { id: 'list-revision-fetch', status: 'pass', subject, checkedAt: now },
-    { id: 'sample-review', status: 'pass', subject, checkedAt: now },
-    { id: 'correction-channel', status: 'pass', subject, checkedAt: now },
-  ],
+  companionEvidence,
   now,
   trustedPublishers,
 })
@@ -87,6 +90,9 @@ const result = verifyProductionDeployment(assertionFromRelay, bundle, {
 external feed revision the client will use. `sample-review` records that the
 deployment's sampling policy ran. `correction-channel` confirms there is a
 reachable path for disputes, takedowns, or superseding list assertions.
+For addressable Nostr lists, the resolver requires a valid event signature by
+default. For external feeds, keep the same evidence ids only if you also add the
+feed's signature, hash, or revision check to the observation workflow.
 
 ## What to verify
 

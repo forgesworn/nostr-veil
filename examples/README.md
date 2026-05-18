@@ -45,8 +45,9 @@ operator action, or use `verifyProductionDeploymentReport()` when they need the
 decision, control status, and remediation text in one object. The recipes also
 model companion evidence for off-chain checks: package provenance/SBOM/feed
 checks, NIP-05/DNS/HTTPS checks, and list revision/sample/correction checks.
-They use NIP-85 kind names such as "kind 30385 identifier assertion" so the
-subject route is explicit.
+Those examples use the resolver helpers so evidence is derived from observations
+instead of static pass records. They use NIP-85 kind names such as "kind 30385
+identifier assertion" so the subject route is explicit.
 
 `admission-gate.ts` shows the additive relay/community admission pattern. The
 vouch remains a normal NIP-85 kind 30382 user assertion with `veil-*` proof

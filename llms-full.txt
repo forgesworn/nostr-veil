@@ -121,6 +121,14 @@ Deployment policies can also require `companionEvidence` for external facts the
 proof cannot prove. Use it for checks such as `npm-provenance`, `sbom`,
 `vulnerability-feed`, `nip05-resolution`, `https-probe`, `dns-owner-check`,
 `list-revision-fetch`, `sample-review`, and `correction-channel`.
+For those supported profiles, prefer the requirement and resolver helpers over
+hand-written `pass` records:
+`packageReleaseCompanionEvidenceRequirements()` with
+`resolvePackageReleaseCompanionEvidence()`,
+`nip05DomainCompanionEvidenceRequirements()` with
+`resolveNip05DomainCompanionEvidence()`, and
+`listLabelerCompanionEvidenceRequirements()` with
+`resolveListLabelerCompanionEvidence()`.
 
 ## Type Definitions
 
@@ -668,6 +676,22 @@ expected subject, optional subject-tag value, freshness, signer threshold,
 metric bounds, unknown-metric handling, optional companion evidence
 requirements, and optional Nostr event signature requirements.
 
+#### Companion evidence helper pairs
+
+Use requirement helpers when building the deployment policy, then pass resolver
+output into `verifyDeploymentPolicy()`, `verifyDeploymentBundle()`, or
+`verifyProductionDeployment()`.
+
+- `packageReleaseCompanionEvidenceRequirements(subject, options?)` and
+  `resolvePackageReleaseCompanionEvidence(options)` cover `npm-provenance`,
+  `sbom`, and `vulnerability-feed`.
+- `nip05DomainCompanionEvidenceRequirements(subject, options?)` and
+  `resolveNip05DomainCompanionEvidence(options)` cover `nip05-resolution`,
+  `https-probe`, and `dns-owner-check`.
+- `listLabelerCompanionEvidenceRequirements(subject, options?)` and
+  `resolveListLabelerCompanionEvidence(options)` cover `list-revision-fetch`,
+  `sample-review`, and `correction-channel`.
+
 #### `createSignedDeploymentBundle(policy, options) → SignedDeploymentBundle`
 
 Sign a deployment policy and its manifests as trusted operator configuration.
@@ -686,12 +710,15 @@ const bundle = createSignedDeploymentBundle(policy, {
   expiresAt,
   privateKey: operatorPrivateKey,
 })
+const companionEvidence = resolvePackageReleaseCompanionEvidence({
+  checkedAt: now,
+  packageVersion: npmVersionMetadata,
+  sbom,
+  subject,
+  vulnerabilityReport,
+})
 const result = verifyDeploymentBundle(assertionFromRelay, bundle, {
-  companionEvidence: [
-    { id: 'npm-provenance', status: 'pass', subject, checkedAt: now },
-    { id: 'sbom', status: 'pass', subject, checkedAt: now },
-    { id: 'vulnerability-feed', status: 'pass', subject, checkedAt: now },
-  ],
+  companionEvidence,
   now,
   trustedPublishers: [operatorPubkey],
 })

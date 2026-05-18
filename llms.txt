@@ -126,6 +126,14 @@ boundary, and the operational controls needed outside nostr-veil. Caveats
 should be paired with concrete controls such as evidence workflow,
 canonicalisation, expiry, revocation, transport privacy, Sybil policy, or a
 companion protocol.
+For supported off-chain controls, prefer the companion-evidence requirement and
+resolver helpers over hand-written `pass` records:
+`packageReleaseCompanionEvidenceRequirements()` with
+`resolvePackageReleaseCompanionEvidence()`,
+`nip05DomainCompanionEvidenceRequirements()` with
+`resolveNip05DomainCompanionEvidence()`, and
+`listLabelerCompanionEvidenceRequirements()` with
+`resolveListLabelerCompanionEvidence()`.
 
 ## Companion Libraries
 

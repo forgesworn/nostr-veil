@@ -67,25 +67,29 @@ or attacker.
 ## Companion evidence
 
 For a reviewed-release gate, require external checks in the signed deployment
-policy and pass their results into `verifyProductionDeployment()`.
+policy, then derive the supplied evidence from registry, SBOM, and vulnerability
+observations. Do not hand-write `pass` records: the resolver fails closed when
+the metadata is missing, unsafe, stale, or for a different package subject.
+The default package evidence ids are `npm-provenance`, `sbom`, and
+`vulnerability-feed`.
 
 ```ts
 const policy = createDeploymentPolicy(RELEASE_PACKAGE_MAINTAINER_REPUTATION_PROFILE, {
-  companionEvidence: [
-    { id: 'npm-provenance', expectedSubject: subject, maxAgeSeconds: 300 },
-    { id: 'sbom', expectedSubject: subject, maxAgeSeconds: 300 },
-    { id: 'vulnerability-feed', expectedSubject: subject, maxAgeSeconds: 300 },
-  ],
+  companionEvidence: packageReleaseCompanionEvidenceRequirements(subject, { maxAgeSeconds: 300 }),
   expectedSubject: subject,
   // accepted circles, metrics, freshness, and signature policy omitted here
 })
 
+const companionEvidence = resolvePackageReleaseCompanionEvidence({
+  checkedAt: now,
+  packageVersion: npmVersionMetadata,
+  sbom,
+  subject,
+  vulnerabilityReport,
+})
+
 const result = verifyProductionDeployment(assertionFromRelay, bundle, {
-  companionEvidence: [
-    { id: 'npm-provenance', status: 'pass', subject, checkedAt: now },
-    { id: 'sbom', status: 'pass', subject, checkedAt: now },
-    { id: 'vulnerability-feed', status: 'pass', subject, checkedAt: now },
-  ],
+  companionEvidence,
   now,
   trustedPublishers,
 })
@@ -94,6 +98,9 @@ const result = verifyProductionDeployment(assertionFromRelay, bundle, {
 Use `canonicalPackageDigestSubject()` when the verifier is acting on a tarball
 or release artefact digest. Use `canonicalNpmPackageSubject()` only when a
 package-version-level review is precise enough for the action.
+For digest-bound gates, pass the observed artefact digest into
+`resolvePackageReleaseCompanionEvidence()` so `npm-provenance` cannot pass for a
+different tarball.
 
 ## What to verify
 

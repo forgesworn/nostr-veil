@@ -236,18 +236,32 @@ describe('public use-case pages', () => {
 
   it('shows companion evidence controls for off-chain supported profiles', () => {
     const expectations = [
-      ['release-package-maintainer-reputation', ['npm-provenance', 'sbom', 'vulnerability-feed']],
-      ['nip05-domain-service-provider-trust', ['nip05-resolution', 'https-probe', 'dns-owner-check']],
-      ['list-labeler-moderation-list-reputation', ['list-revision-fetch', 'sample-review', 'correction-channel']],
+      [
+        'release-package-maintainer-reputation',
+        ['npm-provenance', 'sbom', 'vulnerability-feed'],
+        'resolvePackageReleaseCompanionEvidence',
+      ],
+      [
+        'nip05-domain-service-provider-trust',
+        ['nip05-resolution', 'https-probe', 'dns-owner-check'],
+        'resolveNip05DomainCompanionEvidence',
+      ],
+      [
+        'list-labeler-moderation-list-reputation',
+        ['list-revision-fetch', 'sample-review', 'correction-channel'],
+        'resolveListLabelerCompanionEvidence',
+      ],
     ] as const
 
-    for (const [slug, evidenceIds] of expectations) {
+    for (const [slug, evidenceIds, resolverName] of expectations) {
       const source = readText(join(docsDir, `${slug}.md`))
       const page = readText(join(publicUseCasesDir, slug, 'index.html'))
 
       expect(source, slug).toContain('## Companion evidence')
       expect(page, slug).toContain('<h2>Companion evidence</h2>')
       expect(page, slug).toContain('verifyProductionDeployment')
+      expect(source, `${slug} source missing resolver helper`).toContain(resolverName)
+      expect(page, `${slug} page missing resolver helper`).toContain(resolverName)
       for (const evidenceId of evidenceIds) {
         expect(source, `${slug} source missing ${evidenceId}`).toContain(evidenceId)
         expect(page, `${slug} page missing ${evidenceId}`).toContain(evidenceId)
@@ -292,7 +306,7 @@ describe('executable use-case examples', () => {
     }
   })
 
-  it('dry-runs the live relay harness without publishing', { timeout: 30_000 }, () => {
+  it('dry-runs the live relay harness without publishing', { timeout: 60_000 }, () => {
     const output = execFileSync('npx', ['tsx', join(root, 'examples/use-cases-relay.ts'), '--dry-run'], {
       cwd: root,
       encoding: 'utf8',

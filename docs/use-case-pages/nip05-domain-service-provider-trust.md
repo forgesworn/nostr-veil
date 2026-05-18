@@ -63,26 +63,30 @@ payment endpoint, or other service identifier outside a single Nostr pubkey.
 
 The proof carries the reviewer circle's assessment. The application still has
 to prove the underlying service facts it relies on. Model those checks as
-companion evidence in the signed deployment policy.
+companion evidence in the signed deployment policy and derive them from resolver
+output rather than static `pass` records.
+The default provider evidence ids are `nip05-resolution`, `https-probe`, and
+`dns-owner-check`.
 
 ```ts
 const policy = createDeploymentPolicy(NIP05_DOMAIN_SERVICE_PROVIDER_TRUST_PROFILE, {
-  companionEvidence: [
-    { id: 'nip05-resolution', expectedSubject: subject, maxAgeSeconds: 300 },
-    { id: 'https-probe', expectedSubject: subject, maxAgeSeconds: 300 },
-    { id: 'dns-owner-check', expectedSubject: subject, maxAgeSeconds: 300 },
-  ],
+  companionEvidence: nip05DomainCompanionEvidenceRequirements(subject, { maxAgeSeconds: 300 }),
   expectedSubject: subject,
   expectedSubjectTagValue: '0',
   // accepted circles, metrics, freshness, and signature policy omitted here
 })
 
+const companionEvidence = resolveNip05DomainCompanionEvidence({
+  checkedAt: now,
+  dnsOwnerCheck,
+  expectedPubkey,
+  httpsProbe,
+  nip05Document,
+  subject,
+})
+
 const result = verifyProductionDeployment(assertionFromRelay, bundle, {
-  companionEvidence: [
-    { id: 'nip05-resolution', status: 'pass', subject, checkedAt: now },
-    { id: 'https-probe', status: 'pass', subject, checkedAt: now },
-    { id: 'dns-owner-check', status: 'pass', subject, checkedAt: now },
-  ],
+  companionEvidence,
   now,
   trustedPublishers,
 })
@@ -90,8 +94,10 @@ const result = verifyProductionDeployment(assertionFromRelay, bundle, {
 
 For `nip05:<name>@<domain>`, `nip05-resolution` should fetch and check the
 current NIP-05 document for that name. For broader `domain:<host>` or service
-subjects, replace or add checks for the exact DNS, HTTPS, LNURLp, NIP-96, or
-service probe your application depends on.
+subjects, customise the companion requirements to the exact DNS, HTTPS, LNURLp,
+NIP-96, or service probe your application depends on. If the application is not
+acting on a NIP-05 name, remove or mark `nip05-resolution` optional and require
+the service-specific probe that proves the fact you will rely on.
 
 ## What to verify
 

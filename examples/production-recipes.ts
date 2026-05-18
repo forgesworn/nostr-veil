@@ -17,6 +17,12 @@ import {
   createCircleManifest,
   createDeploymentPolicy,
   createSignedDeploymentBundle,
+  listLabelerCompanionEvidenceRequirements,
+  nip05DomainCompanionEvidenceRequirements,
+  packageReleaseCompanionEvidenceRequirements,
+  resolveListLabelerCompanionEvidence,
+  resolveNip05DomainCompanionEvidence,
+  resolvePackageReleaseCompanionEvidence,
   validateUseCaseProfileDefinition,
   verifyProductionDeployment,
 } from 'nostr-veil/profiles'
@@ -27,6 +33,7 @@ import { assertion as packageAssertion } from './use-cases/release-package-maint
 import { assertion as relayAdmissionAssertion } from './use-cases/relay-community-admission.js'
 import { assertion as relayReputationAssertion } from './use-cases/relay-service-reputation.js'
 import { events as moderationEvents } from './use-cases/federated-moderation.js'
+import { keys } from './use-cases/_shared.js'
 
 interface RecipeResult {
   action: string
@@ -116,19 +123,6 @@ function verifyWithSignedBundle(
   })
 }
 
-function passingEvidence(
-  ids: readonly string[],
-  subject: string,
-  checkedAt: number,
-): CompanionEvidence[] {
-  return ids.map(id => ({
-    checkedAt,
-    id,
-    status: 'pass',
-    subject,
-  }))
-}
-
 function recipeDiagnostics(result: ReturnType<typeof verifyWithSignedBundle>) {
   const report = createProductionDecisionReport(result)
 
@@ -148,11 +142,7 @@ function packageReleaseGate(): RecipeResult {
     circleManifests: [
       manifestFor(packageAssertion, RELEASE_PACKAGE_MAINTAINER_REPUTATION_PROFILE.id, 'Package reviewers', 'Release safety review'),
     ],
-    companionEvidence: [
-      { id: 'npm-provenance', label: 'npm provenance statement', expectedSubject: subject, maxAgeSeconds: 300 },
-      { id: 'sbom', label: 'software bill of materials', expectedSubject: subject, maxAgeSeconds: 300 },
-      { id: 'vulnerability-feed', label: 'vulnerability feed check', expectedSubject: subject, maxAgeSeconds: 300 },
-    ],
+    companionEvidence: packageReleaseCompanionEvidenceRequirements(subject, { maxAgeSeconds: 300 }),
     expectedSubject: subject,
     metricPolicies: {
       rank: { required: true, min: 0, max: 100, integer: true },
@@ -160,7 +150,18 @@ function packageReleaseGate(): RecipeResult {
     rejectUnknownMetrics: true,
     requireNostrSignature: true,
   })
-  const companionEvidence = passingEvidence(['npm-provenance', 'sbom', 'vulnerability-feed'], subject, packageAssertion.created_at ?? 0)
+  const companionEvidence = resolvePackageReleaseCompanionEvidence({
+    checkedAt: packageAssertion.created_at ?? 0,
+    packageVersion: {
+      dist: { integrity: 'sha512-demo-provenance' },
+      name: 'nostr-veil',
+      provenance: { verified: true },
+      version: '0.14.0',
+    },
+    sbom: { format: 'spdx', packageName: 'nostr-veil', version: '0.14.0' },
+    subject,
+    vulnerabilityReport: { critical: 0, high: 0, subject },
+  })
   const result = verifyWithSignedBundle(packageAssertion, policy, companionEvidence)
   const rank = result.valid ? firstMetric(result.deployment.metrics, 'rank') : 0
 
@@ -211,11 +212,7 @@ function nip05DomainWarning(): RecipeResult {
     circleManifests: [
       manifestFor(nip05Assertion, NIP05_DOMAIN_SERVICE_PROVIDER_TRUST_PROFILE.id, 'Provider reviewers', 'NIP-05 and domain provider review'),
     ],
-    companionEvidence: [
-      { id: 'nip05-resolution', label: 'NIP-05 resolution', expectedSubject: subject, maxAgeSeconds: 300 },
-      { id: 'https-probe', label: 'HTTPS service probe', expectedSubject: subject, maxAgeSeconds: 300 },
-      { id: 'dns-owner-check', label: 'DNS owner check', expectedSubject: subject, maxAgeSeconds: 300 },
-    ],
+    companionEvidence: nip05DomainCompanionEvidenceRequirements(subject, { maxAgeSeconds: 300 }),
     expectedSubject: subject,
     expectedSubjectTagValue: '0',
     metricPolicies: {
@@ -224,7 +221,14 @@ function nip05DomainWarning(): RecipeResult {
     rejectUnknownMetrics: true,
     requireNostrSignature: true,
   })
-  const companionEvidence = passingEvidence(['nip05-resolution', 'https-probe', 'dns-owner-check'], subject, nip05Assertion.created_at ?? 0)
+  const companionEvidence = resolveNip05DomainCompanionEvidence({
+    checkedAt: nip05Assertion.created_at ?? 0,
+    dnsOwnerCheck: { domain: 'example.com', matched: true },
+    expectedPubkey: keys[0].pub,
+    httpsProbe: { ok: true, status: 200, url: 'https://example.com/.well-known/nostr.json?name=alice' },
+    nip05Document: { names: { alice: keys[0].pub } },
+    subject,
+  })
   const result = verifyWithSignedBundle(nip05Assertion, policy, companionEvidence)
   const rank = result.valid ? firstMetric(result.deployment.metrics, 'rank') : 0
 
@@ -246,11 +250,7 @@ function listLabelerSelection(): RecipeResult {
     circleManifests: [
       manifestFor(listLabelerAssertion, LIST_LABELER_MODERATION_LIST_REPUTATION_PROFILE.id, 'List reviewers', 'List and labeler review'),
     ],
-    companionEvidence: [
-      { id: 'list-revision-fetch', label: 'reviewed list revision fetched', expectedSubject: subject, maxAgeSeconds: 300 },
-      { id: 'sample-review', label: 'sampled list entries reviewed', expectedSubject: subject, maxAgeSeconds: 300 },
-      { id: 'correction-channel', label: 'correction channel reachable', expectedSubject: subject, maxAgeSeconds: 300 },
-    ],
+    companionEvidence: listLabelerCompanionEvidenceRequirements(subject, { maxAgeSeconds: 300 }),
     expectedSubject: subject,
     metricPolicies: {
       rank: { required: true, min: 0, max: 100, integer: true },
@@ -259,7 +259,21 @@ function listLabelerSelection(): RecipeResult {
     rejectUnknownMetrics: true,
     requireNostrSignature: true,
   })
-  const companionEvidence = passingEvidence(['list-revision-fetch', 'sample-review', 'correction-channel'], subject, listLabelerAssertion.created_at ?? 0)
+  const companionEvidence = resolveListLabelerCompanionEvidence({
+    checkedAt: listLabelerAssertion.created_at ?? 0,
+    correctionChannel: { reachable: true, url: 'https://labels.example.com/corrections' },
+    listEvent: signEvent({
+      content: '',
+      created_at: listLabelerAssertion.created_at ?? 0,
+      kind: 30000,
+      tags: [
+        ['d', 'trusted-relays'],
+        ['relay', 'wss://relay.example.com'],
+      ],
+    }, keys[0].priv),
+    sampleReview: { reviewedItems: 2, requiredItems: 1 },
+    subject,
+  })
   const result = verifyWithSignedBundle(listLabelerAssertion, policy, companionEvidence)
   const rank = result.valid ? firstMetric(result.deployment.metrics, 'rank') : 0
   const reactions = result.valid ? firstMetric(result.deployment.metrics, 'reaction_cnt') : 0
