@@ -60,9 +60,14 @@ publishing a graph of everyone who reviews labelers, lists, or filter feeds.
 The proof says accepted curators scored the same list or labeler subject. It
 does not prove the fetched list revision is the revision they reviewed, or that
 sample checks and correction paths exist. Require those checks explicitly and
-derive the evidence from the fetched list event plus your sampling workflow.
+derive the evidence from the fetched list event plus your sampling workflow,
+using the collector or resolver helper that matches where the observations came
+from.
 The default list evidence ids are `list-revision-fetch`, `sample-review`, and
-`correction-channel`.
+`correction-channel`. Use `collectListLabelerCompanionEvidence()` when the
+verifier can fetch the addressable list event from a relay and probe the
+correction channel. Use `resolveListLabelerCompanionEvidence()` when your
+application already fetched the list revision and ran its sampling workflow.
 
 ```ts
 const policy = createDeploymentPolicy(LIST_LABELER_MODERATION_LIST_REPUTATION_PROFILE, {
@@ -71,12 +76,14 @@ const policy = createDeploymentPolicy(LIST_LABELER_MODERATION_LIST_REPUTATION_PR
   // accepted circles, metrics, freshness, and signature policy omitted here
 })
 
-const companionEvidence = resolveListLabelerCompanionEvidence({
+const companionEvidence = await collectListLabelerCompanionEvidence({
   checkedAt: now,
-  correctionChannel,
-  listEvent,
+  correctionChannel: correctionChannelUrl,
+  fetch,
+  relayUrl,
   sampleReview,
   subject,
+  WebSocket,
 })
 
 const result = verifyProductionDeployment(assertionFromRelay, bundle, {
@@ -93,6 +100,11 @@ reachable path for disputes, takedowns, or superseding list assertions.
 For addressable Nostr lists, the resolver requires a valid event signature by
 default. For external feeds, keep the same evidence ids only if you also add the
 feed's signature, hash, or revision check to the observation workflow.
+The lower-level building blocks are `fetchAddressableEventFromRelay()` and
+`probeCorrectionChannel()`. For NIP-51 lists and NIP-32 labelers, keep the
+addressable event signature check on by default; for non-Nostr feeds, add a
+separate signature, hash, or immutable revision check before producing
+`list-revision-fetch`.
 
 ## What to verify
 

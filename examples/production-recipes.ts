@@ -17,16 +17,16 @@ import {
   createCircleManifest,
   createDeploymentPolicy,
   createSignedDeploymentBundle,
+  collectListLabelerCompanionEvidence,
+  collectNip05DomainCompanionEvidence,
+  collectPackageReleaseCompanionEvidence,
   listLabelerCompanionEvidenceRequirements,
   nip05DomainCompanionEvidenceRequirements,
   packageReleaseCompanionEvidenceRequirements,
-  resolveListLabelerCompanionEvidence,
-  resolveNip05DomainCompanionEvidence,
-  resolvePackageReleaseCompanionEvidence,
   validateUseCaseProfileDefinition,
   verifyProductionDeployment,
 } from 'nostr-veil/profiles'
-import type { CompanionEvidence } from 'nostr-veil/profiles'
+import type { CompanionEvidence, EvidenceFetch, EvidenceFetchResponse } from 'nostr-veil/profiles'
 import { assertion as listLabelerAssertion } from './use-cases/list-labeler-moderation-list-reputation.js'
 import { assertion as nip05Assertion } from './use-cases/nip05-domain-service-provider-trust.js'
 import { assertion as packageAssertion } from './use-cases/release-package-maintainer-reputation.js'
@@ -51,6 +51,46 @@ interface RecipeResult {
 
 const BUNDLE_PUBLISHER_KEY = '44'.repeat(32)
 const RELAY_PUBLISHER_KEY = '55'.repeat(32)
+
+function jsonResponse(value: unknown): EvidenceFetchResponse {
+  return {
+    ok: true,
+    status: 200,
+    async arrayBuffer() {
+      return new TextEncoder().encode(JSON.stringify(value)).buffer
+    },
+    async json() {
+      return value
+    },
+    async text() {
+      return JSON.stringify(value)
+    },
+  }
+}
+
+function textResponse(value: string): EvidenceFetchResponse {
+  return {
+    ok: true,
+    status: 200,
+    async arrayBuffer() {
+      return new TextEncoder().encode(value).buffer
+    },
+    async json() {
+      return JSON.parse(value)
+    },
+    async text() {
+      return value
+    },
+  }
+}
+
+function fixtureFetch(routes: Record<string, EvidenceFetchResponse>): EvidenceFetch {
+  return async (input) => {
+    const response = routes[String(input)]
+    if (response === undefined) throw new Error(`unexpected evidence fetch ${String(input)}`)
+    return response
+  }
+}
 
 function tagValue(event: EventTemplate, name: string): string {
   const value = event.tags.find(tag => tag[0] === name)?.[1]
@@ -135,9 +175,26 @@ function recipeDiagnostics(result: ReturnType<typeof verifyWithSignedBundle>) {
   }
 }
 
-function packageReleaseGate(): RecipeResult {
+async function packageReleaseGate(): Promise<RecipeResult> {
   const profileWarnings = profileDefinitionWarnings(RELEASE_PACKAGE_MAINTAINER_REPUTATION_PROFILE)
   const subject = canonicalNpmPackageSubject('nostr-veil', '0.14.0')
+  const fetch = fixtureFetch({
+    'https://registry.npmjs.org/nostr-veil': jsonResponse({
+      versions: {
+        '0.14.0': {
+          dist: { integrity: 'sha512-demo-provenance' },
+          name: 'nostr-veil',
+          version: '0.14.0',
+        },
+      },
+    }),
+    'https://evidence.example.com/nostr-veil-0.14.0.spdx.json': jsonResponse({
+      spdxVersion: 'SPDX-2.3',
+      name: 'nostr-veil',
+      versionInfo: '0.14.0',
+    }),
+    'https://api.osv.dev/v1/query': jsonResponse({ vulns: [] }),
+  })
   const policy = createDeploymentPolicy(RELEASE_PACKAGE_MAINTAINER_REPUTATION_PROFILE, {
     circleManifests: [
       manifestFor(packageAssertion, RELEASE_PACKAGE_MAINTAINER_REPUTATION_PROFILE.id, 'Package reviewers', 'Release safety review'),
@@ -150,17 +207,13 @@ function packageReleaseGate(): RecipeResult {
     rejectUnknownMetrics: true,
     requireNostrSignature: true,
   })
-  const companionEvidence = resolvePackageReleaseCompanionEvidence({
+  const companionEvidence = await collectPackageReleaseCompanionEvidence({
     checkedAt: packageAssertion.created_at ?? 0,
-    packageVersion: {
-      dist: { integrity: 'sha512-demo-provenance' },
-      name: 'nostr-veil',
-      provenance: { verified: true },
-      version: '0.14.0',
-    },
-    sbom: { format: 'spdx', packageName: 'nostr-veil', version: '0.14.0' },
+    fetch,
+    osv: true,
+    sbomUrl: 'https://evidence.example.com/nostr-veil-0.14.0.spdx.json',
     subject,
-    vulnerabilityReport: { critical: 0, high: 0, subject },
+    verifyProvenance: packageVersion => packageVersion.dist?.integrity === 'sha512-demo-provenance',
   })
   const result = verifyWithSignedBundle(packageAssertion, policy, companionEvidence)
   const rank = result.valid ? firstMetric(result.deployment.metrics, 'rank') : 0
@@ -205,9 +258,14 @@ function relayServicePreference(): RecipeResult {
   }
 }
 
-function nip05DomainWarning(): RecipeResult {
+async function nip05DomainWarning(): Promise<RecipeResult> {
   const profileWarnings = profileDefinitionWarnings(NIP05_DOMAIN_SERVICE_PROVIDER_TRUST_PROFILE)
   const subject = canonicalNip05Subject('alice@example.com')
+  const fetch = fixtureFetch({
+    'https://example.com/.well-known/nostr.json?name=alice': jsonResponse({
+      names: { alice: keys[0].pub },
+    }),
+  })
   const policy = createDeploymentPolicy(NIP05_DOMAIN_SERVICE_PROVIDER_TRUST_PROFILE, {
     circleManifests: [
       manifestFor(nip05Assertion, NIP05_DOMAIN_SERVICE_PROVIDER_TRUST_PROFILE.id, 'Provider reviewers', 'NIP-05 and domain provider review'),
@@ -221,12 +279,11 @@ function nip05DomainWarning(): RecipeResult {
     rejectUnknownMetrics: true,
     requireNostrSignature: true,
   })
-  const companionEvidence = resolveNip05DomainCompanionEvidence({
+  const companionEvidence = await collectNip05DomainCompanionEvidence({
     checkedAt: nip05Assertion.created_at ?? 0,
-    dnsOwnerCheck: { domain: 'example.com', matched: true },
+    checkDnsOwner: domain => domain === 'example.com',
     expectedPubkey: keys[0].pub,
-    httpsProbe: { ok: true, status: 200, url: 'https://example.com/.well-known/nostr.json?name=alice' },
-    nip05Document: { names: { alice: keys[0].pub } },
+    fetch,
     subject,
   })
   const result = verifyWithSignedBundle(nip05Assertion, policy, companionEvidence)
@@ -243,9 +300,12 @@ function nip05DomainWarning(): RecipeResult {
   }
 }
 
-function listLabelerSelection(): RecipeResult {
+async function listLabelerSelection(): Promise<RecipeResult> {
   const profileWarnings = profileDefinitionWarnings(LIST_LABELER_MODERATION_LIST_REPUTATION_PROFILE)
   const subject = tagValue(listLabelerAssertion, 'd')
+  const fetch = fixtureFetch({
+    'https://labels.example.com/corrections': textResponse('ok'),
+  })
   const policy = createDeploymentPolicy(LIST_LABELER_MODERATION_LIST_REPUTATION_PROFILE, {
     circleManifests: [
       manifestFor(listLabelerAssertion, LIST_LABELER_MODERATION_LIST_REPUTATION_PROFILE.id, 'List reviewers', 'List and labeler review'),
@@ -259,9 +319,10 @@ function listLabelerSelection(): RecipeResult {
     rejectUnknownMetrics: true,
     requireNostrSignature: true,
   })
-  const companionEvidence = resolveListLabelerCompanionEvidence({
+  const companionEvidence = await collectListLabelerCompanionEvidence({
     checkedAt: listLabelerAssertion.created_at ?? 0,
-    correctionChannel: { reachable: true, url: 'https://labels.example.com/corrections' },
+    correctionChannel: 'https://labels.example.com/corrections',
+    fetch,
     listEvent: signEvent({
       content: '',
       created_at: listLabelerAssertion.created_at ?? 0,
@@ -344,14 +405,14 @@ function relayAdmissionGate(): RecipeResult {
   }
 }
 
-export const productionRecipeResults = [
+export const productionRecipeResults = await Promise.all([
   packageReleaseGate(),
   relayServicePreference(),
   nip05DomainWarning(),
   listLabelerSelection(),
   federatedModerationReview(),
   relayAdmissionGate(),
-]
+])
 
 for (const result of productionRecipeResults) {
   console.log(`${result.name}: valid=${result.valid ? 'yes' : 'no'} kind="${result.kind}" action=${result.action} verifier=${result.verifierAction} evidence=${result.companionEvidence.join(',') || 'none'} profileWarnings=${result.profileDefinitionWarnings.length}`)

@@ -240,20 +240,23 @@ describe('public use-case pages', () => {
         'release-package-maintainer-reputation',
         ['npm-provenance', 'sbom', 'vulnerability-feed'],
         'resolvePackageReleaseCompanionEvidence',
+        'collectPackageReleaseCompanionEvidence',
       ],
       [
         'nip05-domain-service-provider-trust',
         ['nip05-resolution', 'https-probe', 'dns-owner-check'],
         'resolveNip05DomainCompanionEvidence',
+        'collectNip05DomainCompanionEvidence',
       ],
       [
         'list-labeler-moderation-list-reputation',
         ['list-revision-fetch', 'sample-review', 'correction-channel'],
         'resolveListLabelerCompanionEvidence',
+        'collectListLabelerCompanionEvidence',
       ],
     ] as const
 
-    for (const [slug, evidenceIds, resolverName] of expectations) {
+    for (const [slug, evidenceIds, resolverName, collectorName] of expectations) {
       const source = readText(join(docsDir, `${slug}.md`))
       const page = readText(join(publicUseCasesDir, slug, 'index.html'))
 
@@ -262,6 +265,8 @@ describe('public use-case pages', () => {
       expect(page, slug).toContain('verifyProductionDeployment')
       expect(source, `${slug} source missing resolver helper`).toContain(resolverName)
       expect(page, `${slug} page missing resolver helper`).toContain(resolverName)
+      expect(source, `${slug} source missing collector helper`).toContain(collectorName)
+      expect(page, `${slug} page missing collector helper`).toContain(collectorName)
       for (const evidenceId of evidenceIds) {
         expect(source, `${slug} source missing ${evidenceId}`).toContain(evidenceId)
         expect(page, `${slug} page missing ${evidenceId}`).toContain(evidenceId)

@@ -758,19 +758,20 @@
 })</code></pre>
 </div>
 <h2>Companion evidence</h2>
-<p>For a reviewed-release gate, require external checks in the signed deployment policy, then derive the supplied evidence from registry, SBOM, and vulnerability observations. Do not hand-write <code>pass</code> records: the resolver fails closed when the metadata is missing, unsafe, stale, or for a different package subject. The default package evidence ids are <code>npm-provenance</code>, <code>sbom</code>, and <code>vulnerability-feed</code>.</p>
+<p>For a reviewed-release gate, require external checks in the signed deployment policy, then derive the supplied evidence from registry, SBOM, and vulnerability observations. Do not hand-write <code>pass</code> records: the resolver fails closed when the metadata is missing, unsafe, stale, or for a different package subject. The default package evidence ids are <code>npm-provenance</code>, <code>sbom</code>, and <code>vulnerability-feed</code>. Use <code>collectPackageReleaseCompanionEvidence()</code> when the verifier can fetch npm metadata, an SBOM document, and an OSV-style vulnerability report itself. Use <code>resolvePackageReleaseCompanionEvidence()</code> when those observations came from your own release infrastructure.</p>
 <pre><code class="language-ts"><span class="tok-keyword">const</span> policy = <span class="tok-fn">createDeploymentPolicy</span>(RELEASE_PACKAGE_MAINTAINER_REPUTATION_PROFILE, {
   companionEvidence: <span class="tok-fn">packageReleaseCompanionEvidenceRequirements</span>(subject, { maxAgeSeconds: <span class="tok-number">300</span> }),
   expectedSubject: subject,
   <span class="tok-comment">// accepted circles, metrics, freshness, and signature policy omitted here</span>
 })
 
-<span class="tok-keyword">const</span> companionEvidence = <span class="tok-fn">resolvePackageReleaseCompanionEvidence</span>({
+<span class="tok-keyword">const</span> companionEvidence = <span class="tok-keyword">await</span> <span class="tok-fn">collectPackageReleaseCompanionEvidence</span>({
   checkedAt: now,
-  packageVersion: npmVersionMetadata,
-  sbom,
+  fetch,
+  osv: <span class="tok-literal">true</span>,
+  sbomUrl,
   subject,
-  vulnerabilityReport,
+  verifyProvenance,
 })
 
 <span class="tok-keyword">const</span> result = <span class="tok-fn">verifyProductionDeployment</span>(assertionFromRelay, bundle, {
@@ -778,7 +779,7 @@
   now,
   trustedPublishers,
 })</code></pre>
-<p>Use <code>canonicalPackageDigestSubject()</code> when the verifier is acting on a tarball or release artefact digest. Use <code>canonicalNpmPackageSubject()</code> only when a package-version-level review is precise enough for the action. For digest-bound gates, pass the observed artefact digest into <code>resolvePackageReleaseCompanionEvidence()</code> so <code>npm-provenance</code> cannot pass for a different tarball.</p>
+<p>Use <code>canonicalPackageDigestSubject()</code> when the verifier is acting on a tarball or release artefact digest. Use <code>canonicalNpmPackageSubject()</code> only when a package-version-level review is precise enough for the action. For digest-bound gates, pass the observed artefact digest into <code>collectPackageReleaseCompanionEvidence()</code> or <code>resolvePackageReleaseCompanionEvidence()</code> so <code>npm-provenance</code> cannot pass for a different tarball. The lower-level building blocks are <code>fetchNpmPackageVersionEvidence()</code>, <code>normaliseSbomEvidence()</code>, <code>fetchJsonSbomEvidence()</code>, and <code>fetchOsvVulnerabilityReport()</code>. They do not claim a package is safe; they only produce the observations that the companion-evidence resolver can check against the exact subject.</p>
 <h2>What to verify</h2>
 <ul><li>Strict syntax and a valid proof v2.</li><li>Kind 30385, with <code>d</code> equal to the canonical package, release, digest, commit, or maintainer subject and <code>k</code> equal to the software-review namespace.</li><li>The <code>veil-ring</code> matches an accepted reviewer circle with the right expertise and independence for the package class.</li><li>The threshold, freshness, and <code>rank</code> meaning match the consuming policy.</li><li>The external artefact checks still pass: registry metadata, digest, signature, provenance, SBOM, CI, and any required audit evidence. If the policy requires <code>companionEvidence</code>, missing, failed, stale, or wrong-subject evidence must reject the deployment decision.</li></ul>
 <h2>What this proves</h2>

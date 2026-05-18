@@ -71,7 +71,10 @@ policy, then derive the supplied evidence from registry, SBOM, and vulnerability
 observations. Do not hand-write `pass` records: the resolver fails closed when
 the metadata is missing, unsafe, stale, or for a different package subject.
 The default package evidence ids are `npm-provenance`, `sbom`, and
-`vulnerability-feed`.
+`vulnerability-feed`. Use `collectPackageReleaseCompanionEvidence()` when the
+verifier can fetch npm metadata, an SBOM document, and an OSV-style
+vulnerability report itself. Use `resolvePackageReleaseCompanionEvidence()`
+when those observations came from your own release infrastructure.
 
 ```ts
 const policy = createDeploymentPolicy(RELEASE_PACKAGE_MAINTAINER_REPUTATION_PROFILE, {
@@ -80,12 +83,13 @@ const policy = createDeploymentPolicy(RELEASE_PACKAGE_MAINTAINER_REPUTATION_PROF
   // accepted circles, metrics, freshness, and signature policy omitted here
 })
 
-const companionEvidence = resolvePackageReleaseCompanionEvidence({
+const companionEvidence = await collectPackageReleaseCompanionEvidence({
   checkedAt: now,
-  packageVersion: npmVersionMetadata,
-  sbom,
+  fetch,
+  osv: true,
+  sbomUrl,
   subject,
-  vulnerabilityReport,
+  verifyProvenance,
 })
 
 const result = verifyProductionDeployment(assertionFromRelay, bundle, {
@@ -99,8 +103,14 @@ Use `canonicalPackageDigestSubject()` when the verifier is acting on a tarball
 or release artefact digest. Use `canonicalNpmPackageSubject()` only when a
 package-version-level review is precise enough for the action.
 For digest-bound gates, pass the observed artefact digest into
-`resolvePackageReleaseCompanionEvidence()` so `npm-provenance` cannot pass for a
-different tarball.
+`collectPackageReleaseCompanionEvidence()` or
+`resolvePackageReleaseCompanionEvidence()` so `npm-provenance` cannot pass for
+a different tarball.
+The lower-level building blocks are `fetchNpmPackageVersionEvidence()`,
+`normaliseSbomEvidence()`, `fetchJsonSbomEvidence()`, and
+`fetchOsvVulnerabilityReport()`. They do not claim a package is safe; they only
+produce the observations that the companion-evidence resolver can check against
+the exact subject.
 
 ## What to verify
 

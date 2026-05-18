@@ -127,12 +127,15 @@ should be paired with concrete controls such as evidence workflow,
 canonicalisation, expiry, revocation, transport privacy, Sybil policy, or a
 companion protocol.
 For supported off-chain controls, prefer the companion-evidence requirement and
-resolver helpers over hand-written `pass` records:
+collector/resolver helpers over hand-written `pass` records:
 `packageReleaseCompanionEvidenceRequirements()` with
+`collectPackageReleaseCompanionEvidence()` or
 `resolvePackageReleaseCompanionEvidence()`,
 `nip05DomainCompanionEvidenceRequirements()` with
+`collectNip05DomainCompanionEvidence()` or
 `resolveNip05DomainCompanionEvidence()`, and
 `listLabelerCompanionEvidenceRequirements()` with
+`collectListLabelerCompanionEvidence()` or
 `resolveListLabelerCompanionEvidence()`.
 
 ## Companion Libraries

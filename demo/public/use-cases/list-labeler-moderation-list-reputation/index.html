@@ -758,19 +758,21 @@
 })</code></pre>
 </div>
 <h2>Companion evidence</h2>
-<p>The proof says accepted curators scored the same list or labeler subject. It does not prove the fetched list revision is the revision they reviewed, or that sample checks and correction paths exist. Require those checks explicitly and derive the evidence from the fetched list event plus your sampling workflow. The default list evidence ids are <code>list-revision-fetch</code>, <code>sample-review</code>, and <code>correction-channel</code>.</p>
+<p>The proof says accepted curators scored the same list or labeler subject. It does not prove the fetched list revision is the revision they reviewed, or that sample checks and correction paths exist. Require those checks explicitly and derive the evidence from the fetched list event plus your sampling workflow, using the collector or resolver helper that matches where the observations came from. The default list evidence ids are <code>list-revision-fetch</code>, <code>sample-review</code>, and <code>correction-channel</code>. Use <code>collectListLabelerCompanionEvidence()</code> when the verifier can fetch the addressable list event from a relay and probe the correction channel. Use <code>resolveListLabelerCompanionEvidence()</code> when your application already fetched the list revision and ran its sampling workflow.</p>
 <pre><code class="language-ts"><span class="tok-keyword">const</span> policy = <span class="tok-fn">createDeploymentPolicy</span>(LIST_LABELER_MODERATION_LIST_REPUTATION_PROFILE, {
   companionEvidence: <span class="tok-fn">listLabelerCompanionEvidenceRequirements</span>(subject, { maxAgeSeconds: <span class="tok-number">300</span> }),
   expectedSubject: subject,
   <span class="tok-comment">// accepted circles, metrics, freshness, and signature policy omitted here</span>
 })
 
-<span class="tok-keyword">const</span> companionEvidence = <span class="tok-fn">resolveListLabelerCompanionEvidence</span>({
+<span class="tok-keyword">const</span> companionEvidence = <span class="tok-keyword">await</span> <span class="tok-fn">collectListLabelerCompanionEvidence</span>({
   checkedAt: now,
-  correctionChannel,
-  listEvent,
+  correctionChannel: correctionChannelUrl,
+  fetch,
+  relayUrl,
   sampleReview,
   subject,
+  WebSocket,
 })
 
 <span class="tok-keyword">const</span> result = <span class="tok-fn">verifyProductionDeployment</span>(assertionFromRelay, bundle, {
@@ -778,7 +780,7 @@
   now,
   trustedPublishers,
 })</code></pre>
-<p><code>list-revision-fetch</code> should identify the exact Nostr addressable event or external feed revision the client will use. <code>sample-review</code> records that the deployment's sampling policy ran. <code>correction-channel</code> confirms there is a reachable path for disputes, takedowns, or superseding list assertions. For addressable Nostr lists, the resolver requires a valid event signature by default. For external feeds, keep the same evidence ids only if you also add the feed's signature, hash, or revision check to the observation workflow.</p>
+<p><code>list-revision-fetch</code> should identify the exact Nostr addressable event or external feed revision the client will use. <code>sample-review</code> records that the deployment's sampling policy ran. <code>correction-channel</code> confirms there is a reachable path for disputes, takedowns, or superseding list assertions. For addressable Nostr lists, the resolver requires a valid event signature by default. For external feeds, keep the same evidence ids only if you also add the feed's signature, hash, or revision check to the observation workflow. The lower-level building blocks are <code>fetchAddressableEventFromRelay()</code> and <code>probeCorrectionChannel()</code>. For NIP-51 lists and NIP-32 labelers, keep the addressable event signature check on by default; for non-Nostr feeds, add a separate signature, hash, or immutable revision check before producing <code>list-revision-fetch</code>.</p>
 <h2>What to verify</h2>
 <ul><li>Strict syntax and a valid proof v2.</li><li>The assertion kind and subject tag match the object the client is about to use: <code>a</code> for addressable lists, <code>p</code> for operators, or <code>k</code> for external feeds.</li><li>The curator circle is trusted for this curation domain and the threshold is high enough for the action.</li><li>The list or labeler revision being used is the one that was reviewed, or the profile explicitly allows living-list inheritance.</li><li>The metric direction is known before comparing scores across circles.</li><li>If the policy requires <code>companionEvidence</code>, missing, failed, stale, or wrong-subject evidence must reject the deployment decision.</li></ul>
 <h2>What this proves</h2>

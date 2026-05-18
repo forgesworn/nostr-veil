@@ -32,11 +32,11 @@ from `nostr-veil/profiles` through an explicit deployment policy:
 import {
   RELEASE_PACKAGE_MAINTAINER_REPUTATION_PROFILE,
   canonicalNpmPackageSubject,
+  collectPackageReleaseCompanionEvidence,
   createCircleManifest,
   createDeploymentPolicy,
   createSignedDeploymentBundle,
   packageReleaseCompanionEvidenceRequirements,
-  resolvePackageReleaseCompanionEvidence,
   validateUseCaseProfileDefinition,
   verifyProductionDeploymentReport,
 } from 'nostr-veil/profiles'
@@ -72,12 +72,13 @@ const bundle = createSignedDeploymentBundle(policy, {
   expiresAt: now + 900,
   privateKey: operatorPrivateKey,
 })
-const companionEvidence = resolvePackageReleaseCompanionEvidence({
+const companionEvidence = await collectPackageReleaseCompanionEvidence({
   checkedAt: now,
-  packageVersion: npmVersionMetadata,
-  sbom,
+  fetch,
+  osv: true,
+  sbomUrl,
   subject,
-  vulnerabilityReport,
+  verifyProvenance,
 })
 const report = verifyProductionDeploymentReport(assertion, bundle, {
   companionEvidence,
@@ -92,11 +93,15 @@ for (const control of report.profile.requiredControls) {
 }
 ```
 
-Use the companion-evidence resolver helpers for supported package, provider,
-and list profiles so off-chain facts are checked before they become verifier
-evidence. Hand-written evidence records are still useful for tests and custom
-integrations, but production code should derive them from real registry,
-service, or list observations.
+Use the companion-evidence collector helpers for supported package, provider,
+and list profiles when the library can fetch or normalise the observation:
+`collectPackageReleaseCompanionEvidence()`,
+`collectNip05DomainCompanionEvidence()`, and
+`collectListLabelerCompanionEvidence()`. Use the resolver helpers when your
+application already collected the registry, service, DNS, relay, or sampling
+observations itself. Hand-written evidence records are useful for fixtures and
+custom integrations, but production code should derive them from real
+observations and fail closed when they are missing or stale.
 
 See [circle governance](./circle-governance.md) for the operational controls
 that make a circle safe to trust, and

@@ -121,13 +121,16 @@ Deployment policies can also require `companionEvidence` for external facts the
 proof cannot prove. Use it for checks such as `npm-provenance`, `sbom`,
 `vulnerability-feed`, `nip05-resolution`, `https-probe`, `dns-owner-check`,
 `list-revision-fetch`, `sample-review`, and `correction-channel`.
-For those supported profiles, prefer the requirement and resolver helpers over
-hand-written `pass` records:
+For those supported profiles, prefer the requirement and collector/resolver
+helpers over hand-written `pass` records:
 `packageReleaseCompanionEvidenceRequirements()` with
+`collectPackageReleaseCompanionEvidence()` or
 `resolvePackageReleaseCompanionEvidence()`,
 `nip05DomainCompanionEvidenceRequirements()` with
+`collectNip05DomainCompanionEvidence()` or
 `resolveNip05DomainCompanionEvidence()`, and
 `listLabelerCompanionEvidenceRequirements()` with
+`collectListLabelerCompanionEvidence()` or
 `resolveListLabelerCompanionEvidence()`.
 
 ## Type Definitions
@@ -683,14 +686,21 @@ output into `verifyDeploymentPolicy()`, `verifyDeploymentBundle()`, or
 `verifyProductionDeployment()`.
 
 - `packageReleaseCompanionEvidenceRequirements(subject, options?)` and
+  `collectPackageReleaseCompanionEvidence(options)` or
   `resolvePackageReleaseCompanionEvidence(options)` cover `npm-provenance`,
-  `sbom`, and `vulnerability-feed`.
+  `sbom`, and `vulnerability-feed`. Lower-level helpers include
+  `fetchNpmPackageVersionEvidence()`, `normaliseSbomEvidence()`,
+  `fetchJsonSbomEvidence()`, and `fetchOsvVulnerabilityReport()`.
 - `nip05DomainCompanionEvidenceRequirements(subject, options?)` and
+  `collectNip05DomainCompanionEvidence(options)` or
   `resolveNip05DomainCompanionEvidence(options)` cover `nip05-resolution`,
-  `https-probe`, and `dns-owner-check`.
+  `https-probe`, and `dns-owner-check`. Lower-level helpers include
+  `fetchNip05DocumentEvidence()` and `probeHttpsService()`.
 - `listLabelerCompanionEvidenceRequirements(subject, options?)` and
+  `collectListLabelerCompanionEvidence(options)` or
   `resolveListLabelerCompanionEvidence(options)` cover `list-revision-fetch`,
-  `sample-review`, and `correction-channel`.
+  `sample-review`, and `correction-channel`. Lower-level helpers include
+  `fetchAddressableEventFromRelay()` and `probeCorrectionChannel()`.
 
 #### `createSignedDeploymentBundle(policy, options) → SignedDeploymentBundle`
 
@@ -710,12 +720,13 @@ const bundle = createSignedDeploymentBundle(policy, {
   expiresAt,
   privateKey: operatorPrivateKey,
 })
-const companionEvidence = resolvePackageReleaseCompanionEvidence({
+const companionEvidence = await collectPackageReleaseCompanionEvidence({
   checkedAt: now,
-  packageVersion: npmVersionMetadata,
-  sbom,
+  fetch,
+  osv: true,
+  sbomUrl,
   subject,
-  vulnerabilityReport,
+  verifyProvenance,
 })
 const result = verifyDeploymentBundle(assertionFromRelay, bundle, {
   companionEvidence,

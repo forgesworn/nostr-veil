@@ -42,7 +42,7 @@ to `supported`.
 
 | Milestone | Status | Exit criteria |
 | --- | --- | --- |
-| Supported expansion hardening | Shipped as second hardening pass | Package, NIP-05/domain, and list/labeler use cases have profile-definition checks, production recipes, documented verifier actions, companion evidence requirements, resolver helpers, and tests proving executable examples do not use undocumented metrics or static pass evidence for off-chain controls. |
+| Supported expansion hardening | Shipped as second hardening pass | Package, NIP-05/domain, and list/labeler use cases have profile-definition checks, production recipes, documented verifier actions, companion evidence requirements, collector/resolver helpers, and tests proving executable examples do not use undocumented metrics or static pass evidence for off-chain controls. |
 | Relay/community admission gate | Shipped as building block | A reference gate verifies a kind 30382 vouch plus a separate challenge, rejects replay and wrong-relay presentations, keeps admission policy outside the proof, and has live relay evidence for the fetched vouch plus signed bundle carrier. |
 | Credential/attestation co-signing profile research | Blocked on profile shape | A credential or attestation event format defines holder binding, presentation, expiry, and revocation before nostr-veil adds helper APIs. |
 | Public promotion review | Not started | A future profile moves to `supported` only after companion protocol tests, production recipe, live relay evidence, and public wording all pass. |
@@ -139,7 +139,8 @@ What would make it stronger:
 - Signed deployment policies can now require companion evidence such as
   `npm-provenance`, `sbom`, and `vulnerability-feed` before accepting a score,
   and resolver helpers now derive that evidence from npm metadata, SBOM
-  metadata, vulnerability feed output, and optional artefact digests.
+  metadata, vulnerability feed output, optional artefact digests, and
+  fixture-tested collectors for npm metadata, SBOM JSON, and OSV-style reports.
 - Optional resolver/adaptor examples for GitHub releases, repository tags,
   package signatures, provenance services, and additional vulnerability feeds.
 - A production recipe that distinguishes `surface-reviewed-release`,
@@ -162,7 +163,8 @@ What would make it stronger:
 - Signed deployment policies can now require companion evidence such as
   `nip05-resolution`, `https-probe`, and `dns-owner-check` before accepting a
   provider-trust score, and resolver helpers now derive that evidence from
-  NIP-05 documents, HTTPS probe output, and DNS owner checks.
+  NIP-05 documents, HTTPS probe output, DNS owner checks, and fixture-tested
+  collectors for NIP-05 documents plus HTTPS probes.
 - Additional resolver examples for LNURLp, NIP-96, and service-specific probes.
 - Freshness and revocation policy for compromised providers.
 - Tests that reject canonicalisation drift, service mismatch, stale probes,
@@ -183,8 +185,8 @@ What would make it stronger:
 - Signed deployment policies can now require companion evidence such as
   `list-revision-fetch`, `sample-review`, and `correction-channel` before
   accepting a curation-source score, and resolver helpers now derive that
-  evidence from the fetched list event, sampling workflow, and correction
-  channel probe.
+  evidence from the fetched list event, sampling workflow, correction channel
+  probe, and a fixture-tested relay fetch adapter for addressable events.
 - Examples for NIP-51 lists, NIP-32 labels, moderation feeds, and external
   label services.
 - A profile decision tree for choosing kind 30382, 30384, or 30385.

@@ -26,11 +26,11 @@ should include:
 import {
   RELEASE_PACKAGE_MAINTAINER_REPUTATION_PROFILE,
   canonicalNpmPackageSubject,
+  collectPackageReleaseCompanionEvidence,
   createCircleManifest,
   createDeploymentPolicy,
   createSignedDeploymentBundle,
   packageReleaseCompanionEvidenceRequirements,
-  resolvePackageReleaseCompanionEvidence,
   validateUseCaseProfileDefinition,
   verifyProductionDeploymentReport,
 } from 'nostr-veil/profiles'
@@ -66,12 +66,13 @@ const bundle = createSignedDeploymentBundle(policy, {
   expiresAt: now + 900,
   privateKey: operatorPrivateKey,
 })
-const companionEvidence = resolvePackageReleaseCompanionEvidence({
+const companionEvidence = await collectPackageReleaseCompanionEvidence({
   checkedAt: now,
-  packageVersion: npmVersionMetadata,
-  sbom,
+  fetch,
+  osv: true,
+  sbomUrl,
   subject,
-  vulnerabilityReport,
+  verifyProvenance,
 })
 
 const report = verifyProductionDeploymentReport(assertionFromRelay, bundle, {
@@ -86,10 +87,12 @@ if (!report.valid) {
 }
 ```
 
-For supported off-chain controls, prefer resolver helpers such as
-`resolvePackageReleaseCompanionEvidence()` over hand-written `pass` evidence.
-The resolver output still flows through the same signed deployment policy, so
-missing, failed, stale, or wrong-subject observations produce stable
+For supported off-chain controls, prefer collector helpers such as
+`collectPackageReleaseCompanionEvidence()` when the library can fetch or
+normalise the observation, and resolver helpers such as
+`resolvePackageReleaseCompanionEvidence()` when your application already has
+the observations. The evidence still flows through the same signed deployment
+policy, so missing, failed, stale, or wrong-subject observations produce stable
 `companion.*` issue codes.
 
 The production verifier is intentionally stricter than

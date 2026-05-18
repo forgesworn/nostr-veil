@@ -179,9 +179,10 @@ The resulting `assertion` is a plain `EventTemplate` you sign and publish like a
 | `VerificationIssue`, `VerificationIssueCode` | Stable machine-readable issue codes returned alongside human-readable errors |
 | `explainVerificationIssue(issueOrCode)`, `remediationForIssue(issueOrCode)` | Turn stable issue codes into concrete operator or verifier remediation guidance |
 | `CompanionEvidence`, `CompanionEvidenceRequirement` | Types for external resolver, provenance, service, and list checks that a deployment policy can require alongside the cryptographic proof |
-| `packageReleaseCompanionEvidenceRequirements(subject)`, `resolvePackageReleaseCompanionEvidence(options)` | Require and produce package provenance, SBOM, and vulnerability-feed evidence |
-| `nip05DomainCompanionEvidenceRequirements(subject)`, `resolveNip05DomainCompanionEvidence(options)` | Require and produce NIP-05 resolution, HTTPS probe, and DNS-owner evidence |
-| `listLabelerCompanionEvidenceRequirements(subject)`, `resolveListLabelerCompanionEvidence(options)` | Require and produce list revision, sample-review, and correction-channel evidence |
+| `packageReleaseCompanionEvidenceRequirements(subject)`, `collectPackageReleaseCompanionEvidence(options)`, `resolvePackageReleaseCompanionEvidence(options)` | Require package provenance, SBOM, and vulnerability-feed evidence; collect from registry/SBOM/OSV-style observations or resolve already-collected observations |
+| `nip05DomainCompanionEvidenceRequirements(subject)`, `collectNip05DomainCompanionEvidence(options)`, `resolveNip05DomainCompanionEvidence(options)` | Require NIP-05 resolution, HTTPS probe, and DNS-owner evidence; collect from NIP-05/HTTPS/DNS observations or resolve already-collected observations |
+| `listLabelerCompanionEvidenceRequirements(subject)`, `collectListLabelerCompanionEvidence(options)`, `resolveListLabelerCompanionEvidence(options)` | Require list revision, sample-review, and correction-channel evidence; collect from relay/list/correction observations or resolve already-collected observations |
+| `fetchNpmPackageVersionEvidence()`, `fetchOsvVulnerabilityReport()`, `normaliseSbomEvidence()`, `fetchNip05DocumentEvidence()`, `probeHttpsService()`, `fetchAddressableEventFromRelay()`, `probeCorrectionChannel()` | Lower-level adapters for building custom evidence collection pipelines |
 | `canonicalRelaySubject`, `canonicalServiceSubject`, `canonicalNip05Subject`, `canonicalDomainSubject`, `canonicalLnurlpSubject`, `canonicalNip96Subject`, `canonicalNpmPackageSubject`, `canonicalPackageDigestSubject`, `canonicalGitRepositorySubject`, `canonicalGithubRepositorySubject`, `canonicalMaintainerSubject` | Canonical subject helpers for common real-world identifiers |
 | `canonicalPubkeySubject`, `canonicalEventSubject`, `canonicalAddressSubject` | Canonical subject helpers for Nostr-native subjects |
 
@@ -199,9 +200,10 @@ NIP-85 event. For example, package policies can require `npm-provenance`,
 `nip05-resolution`, `https-probe`, and `dns-owner-check`; list policies can
 require `list-revision-fetch`, `sample-review`, and `correction-channel`.
 Missing, failed, stale, or wrong-subject evidence fails closed without changing
-the underlying NIP-85 assertion. Prefer the resolver helpers above over
-hand-written `pass` records so the evidence comes from checked registry,
-service, or list observations.
+the underlying NIP-85 assertion. Prefer the collector helpers when the library
+can fetch or normalise the observation for you, and the resolver helpers when
+your application already has registry, service, or list observations from its
+own infrastructure. Avoid hand-written `pass` records in production.
 
 ### Signing utility (root export)
 

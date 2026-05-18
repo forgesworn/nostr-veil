@@ -63,10 +63,14 @@ payment endpoint, or other service identifier outside a single Nostr pubkey.
 
 The proof carries the reviewer circle's assessment. The application still has
 to prove the underlying service facts it relies on. Model those checks as
-companion evidence in the signed deployment policy and derive them from resolver
-output rather than static `pass` records.
+companion evidence in the signed deployment policy and derive them from
+collector or resolver output rather than static `pass` records.
 The default provider evidence ids are `nip05-resolution`, `https-probe`, and
-`dns-owner-check`.
+`dns-owner-check`. Use `collectNip05DomainCompanionEvidence()` when the
+verifier can fetch the NIP-05 document and HTTPS probe directly, and pass a
+deployment-specific DNS owner check. Use
+`resolveNip05DomainCompanionEvidence()` when those observations came from your
+own resolver or monitoring service.
 
 ```ts
 const policy = createDeploymentPolicy(NIP05_DOMAIN_SERVICE_PROVIDER_TRUST_PROFILE, {
@@ -76,12 +80,11 @@ const policy = createDeploymentPolicy(NIP05_DOMAIN_SERVICE_PROVIDER_TRUST_PROFIL
   // accepted circles, metrics, freshness, and signature policy omitted here
 })
 
-const companionEvidence = resolveNip05DomainCompanionEvidence({
+const companionEvidence = await collectNip05DomainCompanionEvidence({
   checkedAt: now,
-  dnsOwnerCheck,
+  checkDnsOwner,
   expectedPubkey,
-  httpsProbe,
-  nip05Document,
+  fetch,
   subject,
 })
 
@@ -98,6 +101,10 @@ subjects, customise the companion requirements to the exact DNS, HTTPS, LNURLp,
 NIP-96, or service probe your application depends on. If the application is not
 acting on a NIP-05 name, remove or mark `nip05-resolution` optional and require
 the service-specific probe that proves the fact you will rely on.
+The lower-level building blocks are `fetchNip05DocumentEvidence()` and
+`probeHttpsService()`. DNS ownership is deliberately a callback because
+deployments vary: some use DNSSEC, some use account-control checks, and some
+use an operator-controlled allow-list.
 
 ## What to verify
 
