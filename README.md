@@ -174,6 +174,8 @@ The resulting `assertion` is a plain `EventTemplate` you sign and publish like a
 | `verifyDeploymentBundle(events, bundle, options?)` | Verify a signed bundle from trusted publishers, then verify the bundled deployment policy |
 | `verifyProductionDeployment(events, bundle, options?)` | One-call production gate that also requires an expiring bundle and signed relay-fetched events by default |
 | `createProductionDecisionReport(result)`, `verifyProductionDeploymentReport(events, bundle, options?)` | Produce an audit/UI-ready decision report with recommended action, issue remediation, and control status |
+| `createAdmissionChallenge(options)`, `createAdmissionPresentation(challenge, privateKey, options?)` | Build and sign a pubkey-bound relay/community admission challenge outside the NIP-85 assertion |
+| `verifyAdmissionPresentation(presentation, challenge, options?)`, `verifyAdmissionRequest(events, bundle, challenge, presentation, options?)` | Verify the admission handshake plus the existing signed kind 30382 vouch and deployment bundle |
 | `VerificationIssue`, `VerificationIssueCode` | Stable machine-readable issue codes returned alongside human-readable errors |
 | `explainVerificationIssue(issueOrCode)`, `remediationForIssue(issueOrCode)` | Turn stable issue codes into concrete operator or verifier remediation guidance |
 | `canonicalRelaySubject`, `canonicalServiceSubject`, `canonicalNip05Subject`, `canonicalDomainSubject`, `canonicalLnurlpSubject`, `canonicalNip96Subject`, `canonicalNpmPackageSubject`, `canonicalGitRepositorySubject`, `canonicalGithubRepositorySubject`, `canonicalMaintainerSubject` | Canonical subject helpers for common real-world identifiers |

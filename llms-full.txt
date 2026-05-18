@@ -95,10 +95,12 @@ The shipped primitives cover these concrete shapes:
   members should count once across several circles.
 
 For new workflows, prefer proof v2 and verify with
-`verifyProof(event, { requireProofVersion: 'v2' })`. Credential co-signing and
-anonymous gated access are future profiles: nostr-veil can provide the
-threshold proof, but those flows need separate credential/admission event
-formats and handshakes.
+`verifyProof(event, { requireProofVersion: 'v2' })`. Pubkey-bound
+relay/community admission can use a standard kind 30382 vouch plus the
+admission challenge helpers. Credential co-signing and fully anonymous gated
+access are still future profiles: nostr-veil can provide the threshold proof,
+but those flows need separate credential, session, revocation, and transport
+rules.
 
 The use-case documentation is written as implementation profiles. Each page
 should identify the subject shape, helper, metric meaning, proof version,
@@ -714,6 +716,30 @@ explicitly relaxed.
 #### `verifyProductionDeploymentReport(events, bundle, options) → ProductionDecisionReport`
 
 Verify a production deployment and return the decision report directly.
+
+#### `createAdmissionChallenge(options) → AdmissionChallenge`
+
+Create a relay/community admission challenge for a specific applicant pubkey and
+audience. This is a companion object, not a NIP-85 event. The NIP-85 vouch
+remains a normal kind 30382 user assertion with additive `veil-*` tags.
+
+#### `createAdmissionPresentation(challenge, privateKey, options?) → AdmissionPresentation`
+
+Sign the admission challenge as the applicant. The signer pubkey must match the
+challenge applicant pubkey.
+
+#### `verifyAdmissionPresentation(presentation, challenge, options?) → AdmissionPresentationVerification`
+
+Verify the applicant signature, challenge id, expected audience, expiry, and
+replay set for the admission presentation.
+
+#### `verifyAdmissionRequest(events, bundle, challenge, presentation, options?) → AdmissionRequestVerification`
+
+Verify the admission presentation together with an existing signed kind 30382
+vouch and signed deployment bundle. It returns a decision such as `admit`,
+`rate-limit`, `manual-review`, `deny`, or `revoke`. It does not grant relay
+access by itself; relay policy, sessions, revocation, logging, and transport
+privacy remain application controls.
 
 Canonical subject helpers cover Nostr-native subjects plus relays, service
 endpoints, NIP-05, domains, LNURLp, NIP-96, npm packages, git repositories,

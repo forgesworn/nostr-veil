@@ -43,7 +43,7 @@ to `supported`.
 | Milestone | Status | Exit criteria |
 | --- | --- | --- |
 | Supported expansion hardening | In progress | Package, NIP-05/domain, and list/labeler use cases have profile-definition checks, production recipes, documented verifier actions, and tests proving executable examples do not use undocumented metrics. |
-| Relay/community admission prototype | Not started | A reference gate verifies a vouch plus a separate challenge, rejects replay and wrong-relay presentations, and keeps admission policy outside the proof. |
+| Relay/community admission prototype | In progress | A reference gate verifies a vouch plus a separate challenge, rejects replay and wrong-relay presentations, and keeps admission policy outside the proof. |
 | Credential/attestation co-signing profile research | Blocked on profile shape | A credential or attestation event format defines holder binding, presentation, expiry, and revocation before nostr-veil adds helper APIs. |
 | Public promotion review | Not started | A future profile moves to `supported` only after companion protocol tests, production recipe, live relay evidence, and public wording all pass. |
 
@@ -86,12 +86,13 @@ Do not claim publicly yet:
 ### Relay or community admission
 
 Current state: nostr-veil can publish a threshold-backed vouch assertion about
-an applicant pubkey. A relay or community can use that as one policy input.
-That is not the same as anonymous access control.
+an applicant pubkey and verify a reference challenge/presentation around that
+vouch. A relay or community can use that as one policy input. That is not the
+same as anonymous access control.
 
 What must exist before promotion:
 
-- An admission challenge/response flow owned by the relay or community.
+- A production challenge/response flow owned by the relay or community.
 - A subject-binding decision: admitted pubkey, session key, capability token,
   account record, or credential presentation.
 - Replay protection tied to a nonce, relay, community, expiry, and session.
@@ -106,12 +107,10 @@ What must exist before promotion:
 Likely nostr-veil work:
 
 - Keep the current kind 30382 vouch as the portable public signal.
-- Add an admission verifier example that consumes a signed vouch and a separate
-  relay challenge.
-- Add test vectors for replay, wrong relay, wrong applicant, expired vouch,
-  revoked applicant, unknown admission circle, and insufficient threshold.
-- Consider an additive helper only when the challenge shape is stable enough to
-  avoid locking in the wrong API.
+- Keep the admission challenge as a companion object, not a new NIP-85 kind or
+  mutation of the vouch event.
+- Extend the reference verifier only additively as relay/community operators
+  prove which session and revocation controls they actually need.
 
 Do not claim publicly yet:
 

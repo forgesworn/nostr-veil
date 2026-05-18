@@ -110,7 +110,7 @@ warnings as review items before a score drives automation.
 
 The runnable examples in
 [`examples/production-recipes.ts`](../examples/production-recipes.ts) model
-five production-shaped flows:
+six production-shaped flows:
 
 - package release reputation: show a reviewed-release signal only after the
   signed event, accepted circle, exact package subject, and rank bounds pass;
@@ -132,6 +132,12 @@ Run them with:
 npm run test:production-recipes
 ```
 
+[`examples/admission-gate.ts`](../examples/admission-gate.ts) shows the
+reference relay/community admission handshake. It does not change the NIP-85
+kind 30382 vouch. The relay or community creates an admission challenge, the
+applicant signs a presentation, and `verifyAdmissionRequest()` verifies that
+presentation together with the existing signed vouch and deployment bundle.
+
 ## Fail closed
 
 A production verifier should reject, or move to manual review, when:
@@ -148,6 +154,8 @@ A production verifier should reject, or move to manual review, when:
 - the relay returned an unsigned or tampered signed event;
 - a federation has too few circles, mixed scopes, or overlapping contributors
   counted incorrectly.
+- an admission challenge is expired, replayed, for the wrong audience, or signed
+  by a pubkey that does not match the vouched applicant.
 
 ## Operational controls
 

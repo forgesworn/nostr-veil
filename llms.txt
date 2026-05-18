@@ -64,6 +64,8 @@ Two subpath exports, plus a root that re-exports everything:
 `verifyDeploymentPolicy`, `createSignedDeploymentBundle`,
 `verifyDeploymentBundle`, `verifyProductionDeployment`,
 `createProductionDecisionReport`, `verifyProductionDeploymentReport`,
+`createAdmissionChallenge`, `createAdmissionPresentation`,
+`verifyAdmissionPresentation`, `verifyAdmissionRequest`,
 `validateUseCaseProfileDefinition`, `VerificationIssue`,
 `VerificationIssueCode`, `explainVerificationIssue`,
 `remediationForIssue`, and canonical subject helpers. Run
@@ -102,10 +104,12 @@ corroboration, onboarding vouches, and pubkey-backed trade reputation. Use
 lists, and labeler profiles. Use `aggregateIdentifierContributions` for relays,
 services, packages, releases, maintainers, NIP-05 identifiers, domains, vendors,
 and other external identifiers; the kind 30385 `k` namespace is chosen by the
-application profile, not standardised by nostr-veil. Credential co-signing and
-anonymous gated access are future profiles: nostr-veil can provide the threshold
-proof, but those flows need separate credential/admission event formats and
-handshakes.
+application profile, not standardised by nostr-veil. For pubkey-bound
+relay/community admission, keep the NIP-85 vouch as kind 30382 and use the
+admission helpers as a separate challenge/presentation companion. Credential
+co-signing and fully anonymous gated access remain future profiles: nostr-veil
+can provide the threshold proof, but those flows need separate credential,
+session, revocation, and transport rules.
 
 Use-case pages are implementation profiles. Each page should identify the
 subject shape, helper, metric meaning, proof version, verifier action, proof

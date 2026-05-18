@@ -13,6 +13,7 @@ npx tsx examples/nip85-provider.ts
 npx tsx examples/typed-assertions.ts
 npx tsx examples/use-cases.ts
 npm run test:production-recipes
+npm run test:admission-gate
 npm run test:use-cases:relay -- --dry-run
 ```
 
@@ -43,6 +44,12 @@ operator action, or use `verifyProductionDeploymentReport()` when they need the
 decision, control status, and remediation text in one object. The recipes also
 use NIP-85 kind names such as "kind 30385 identifier assertion" so the subject
 route is explicit.
+
+`admission-gate.ts` shows the additive relay/community admission pattern. The
+vouch remains a normal NIP-85 kind 30382 user assertion with `veil-*` proof
+tags. The admission challenge and applicant presentation are separate protocol
+objects verified by `verifyAdmissionRequest()` alongside the signed deployment
+bundle.
 
 The built-in profiles also expose `proofClaims`, `proofLimitations`,
 `requiredControls`, and `recommendedActions`. Use those fields when rendering a

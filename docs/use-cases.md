@@ -390,13 +390,17 @@ the binding needed to keep the endorsement tied to the intended subject.
 ### Relay or community admission
 
 Today, a circle can publish a threshold-backed assertion about a candidate
-pubkey. A relay or community can use that as an input to admission policy.
+pubkey. A relay or community can use that as an input to admission policy, and
+`createAdmissionChallenge()`, `createAdmissionPresentation()`, and
+`verifyAdmissionRequest()` provide a reference pubkey-bound challenge around
+that existing kind 30382 vouch.
 
-A full anonymous admission flow needs a gated-access handshake outside NIP-85:
-the verifier must check the proof without learning which trusted member opened
-the door, and the transport must avoid leaking equivalent metadata. Until then,
-publish a threshold-backed vouch assertion and let the relay or community apply
-its ordinary admission policy.
+A full anonymous admission flow still needs more than NIP-85: the verifier must
+check the proof without learning which trusted member opened the door, session
+continuity and revocation must be defined, and the transport must avoid leaking
+equivalent metadata. Until then, publish a threshold-backed vouch assertion,
+verify the admission challenge, and let the relay or community apply its
+ordinary admission policy.
 
 ## Recommended defaults
 

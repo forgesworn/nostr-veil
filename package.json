@@ -41,6 +41,7 @@
     "lint": "tsc --noEmit",
     "test:use-cases": "tsx examples/use-cases.ts",
     "test:production-recipes": "tsx examples/production-recipes.ts",
+    "test:admission-gate": "node --import tsx examples/admission-gate.ts",
     "test:use-cases:relay": "tsx examples/use-cases-relay.ts",
     "demo": "cd demo && npm run dev",
     "prepublishOnly": "npm run build",
