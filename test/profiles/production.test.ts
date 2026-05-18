@@ -39,6 +39,13 @@ function policy(options: { requireNostrSignature?: boolean } = {}): UseCaseDeplo
 
   return createDeploymentPolicy(RELEASE_PACKAGE_MAINTAINER_REPUTATION_PROFILE, {
     circleManifests: [manifest],
+    companionEvidence: [
+      {
+        id: 'npm-provenance',
+        expectedSubject: tagValue(packageAssertion, 'd'),
+        maxAgeSeconds: 300,
+      },
+    ],
     expectedSubject: tagValue(packageAssertion, 'd'),
     metricPolicies: {
       rank: { required: true, min: 80, max: 100, integer: true },
@@ -69,6 +76,14 @@ describe('production deployment verifier', () => {
     const signedBundle = bundle()
     const signedAssertion = signEvent(packageAssertion, RELAY_PUBLISHER_KEY)
     const result = verifyProductionDeployment(signedAssertion, signedBundle, {
+      companionEvidence: [
+        {
+          checkedAt: packageAssertion.created_at ?? 0,
+          id: 'npm-provenance',
+          status: 'pass',
+          subject: tagValue(packageAssertion, 'd'),
+        },
+      ],
       now: packageAssertion.created_at,
       trustedPublishers: [signedBundle.signer],
     })
@@ -83,6 +98,14 @@ describe('production deployment verifier', () => {
     const signedBundle = bundle()
     const signedAssertion = signEvent(packageAssertion, RELAY_PUBLISHER_KEY)
     const result = verifyProductionDeployment(signedAssertion, signedBundle, {
+      companionEvidence: [
+        {
+          checkedAt: packageAssertion.created_at ?? 0,
+          id: 'npm-provenance',
+          status: 'pass',
+          subject: tagValue(packageAssertion, 'd'),
+        },
+      ],
       now: packageAssertion.created_at,
     })
 
@@ -95,6 +118,14 @@ describe('production deployment verifier', () => {
     const signedBundle = bundle(policy(), { expiresAt: undefined })
     const signedAssertion = signEvent(packageAssertion, RELAY_PUBLISHER_KEY)
     const result = verifyProductionDeployment(signedAssertion, signedBundle, {
+      companionEvidence: [
+        {
+          checkedAt: packageAssertion.created_at ?? 0,
+          id: 'npm-provenance',
+          status: 'pass',
+          subject: tagValue(packageAssertion, 'd'),
+        },
+      ],
       now: packageAssertion.created_at,
       trustedPublishers: [signedBundle.signer],
     })
@@ -103,6 +134,14 @@ describe('production deployment verifier', () => {
     expect(issueCodes(result)).toContain('bundle.expiry_required')
 
     const explicitlyAllowed = verifyProductionDeployment(signedAssertion, signedBundle, {
+      companionEvidence: [
+        {
+          checkedAt: packageAssertion.created_at ?? 0,
+          id: 'npm-provenance',
+          status: 'pass',
+          subject: tagValue(packageAssertion, 'd'),
+        },
+      ],
       now: packageAssertion.created_at,
       requireBundleExpiry: false,
       trustedPublishers: [signedBundle.signer],
@@ -113,6 +152,14 @@ describe('production deployment verifier', () => {
   it('rejects bundles whose policy would allow unsigned relay events', () => {
     const signedBundle = bundle(policy({ requireNostrSignature: false }))
     const result = verifyProductionDeployment(packageAssertion, signedBundle, {
+      companionEvidence: [
+        {
+          checkedAt: packageAssertion.created_at ?? 0,
+          id: 'npm-provenance',
+          status: 'pass',
+          subject: tagValue(packageAssertion, 'd'),
+        },
+      ],
       now: packageAssertion.created_at,
       trustedPublishers: [signedBundle.signer],
     })
@@ -129,6 +176,14 @@ describe('production deployment verifier', () => {
       content: `${signedAssertion.content}tampered`,
     }
     const result = verifyProductionDeployment(tampered, signedBundle, {
+      companionEvidence: [
+        {
+          checkedAt: packageAssertion.created_at ?? 0,
+          id: 'npm-provenance',
+          status: 'pass',
+          subject: tagValue(packageAssertion, 'd'),
+        },
+      ],
       now: packageAssertion.created_at,
       trustedPublishers: [signedBundle.signer],
     })
@@ -141,6 +196,14 @@ describe('production deployment verifier', () => {
     const signedBundle = bundle()
     const signedAssertion = signEvent(packageAssertion, RELAY_PUBLISHER_KEY)
     const result = verifyProductionDeployment(signedAssertion, signedBundle, {
+      companionEvidence: [
+        {
+          checkedAt: packageAssertion.created_at ?? 0,
+          id: 'npm-provenance',
+          status: 'pass',
+          subject: tagValue(packageAssertion, 'd'),
+        },
+      ],
       now: packageAssertion.created_at,
       trustedPublishers: [signedBundle.signer],
     })
@@ -154,13 +217,37 @@ describe('production deployment verifier', () => {
     expect(report.profile.requiredControls.map(control => control.control).join(' ')).toContain('SBOMs')
     expect(report.subject).toBe(tagValue(packageAssertion, 'd'))
     expect(report.controls.every(control => control.status === 'pass')).toBe(true)
+    expect(report.controls.find(control => control.id === 'companion-evidence')?.summary).toContain('Configured companion evidence')
     expect(report.issues).toEqual([])
+  })
+
+  it('surfaces missing companion evidence as an operator-facing production control', () => {
+    const signedBundle = bundle()
+    const signedAssertion = signEvent(packageAssertion, RELAY_PUBLISHER_KEY)
+    const result = verifyProductionDeployment(signedAssertion, signedBundle, {
+      now: packageAssertion.created_at,
+      trustedPublishers: [signedBundle.signer],
+    })
+    const report = createProductionDecisionReport(result)
+
+    expect(result.valid).toBe(false)
+    expect(issueCodes(result)).toContain('companion.missing')
+    expect(report.recommendedAction).toBe('operator-action')
+    expect(report.controls.find(control => control.id === 'companion-evidence')?.status).toBe('fail')
   })
 
   it('turns production failures into operator remediation', () => {
     const signedBundle = bundle()
     const signedAssertion = signEvent(packageAssertion, RELAY_PUBLISHER_KEY)
     const result = verifyProductionDeployment(signedAssertion, signedBundle, {
+      companionEvidence: [
+        {
+          checkedAt: packageAssertion.created_at ?? 0,
+          id: 'npm-provenance',
+          status: 'pass',
+          subject: tagValue(packageAssertion, 'd'),
+        },
+      ],
       now: packageAssertion.created_at,
     })
     const report = createProductionDecisionReport(result)
@@ -180,6 +267,14 @@ describe('production deployment verifier', () => {
   it('marks intentionally disabled event signature checks as not checked', () => {
     const signedBundle = bundle(policy({ requireNostrSignature: false }))
     const result = verifyProductionDeployment(packageAssertion, signedBundle, {
+      companionEvidence: [
+        {
+          checkedAt: packageAssertion.created_at ?? 0,
+          id: 'npm-provenance',
+          status: 'pass',
+          subject: tagValue(packageAssertion, 'd'),
+        },
+      ],
       now: packageAssertion.created_at,
       requireSignedEvents: false,
       trustedPublishers: [signedBundle.signer],
@@ -194,6 +289,14 @@ describe('production deployment verifier', () => {
     const signedBundle = bundle()
     const signedAssertion = signEvent(packageAssertion, RELAY_PUBLISHER_KEY)
     const report = verifyProductionDeploymentReport(signedAssertion, signedBundle, {
+      companionEvidence: [
+        {
+          checkedAt: packageAssertion.created_at ?? 0,
+          id: 'npm-provenance',
+          status: 'pass',
+          subject: tagValue(packageAssertion, 'd'),
+        },
+      ],
       now: packageAssertion.created_at,
       trustedPublishers: [signedBundle.signer],
     })

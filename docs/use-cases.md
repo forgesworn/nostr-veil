@@ -43,11 +43,12 @@ const trustedPolicyPublishers = [operatorPubkey]
 const profileCheck = validateUseCaseProfileDefinition(RELEASE_PACKAGE_MAINTAINER_REPUTATION_PROFILE)
 if (!profileCheck.valid) throw new Error(profileCheck.errors.join('; '))
 
+const now = Math.floor(Date.now() / 1000)
 const subject = canonicalNpmPackageSubject('nostr-veil', '0.14.0')
 const reviewerPubkeys = [alicePubkey, bobPubkey, carolPubkey].sort()
 const circle = createCircleManifest({
-  issuedAt: 1778000000,
-  expiresAt: 1778000900,
+  issuedAt: now,
+  expiresAt: now + 900,
   members: reviewerPubkeys,
   name: 'Package reviewers',
   profileIds: [RELEASE_PACKAGE_MAINTAINER_REPUTATION_PROFILE.id],
@@ -55,6 +56,11 @@ const circle = createCircleManifest({
 })
 const policy = createDeploymentPolicy(RELEASE_PACKAGE_MAINTAINER_REPUTATION_PROFILE, {
   circleManifests: [circle],
+  companionEvidence: [
+    { id: 'npm-provenance', expectedSubject: subject, maxAgeSeconds: 300 },
+    { id: 'sbom', expectedSubject: subject, maxAgeSeconds: 300 },
+    { id: 'vulnerability-feed', expectedSubject: subject, maxAgeSeconds: 300 },
+  ],
   expectedSubject: subject,
   metricPolicies: {
     rank: { required: true, min: 0, max: 100, integer: true },
@@ -64,12 +70,17 @@ const policy = createDeploymentPolicy(RELEASE_PACKAGE_MAINTAINER_REPUTATION_PROF
 })
 const bundle = createSignedDeploymentBundle(policy, {
   id: 'package-release-gate',
-  issuedAt: 1778000000,
-  expiresAt: 1778000900,
+  issuedAt: now,
+  expiresAt: now + 900,
   privateKey: operatorPrivateKey,
 })
 const report = verifyProductionDeploymentReport(assertion, bundle, {
-  now: Math.floor(Date.now() / 1000),
+  companionEvidence: [
+    { id: 'npm-provenance', status: 'pass', subject, checkedAt: now },
+    { id: 'sbom', status: 'pass', subject, checkedAt: now },
+    { id: 'vulnerability-feed', status: 'pass', subject, checkedAt: now },
+  ],
+  now,
   trustedPublishers: trustedPolicyPublishers,
 })
 
@@ -272,11 +283,12 @@ authority comes from the chosen circle.
 - Use: kind 30385 identifier assertion for packages, releases, repositories, or
   maintainers.
 - Subject examples: `npm:nostr-veil@0.14.0`,
+  `package-digest:npm:nostr-veil@0.14.0:sha256:<hex>`,
   `git:https://github.com/forgesworn/nostr-veil@36f74b0`, or
   `maintainer:github:forgesworn`.
 - Canonical helpers: `canonicalNpmPackageSubject`,
-  `canonicalGitRepositorySubject`, `canonicalGithubRepositorySubject`, and
-  `canonicalMaintainerSubject`.
+  `canonicalPackageDigestSubject`, `canonicalGitRepositorySubject`,
+  `canonicalGithubRepositorySubject`, and `canonicalMaintainerSubject`.
 - Helper: `contributeIdentifierAssertion` and
   `aggregateIdentifierContributions`.
 - Metrics: `rank` as safety, review confidence, or maintenance confidence.
@@ -288,8 +300,10 @@ the project, sponsor, or attacker.
 
 Boundary: nostr-veil does not scan code or prove supply-chain safety. Cover
 that with provenance, signatures, SBOMs, reproducible builds, CI, static
-analysis, and human audit policy. nostr-veil carries the threshold-backed
-reviewer signal.
+analysis, and human audit policy. In production, require those checks as
+`companionEvidence` such as `npm-provenance`, `sbom`, and
+`vulnerability-feed` before surfacing a reviewed-release signal. nostr-veil
+carries the threshold-backed reviewer signal.
 
 ### NIP-05, domain, and service-provider trust
 
@@ -309,8 +323,10 @@ endpoints, or other external identifiers. This is useful when the thing being
 scored is not a single Nostr pubkey.
 
 Boundary: nostr-veil does not prove domain control. Cover that with DNS, HTTPS,
-NIP-05, LNURL, or service-specific verification. nostr-veil carries the
-circle's assessment of the identifier after those checks.
+NIP-05, LNURL, or service-specific verification. In production, require those
+checks as `companionEvidence` such as `nip05-resolution`, `https-probe`, and
+`dns-owner-check`. nostr-veil carries the circle's assessment of the identifier
+after those checks.
 
 ### Community list, labeler, and moderation-list reputation
 
@@ -326,6 +342,10 @@ circle's assessment of the identifier after those checks.
 
 Users can compare curation sources without creating a public graph of everyone
 who reviews labelers, moderation lists, filter feeds, or community lists.
+
+Boundary: nostr-veil does not prove the list contents are correct or current.
+In production, require `companionEvidence` such as `list-revision-fetch`,
+`sample-review`, and `correction-channel` before preferring a curation source.
 
 ### Federated moderation
 

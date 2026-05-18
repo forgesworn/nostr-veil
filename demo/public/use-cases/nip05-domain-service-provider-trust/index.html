@@ -697,7 +697,7 @@
 <h2>What to publish</h2>
 <ul><li>A kind 30385 assertion with the canonical identifier in <code>d</code> and the profile namespace in <code>k</code>.</li><li>A <code>rank</code> profile explaining whether the score means identity confidence, domain-control confidence, provider reliability, abuse risk, or operational trust.</li><li>Proof v2 tags, accepted circle policy, threshold, freshness, and revocation or incident rules.</li><li>Evidence references only when safe; DNS, HTTPS, NIP-05, and payment checks should happen before review, not inside the nostr-veil proof.</li></ul>
 <h2>Implementation recipe</h2>
-<ol><li>Canonicalise the identifier before signing with the NIP-05, domain, LNURLp, NIP-96, or service helper: lowercase host names, agreed schemes, punycode handling, and trailing slash rules.</li><li>Decide whether the subject is a domain, a specific NIP-05 name, a payment endpoint, or a service provider.</li><li>Run the underlying service check outside nostr-veil, then publish the threshold-backed assessment.</li><li>Require proof v2 and verify the expected identifier string, <code>k</code> namespace, circle, threshold, and freshness.</li><li>Use expiry because domain ownership and service behaviour can change.</li></ol>
+<ol><li>Canonicalise the identifier before signing with the NIP-05, domain, LNURLp, NIP-96, or service helper: lowercase host names, agreed schemes, punycode handling, and trailing slash rules.</li><li>Decide whether the subject is a domain, a specific NIP-05 name, a payment endpoint, or a service provider.</li><li>Run the underlying service check outside nostr-veil, then publish the threshold-backed assessment.</li><li>Require proof v2 and verify the expected identifier string, <code>k</code> namespace, circle, threshold, and freshness.</li><li>Use expiry because domain ownership and service behaviour can change. In production, put resolver and service checks in <code>companionEvidence</code> so stale or missing off-chain evidence rejects automatically.</li></ol>
 <h2 id="worked-example">Worked example</h2>
 <div class="code-sample" data-example-slug="nip05-domain-service-provider-trust">
   <div class="code-sample-toolbar">
@@ -757,8 +757,31 @@
   freshAfter: assertion.created_at - <span class="tok-number">300</span>,
 })</code></pre>
 </div>
+<h2>Companion evidence</h2>
+<p>The proof carries the reviewer circle's assessment. The application still has to prove the underlying service facts it relies on. Model those checks as companion evidence in the signed deployment policy.</p>
+<pre><code class="language-ts"><span class="tok-keyword">const</span> policy = <span class="tok-fn">createDeploymentPolicy</span>(NIP05_DOMAIN_SERVICE_PROVIDER_TRUST_PROFILE, {
+  companionEvidence: [
+    { id: <span class="tok-string">'nip05-resolution'</span>, expectedSubject: subject, maxAgeSeconds: <span class="tok-number">300</span> },
+    { id: <span class="tok-string">'https-probe'</span>, expectedSubject: subject, maxAgeSeconds: <span class="tok-number">300</span> },
+    { id: <span class="tok-string">'dns-owner-check'</span>, expectedSubject: subject, maxAgeSeconds: <span class="tok-number">300</span> },
+  ],
+  expectedSubject: subject,
+  expectedSubjectTagValue: <span class="tok-string">'0'</span>,
+  <span class="tok-comment">// accepted circles, metrics, freshness, and signature policy omitted here</span>
+})
+
+<span class="tok-keyword">const</span> result = <span class="tok-fn">verifyProductionDeployment</span>(assertionFromRelay, bundle, {
+  companionEvidence: [
+    { id: <span class="tok-string">'nip05-resolution'</span>, status: <span class="tok-string">'pass'</span>, subject, checkedAt: now },
+    { id: <span class="tok-string">'https-probe'</span>, status: <span class="tok-string">'pass'</span>, subject, checkedAt: now },
+    { id: <span class="tok-string">'dns-owner-check'</span>, status: <span class="tok-string">'pass'</span>, subject, checkedAt: now },
+  ],
+  now,
+  trustedPublishers,
+})</code></pre>
+<p>For <code>nip05:&lt;name&gt;@&lt;domain&gt;</code>, <code>nip05-resolution</code> should fetch and check the current NIP-05 document for that name. For broader <code>domain:&lt;host&gt;</code> or service subjects, replace or add checks for the exact DNS, HTTPS, LNURLp, NIP-96, or service probe your application depends on.</p>
 <h2>What to verify</h2>
-<ul><li>Strict syntax and a valid proof v2.</li><li>Kind 30385, with <code>d</code> equal to the exact canonical identifier and <code>k</code> equal to the identity/provider profile namespace.</li><li>The circle is trusted for identity or provider review, not merely any reputation circle.</li><li>The assertion is fresh enough for domain or provider risk and has not been superseded by an incident signal.</li><li>The application has independently resolved the underlying NIP-05, DNS, HTTPS, LNURL, or service check when that check matters.</li></ul>
+<ul><li>Strict syntax and a valid proof v2.</li><li>Kind 30385, with <code>d</code> equal to the exact canonical identifier and <code>k</code> equal to the identity/provider profile namespace.</li><li>The circle is trusted for identity or provider review, not merely any reputation circle.</li><li>The assertion is fresh enough for domain or provider risk and has not been superseded by an incident signal.</li><li>The application has independently resolved the underlying NIP-05, DNS, HTTPS, LNURL, or service check when that check matters. If the policy requires <code>companionEvidence</code>, missing, failed, stale, or wrong-subject evidence must reject the deployment decision.</li></ul>
 <h2>What this proves</h2>
 <ul><li>A circle rated the exact identifier string.</li><li>The threshold and aggregate can be verified from the event.</li><li>Proof v2 binds the contribution to the identifier assertion namespace.</li></ul>
 <h2>What not to claim</h2>

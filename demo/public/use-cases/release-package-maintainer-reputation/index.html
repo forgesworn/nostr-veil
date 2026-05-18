@@ -691,13 +691,13 @@
       <article>
         <p>Use this when security reviewers or maintainers want to publish a threshold signal about software without exposing every reviewer to the project, sponsor, or attacker.</p>
 <h2>Fit</h2>
-<ul><li>Status: supported today.</li><li>NIP-85 kind: 30385 identifier assertion.</li><li>Subject examples: <code>npm:nostr-veil@0.14.0</code>, <code>git:https://github.com/forgesworn/nostr-veil@36f74b0</code>, <code>maintainer:github:forgesworn</code>.</li><li>Canonical helpers: <code>canonicalNpmPackageSubject</code>, <code>canonicalGitRepositorySubject</code>, <code>canonicalGithubRepositorySubject</code>, and <code>canonicalMaintainerSubject</code>.</li><li>Helpers: <code>contributeIdentifierAssertion</code>, <code>aggregateIdentifierContributions</code>.</li><li>Proof version: v2 recommended.</li><li>Useful metrics: <code>rank</code> as safety, review confidence, or maintenance confidence.</li></ul>
+<ul><li>Status: supported today.</li><li>NIP-85 kind: 30385 identifier assertion.</li><li>Subject examples: <code>npm:nostr-veil@0.14.0</code>, <code>package-digest:npm:nostr-veil@0.14.0:sha256:&lt;hex&gt;</code>, <code>git:https://github.com/forgesworn/nostr-veil@36f74b0</code>, <code>maintainer:github:forgesworn</code>.</li><li>Canonical helpers: <code>canonicalNpmPackageSubject</code>, <code>canonicalPackageDigestSubject</code>, <code>canonicalGitRepositorySubject</code>, <code>canonicalGithubRepositorySubject</code>, and <code>canonicalMaintainerSubject</code>.</li><li>Helpers: <code>contributeIdentifierAssertion</code>, <code>aggregateIdentifierContributions</code>.</li><li>Proof version: v2 recommended.</li><li>Useful metrics: <code>rank</code> as safety, review confidence, or maintenance confidence.</li></ul>
 <h2>Subject design</h2>
 <ul><li>Use kind 30385 because package names, release artefacts, commits, and maintainer identities are external identifiers.</li><li>Decide exactly what is being scored: package name, exact version, tarball digest, repository commit, signed release artefact, maintainer account, or project namespace.</li><li>Prefer digest-bound subjects for high-risk decisions. A package name or version can be republished, mirrored, or confused across registries.</li><li>Keep maintainer trust, release readiness, vulnerability review, and malware suspicion as separate profiles unless a policy explicitly combines them.</li></ul>
 <h2>What to publish</h2>
 <ul><li>A kind 30385 assertion with the canonical software identifier in <code>d</code> and the software-review namespace in <code>k</code>.</li><li>A <code>rank</code> profile explaining whether the value means release safety, audit confidence, maintenance confidence, compromise suspicion, or deploy readiness.</li><li>Proof v2 tags from the security-review circle, plus threshold, aggregate method, expiry, and revocation policy.</li><li>Links or companion records for provenance, signatures, SBOMs, reproducible builds, CI, vulnerability scans, and human audit notes.</li></ul>
 <h2>Implementation recipe</h2>
-<ol><li>Decide the exact subject: package name, package version, tarball digest, repository commit, release artefact, or maintainer identity.</li><li>Canonicalise that subject before signing with the package, git repository, GitHub repository, or maintainer helper so every reviewer scores the same string.</li><li>Define what <code>rank</code> means: safety, audit confidence, maintenance confidence, compromise suspicion, or release readiness.</li><li>Require proof v2, then verify the expected identifier, namespace, circle, threshold, and freshness.</li><li>Combine the score with provenance, signatures, SBOMs, reproducible builds, CI, and human audit results.</li></ol>
+<ol><li>Decide the exact subject: package name, package version, tarball digest, repository commit, release artefact, or maintainer identity.</li><li>Canonicalise that subject before signing with the package, git repository, GitHub repository, or maintainer helper so every reviewer scores the same string.</li><li>Define what <code>rank</code> means: safety, audit confidence, maintenance confidence, compromise suspicion, or release readiness.</li><li>Require proof v2, then verify the expected identifier, namespace, circle, threshold, and freshness.</li><li>Combine the score with provenance, signatures, SBOMs, reproducible builds, CI, and human audit results. In production, put those required external checks in <code>companionEvidence</code> so the verifier can fail closed when they are missing or stale.</li></ol>
 <h2 id="worked-example">Worked example</h2>
 <div class="code-sample" data-example-slug="release-package-maintainer-reputation">
   <div class="code-sample-toolbar">
@@ -757,8 +757,30 @@
   freshAfter: assertion.created_at - <span class="tok-number">300</span>,
 })</code></pre>
 </div>
+<h2>Companion evidence</h2>
+<p>For a reviewed-release gate, require external checks in the signed deployment policy and pass their results into <code>verifyProductionDeployment()</code>.</p>
+<pre><code class="language-ts"><span class="tok-keyword">const</span> policy = <span class="tok-fn">createDeploymentPolicy</span>(RELEASE_PACKAGE_MAINTAINER_REPUTATION_PROFILE, {
+  companionEvidence: [
+    { id: <span class="tok-string">'npm-provenance'</span>, expectedSubject: subject, maxAgeSeconds: <span class="tok-number">300</span> },
+    { id: <span class="tok-string">'sbom'</span>, expectedSubject: subject, maxAgeSeconds: <span class="tok-number">300</span> },
+    { id: <span class="tok-string">'vulnerability-feed'</span>, expectedSubject: subject, maxAgeSeconds: <span class="tok-number">300</span> },
+  ],
+  expectedSubject: subject,
+  <span class="tok-comment">// accepted circles, metrics, freshness, and signature policy omitted here</span>
+})
+
+<span class="tok-keyword">const</span> result = <span class="tok-fn">verifyProductionDeployment</span>(assertionFromRelay, bundle, {
+  companionEvidence: [
+    { id: <span class="tok-string">'npm-provenance'</span>, status: <span class="tok-string">'pass'</span>, subject, checkedAt: now },
+    { id: <span class="tok-string">'sbom'</span>, status: <span class="tok-string">'pass'</span>, subject, checkedAt: now },
+    { id: <span class="tok-string">'vulnerability-feed'</span>, status: <span class="tok-string">'pass'</span>, subject, checkedAt: now },
+  ],
+  now,
+  trustedPublishers,
+})</code></pre>
+<p>Use <code>canonicalPackageDigestSubject()</code> when the verifier is acting on a tarball or release artefact digest. Use <code>canonicalNpmPackageSubject()</code> only when a package-version-level review is precise enough for the action.</p>
 <h2>What to verify</h2>
-<ul><li>Strict syntax and a valid proof v2.</li><li>Kind 30385, with <code>d</code> equal to the canonical package, release, digest, commit, or maintainer subject and <code>k</code> equal to the software-review namespace.</li><li>The <code>veil-ring</code> matches an accepted reviewer circle with the right expertise and independence for the package class.</li><li>The threshold, freshness, and <code>rank</code> meaning match the consuming policy.</li><li>The external artefact checks still pass: registry metadata, digest, signature, provenance, SBOM, CI, and any required audit evidence.</li></ul>
+<ul><li>Strict syntax and a valid proof v2.</li><li>Kind 30385, with <code>d</code> equal to the canonical package, release, digest, commit, or maintainer subject and <code>k</code> equal to the software-review namespace.</li><li>The <code>veil-ring</code> matches an accepted reviewer circle with the right expertise and independence for the package class.</li><li>The threshold, freshness, and <code>rank</code> meaning match the consuming policy.</li><li>The external artefact checks still pass: registry metadata, digest, signature, provenance, SBOM, CI, and any required audit evidence. If the policy requires <code>companionEvidence</code>, missing, failed, stale, or wrong-subject evidence must reject the deployment decision.</li></ul>
 <h2>What this proves</h2>
 <ul><li>Distinct members of the security-review circle scored the exact package identifier.</li><li>The aggregate score can be independently recomputed.</li><li>Proof v2 prevents the package contribution being replayed as a user or event reputation proof.</li></ul>
 <h2>What not to claim</h2>

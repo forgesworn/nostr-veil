@@ -46,13 +46,47 @@ publishing a graph of everyone who reviews labelers, lists, or filter feeds.
 3. Use proof v2 and verify the expected subject, circle, namespace or address,
    threshold, and freshness.
 4. Score list revisions separately when the contents materially change, or
-   publish an expiry policy for living lists.
+   publish an expiry policy for living lists. In production, put list revision,
+   sampling, and correction checks in `companionEvidence`.
 5. Let clients combine several circle scores instead of treating one list score
    as universal truth.
 
 ## Worked example
 
 <!-- use-case-example: list-labeler-moderation-list-reputation -->
+
+## Companion evidence
+
+The proof says accepted curators scored the same list or labeler subject. It
+does not prove the fetched list revision is the revision they reviewed, or that
+sample checks and correction paths exist. Require those checks explicitly.
+
+```ts
+const policy = createDeploymentPolicy(LIST_LABELER_MODERATION_LIST_REPUTATION_PROFILE, {
+  companionEvidence: [
+    { id: 'list-revision-fetch', expectedSubject: subject, maxAgeSeconds: 300 },
+    { id: 'sample-review', expectedSubject: subject, maxAgeSeconds: 300 },
+    { id: 'correction-channel', expectedSubject: subject, maxAgeSeconds: 300 },
+  ],
+  expectedSubject: subject,
+  // accepted circles, metrics, freshness, and signature policy omitted here
+})
+
+const result = verifyProductionDeployment(assertionFromRelay, bundle, {
+  companionEvidence: [
+    { id: 'list-revision-fetch', status: 'pass', subject, checkedAt: now },
+    { id: 'sample-review', status: 'pass', subject, checkedAt: now },
+    { id: 'correction-channel', status: 'pass', subject, checkedAt: now },
+  ],
+  now,
+  trustedPublishers,
+})
+```
+
+`list-revision-fetch` should identify the exact Nostr addressable event or
+external feed revision the client will use. `sample-review` records that the
+deployment's sampling policy ran. `correction-channel` confirms there is a
+reachable path for disputes, takedowns, or superseding list assertions.
 
 ## What to verify
 
@@ -64,6 +98,8 @@ publishing a graph of everyone who reviews labelers, lists, or filter feeds.
 - The list or labeler revision being used is the one that was reviewed, or the
   profile explicitly allows living-list inheritance.
 - The metric direction is known before comparing scores across circles.
+- If the policy requires `companionEvidence`, missing, failed, stale, or
+  wrong-subject evidence must reject the deployment decision.
 
 ## What this proves
 

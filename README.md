@@ -168,8 +168,8 @@ The resulting `assertion` is a plain `EventTemplate` you sign and publish like a
 | `verifyUseCaseProfile(events, profile, options)` | Verify NIP-85 syntax, proof v2, subject binding, threshold, freshness, accepted circles, and federation policy |
 | `createCircleManifest(options)` | Build a machine-readable circle manifest with member list, allowed profiles, expiry, revocation, and supersession metadata |
 | `verifyCircleManifest(manifest, options?)` | Verify that a circle manifest matches its members and deployment constraints |
-| `createDeploymentPolicy(profile, options)` | Build a fail-closed deployment policy with accepted circles, expected subject, metric bounds, freshness, threshold, and signature requirements |
-| `verifyDeploymentPolicy(events, policy, options?)` | Verify a profile plus deployment-specific controls before acting on a score |
+| `createDeploymentPolicy(profile, options)` | Build a fail-closed deployment policy with accepted circles, expected subject, metric bounds, freshness, threshold, signature requirements, and optional companion evidence requirements |
+| `verifyDeploymentPolicy(events, policy, options?)` | Verify a profile plus deployment-specific controls and supplied companion evidence before acting on a score |
 | `createSignedDeploymentBundle(policy, options)` | Sign a deployment policy and its manifests as trusted operator configuration |
 | `verifyDeploymentBundle(events, bundle, options?)` | Verify a signed bundle from trusted publishers, then verify the bundled deployment policy |
 | `verifyProductionDeployment(events, bundle, options?)` | One-call production gate that also requires an expiring bundle and signed relay-fetched events by default |
@@ -178,7 +178,8 @@ The resulting `assertion` is a plain `EventTemplate` you sign and publish like a
 | `verifyAdmissionPresentation(presentation, challenge, options?)`, `verifyAdmissionRequest(events, bundle, challenge, presentation, options?)` | Verify the admission handshake plus the existing signed kind 30382 vouch and deployment bundle |
 | `VerificationIssue`, `VerificationIssueCode` | Stable machine-readable issue codes returned alongside human-readable errors |
 | `explainVerificationIssue(issueOrCode)`, `remediationForIssue(issueOrCode)` | Turn stable issue codes into concrete operator or verifier remediation guidance |
-| `canonicalRelaySubject`, `canonicalServiceSubject`, `canonicalNip05Subject`, `canonicalDomainSubject`, `canonicalLnurlpSubject`, `canonicalNip96Subject`, `canonicalNpmPackageSubject`, `canonicalGitRepositorySubject`, `canonicalGithubRepositorySubject`, `canonicalMaintainerSubject` | Canonical subject helpers for common real-world identifiers |
+| `CompanionEvidence`, `CompanionEvidenceRequirement` | Types for external resolver, provenance, service, and list checks that a deployment policy can require alongside the cryptographic proof |
+| `canonicalRelaySubject`, `canonicalServiceSubject`, `canonicalNip05Subject`, `canonicalDomainSubject`, `canonicalLnurlpSubject`, `canonicalNip96Subject`, `canonicalNpmPackageSubject`, `canonicalPackageDigestSubject`, `canonicalGitRepositorySubject`, `canonicalGithubRepositorySubject`, `canonicalMaintainerSubject` | Canonical subject helpers for common real-world identifiers |
 | `canonicalPubkeySubject`, `canonicalEventSubject`, `canonicalAddressSubject` | Canonical subject helpers for Nostr-native subjects |
 
 The built-in profiles include safety metadata for production UX and agentic
@@ -188,6 +189,14 @@ and which real-world checks must still happen outside nostr-veil. If you define
 a custom profile, run `validateUseCaseProfileDefinition()` in tests or CI before
 shipping it; warnings are where the profile may be technically valid but
 underspecified for real-world decisions.
+
+Use `companionEvidence` when a supported profile depends on facts outside the
+NIP-85 event. For example, package policies can require `npm-provenance`,
+`sbom`, and `vulnerability-feed`; provider policies can require
+`nip05-resolution`, `https-probe`, and `dns-owner-check`; list policies can
+require `list-revision-fetch`, `sample-review`, and `correction-channel`.
+Missing, failed, stale, or wrong-subject evidence fails closed without changing
+the underlying NIP-85 assertion.
 
 ### Signing utility (root export)
 

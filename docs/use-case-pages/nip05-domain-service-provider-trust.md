@@ -51,11 +51,47 @@ payment endpoint, or other service identifier outside a single Nostr pubkey.
    threshold-backed assessment.
 4. Require proof v2 and verify the expected identifier string, `k` namespace,
    circle, threshold, and freshness.
-5. Use expiry because domain ownership and service behaviour can change.
+5. Use expiry because domain ownership and service behaviour can change. In
+   production, put resolver and service checks in `companionEvidence` so stale
+   or missing off-chain evidence rejects automatically.
 
 ## Worked example
 
 <!-- use-case-example: nip05-domain-service-provider-trust -->
+
+## Companion evidence
+
+The proof carries the reviewer circle's assessment. The application still has
+to prove the underlying service facts it relies on. Model those checks as
+companion evidence in the signed deployment policy.
+
+```ts
+const policy = createDeploymentPolicy(NIP05_DOMAIN_SERVICE_PROVIDER_TRUST_PROFILE, {
+  companionEvidence: [
+    { id: 'nip05-resolution', expectedSubject: subject, maxAgeSeconds: 300 },
+    { id: 'https-probe', expectedSubject: subject, maxAgeSeconds: 300 },
+    { id: 'dns-owner-check', expectedSubject: subject, maxAgeSeconds: 300 },
+  ],
+  expectedSubject: subject,
+  expectedSubjectTagValue: '0',
+  // accepted circles, metrics, freshness, and signature policy omitted here
+})
+
+const result = verifyProductionDeployment(assertionFromRelay, bundle, {
+  companionEvidence: [
+    { id: 'nip05-resolution', status: 'pass', subject, checkedAt: now },
+    { id: 'https-probe', status: 'pass', subject, checkedAt: now },
+    { id: 'dns-owner-check', status: 'pass', subject, checkedAt: now },
+  ],
+  now,
+  trustedPublishers,
+})
+```
+
+For `nip05:<name>@<domain>`, `nip05-resolution` should fetch and check the
+current NIP-05 document for that name. For broader `domain:<host>` or service
+subjects, replace or add checks for the exact DNS, HTTPS, LNURLp, NIP-96, or
+service probe your application depends on.
 
 ## What to verify
 
@@ -67,7 +103,9 @@ payment endpoint, or other service identifier outside a single Nostr pubkey.
 - The assertion is fresh enough for domain or provider risk and has not been
   superseded by an incident signal.
 - The application has independently resolved the underlying NIP-05, DNS, HTTPS,
-  LNURL, or service check when that check matters.
+  LNURL, or service check when that check matters. If the policy requires
+  `companionEvidence`, missing, failed, stale, or wrong-subject evidence must
+  reject the deployment decision.
 
 ## What this proves
 

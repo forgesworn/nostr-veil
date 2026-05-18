@@ -233,6 +233,27 @@ describe('public use-case pages', () => {
       expect(page, slug).toContain('https://nips.nostr.com/85')
     }
   })
+
+  it('shows companion evidence controls for off-chain supported profiles', () => {
+    const expectations = [
+      ['release-package-maintainer-reputation', ['npm-provenance', 'sbom', 'vulnerability-feed']],
+      ['nip05-domain-service-provider-trust', ['nip05-resolution', 'https-probe', 'dns-owner-check']],
+      ['list-labeler-moderation-list-reputation', ['list-revision-fetch', 'sample-review', 'correction-channel']],
+    ] as const
+
+    for (const [slug, evidenceIds] of expectations) {
+      const source = readText(join(docsDir, `${slug}.md`))
+      const page = readText(join(publicUseCasesDir, slug, 'index.html'))
+
+      expect(source, slug).toContain('## Companion evidence')
+      expect(page, slug).toContain('<h2>Companion evidence</h2>')
+      expect(page, slug).toContain('verifyProductionDeployment')
+      for (const evidenceId of evidenceIds) {
+        expect(source, `${slug} source missing ${evidenceId}`).toContain(evidenceId)
+        expect(page, `${slug} page missing ${evidenceId}`).toContain(evidenceId)
+      }
+    }
+  })
 })
 
 describe('use-case source pages', () => {

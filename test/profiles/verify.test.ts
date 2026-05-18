@@ -82,6 +82,7 @@ describe('verifyUseCaseProfile', () => {
   it('keeps documented real-world identifier shapes in the safer profiles', () => {
     expect(RELEASE_PACKAGE_MAINTAINER_REPUTATION_PROFILE.subjectFormats).toEqual([
       'package',
+      'package-digest',
       'git',
       'maintainer',
     ])

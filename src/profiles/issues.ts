@@ -23,6 +23,13 @@ export type VerificationIssueCode =
   | 'circle.revoked'
   | 'circle.superseded'
   | 'circle.unaccepted'
+  | 'companion.checked_at_future'
+  | 'companion.checked_at_missing'
+  | 'companion.failed'
+  | 'companion.invalid'
+  | 'companion.missing'
+  | 'companion.stale'
+  | 'companion.subject_mismatch'
   | 'event.signature_invalid'
   | 'event.signature_missing'
   | 'federation.invalid'
@@ -189,6 +196,40 @@ const VERIFICATION_ISSUE_EXPLANATION_INPUTS = {
     'The assertion was produced by a circle this deployment does not accept.',
     'Reject it unless governance reviews the circle and adds its manifest or circle id to the deployment policy.',
   ),
+  'companion.checked_at_future': explanation(
+    'A companion evidence check is timestamped in the future.',
+    'Check verifier clock skew and rerun the external resolver or evidence check before accepting the assertion.',
+    'refresh-and-retry',
+  ),
+  'companion.checked_at_missing': explanation(
+    'A companion evidence check is missing checkedAt but the policy requires freshness.',
+    'Record when the external package, domain, or list check was performed and pass checkedAt to the verifier.',
+    'operator-action',
+  ),
+  'companion.failed': explanation(
+    'A required companion evidence check failed.',
+    'Do not act on the score until the external package, domain, service, or list check passes under the deployment policy.',
+    'manual-review',
+  ),
+  'companion.invalid': explanation(
+    'A companion evidence record or requirement is malformed.',
+    'Fix the evidence id, status, subject, and timestamp before using it as deployment evidence.',
+    'operator-action',
+  ),
+  'companion.missing': explanation(
+    'A required companion evidence check was not supplied.',
+    'Run the external resolver, provenance, SBOM, service, or list-revision check required by the deployment policy and pass the result to the verifier.',
+    'operator-action',
+  ),
+  'companion.stale': explanation(
+    'A companion evidence check is outside its freshness window.',
+    'Refresh the external package, domain, service, or list evidence before accepting the score.',
+    'refresh-and-retry',
+  ),
+  'companion.subject_mismatch': explanation(
+    'A companion evidence check was run against a different subject.',
+    'Run the external check against the same canonical subject used by the NIP-85 assertion.',
+  ),
   'event.signature_invalid': explanation(
     'The fetched Nostr event id or signature is invalid.',
     'Reject the event, fetch it again from another relay if useful, and do not verify or act on mutated event data.',
@@ -320,6 +361,16 @@ function codeFromError(message: string): VerificationIssueCode {
     return 'policy.nostr_signature_not_required'
   }
   if (lower.includes('production verifier requires bundle.expiresat')) return 'bundle.expiry_required'
+
+  if (lower.includes('companion evidence')) {
+    if (lower.includes('is missing')) return 'companion.missing'
+    if (lower.includes('did not pass')) return 'companion.failed'
+    if (lower.includes('subject does not match')) return 'companion.subject_mismatch'
+    if (lower.includes('missing checkedat')) return 'companion.checked_at_missing'
+    if (lower.includes('checkedat is in the future')) return 'companion.checked_at_future'
+    if (lower.includes('freshness window')) return 'companion.stale'
+    return 'companion.invalid'
+  }
 
   if (lower.includes('no trusted bundle publishers configured')) return 'bundle.trusted_publishers_missing'
   if (lower.includes('trustedpublishers[')) return 'bundle.trusted_publisher_invalid'

@@ -5,6 +5,7 @@ const ADDRESS_RE = /^(0|[1-9]\d*):[0-9a-f]{64}:.+$/
 const DECIMAL_KIND_RE = /^(0|[1-9]\d*)$/
 const PACKAGE_RE = /^npm:(?:@[a-z0-9_.-]+\/)?[a-z0-9_.-]+@[^@\s]+$/
 const SLUG_RE = /^[a-z0-9._-]+$/
+const HEX_DIGEST_RE = /^[0-9a-f]+$/
 
 function trimRequired(value: string, label: string): string {
   const trimmed = value.trim()
@@ -44,6 +45,23 @@ function normaliseSlug(value: string, label: string): string {
     throw new Error(`${label} must be a lowercase slug`)
   }
   return slug
+}
+
+function normaliseDigestAlgorithm(value: string): 'sha256' | 'sha512' {
+  const algorithm = normaliseSlug(value, 'digest algorithm')
+  if (algorithm !== 'sha256' && algorithm !== 'sha512') {
+    throw new Error('digest algorithm must be sha256 or sha512')
+  }
+  return algorithm
+}
+
+function normaliseDigestHex(value: string, algorithm: 'sha256' | 'sha512'): string {
+  const digest = trimNoWhitespace(value, 'digest').toLowerCase()
+  const expectedLength = algorithm === 'sha256' ? 64 : 128
+  if (digest.length !== expectedLength || !HEX_DIGEST_RE.test(digest)) {
+    throw new Error(`digest must be a ${expectedLength}-character lowercase hex ${algorithm} digest`)
+  }
+  return digest
 }
 
 function canonicalUrl(value: string, label: string, allowedProtocols: string[]): string {
@@ -145,6 +163,22 @@ export function canonicalNpmPackageSubject(name: string, version: string): strin
   return subject
 }
 
+/** Canonical package artefact digest subject: `package-digest:npm:package@version:sha256:<hex>`. */
+export function canonicalPackageDigestSubject(
+  registry: string,
+  name: string,
+  version: string,
+  algorithm: string,
+  digest: string,
+): string {
+  const registrySlug = normaliseSlug(registry, 'package registry')
+  if (registrySlug !== 'npm') {
+    throw new Error('package digest subjects currently support the npm registry')
+  }
+  const digestAlgorithm = normaliseDigestAlgorithm(algorithm)
+  return `package-digest:${canonicalNpmPackageSubject(name, version)}:${digestAlgorithm}:${normaliseDigestHex(digest, digestAlgorithm)}`
+}
+
 /** Canonical git repository or revision subject: `git:https://host/path[@ref]`. */
 export function canonicalGitRepositorySubject(repository: string, ref?: string): string {
   const raw = stripPrefix(trimRequired(repository, 'git repository'), 'git:')
@@ -232,6 +266,25 @@ function canonicalNpmPackageSubjectFromSubject(subject: string): string {
   return canonicalNpmPackageSubject(spec.slice(0, versionSeparator), spec.slice(versionSeparator + 1))
 }
 
+function canonicalPackageDigestSubjectFromSubject(subject: string): string {
+  if (!subject.startsWith('package-digest:')) {
+    throw new Error('package digest subject must start with package-digest:')
+  }
+  const rest = subject.slice('package-digest:'.length)
+  const digestSeparator = rest.lastIndexOf(':')
+  if (digestSeparator <= 0 || digestSeparator === rest.length - 1) {
+    throw new Error('package digest subject must be package-digest:npm:package@version:algorithm:digest')
+  }
+  const algorithmSeparator = rest.lastIndexOf(':', digestSeparator - 1)
+  if (algorithmSeparator <= 0 || algorithmSeparator === digestSeparator - 1) {
+    throw new Error('package digest subject must be package-digest:npm:package@version:algorithm:digest')
+  }
+  const packageSubject = canonicalNpmPackageSubjectFromSubject(rest.slice(0, algorithmSeparator))
+  const algorithm = normaliseDigestAlgorithm(rest.slice(algorithmSeparator + 1, digestSeparator))
+  const digest = normaliseDigestHex(rest.slice(digestSeparator + 1), algorithm)
+  return `package-digest:${packageSubject}:${algorithm}:${digest}`
+}
+
 function canonicalMaintainerSubjectFromSubject(subject: string): string {
   if (!subject.startsWith('maintainer:')) throw new Error('maintainer subject must start with maintainer:')
   const rest = subject.slice('maintainer:'.length)
@@ -305,6 +358,8 @@ export function subjectMatchesFormat(subject: string, format: SubjectFormat): bo
       return matchesCanonical(subject, canonicalNip96Subject)
     case 'package':
       return matchesCanonical(subject, canonicalNpmPackageSubjectFromSubject)
+    case 'package-digest':
+      return matchesCanonical(subject, canonicalPackageDigestSubjectFromSubject)
     case 'service':
       return matchesCanonical(subject, canonicalServiceSubjectFromSubject)
     case 'vendor':

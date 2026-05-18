@@ -24,10 +24,42 @@ export interface DeploymentMetricPolicy {
   integer?: boolean
 }
 
+export type CompanionEvidenceStatus = 'pass' | 'fail'
+
+export interface CompanionEvidenceRequirement {
+  /** Stable evidence check id, for example `npm-provenance` or `nip05-resolution`. */
+  id: string
+  /** Optional human label for reports and signed deployment bundles. */
+  label?: string
+  /** Require the evidence subject to match this canonical subject. */
+  expectedSubject?: string
+  /** Require checkedAt to be inside this freshness window. Zero disables freshness. */
+  maxAgeSeconds?: number
+  /** Defaults to true. Optional checks are recorded but do not fail when absent. */
+  required?: boolean
+}
+
+export interface CompanionEvidence {
+  checkedAt?: number
+  id: string
+  status: CompanionEvidenceStatus
+  subject?: string
+  summary?: string
+}
+
+export interface CompanionEvidenceVerification {
+  evidence: readonly CompanionEvidence[]
+  errors: string[]
+  missingIds: readonly string[]
+  requirements: readonly CompanionEvidenceRequirement[]
+  valid: boolean
+}
+
 export interface CreateDeploymentPolicyOptions {
   acceptedCircleIds?: readonly string[]
   allowSupersededCircleIds?: boolean
   circleManifests?: readonly CircleManifest[]
+  companionEvidence?: readonly CompanionEvidenceRequirement[]
   expectedSubject: string
   expectedSubjectTagValue?: string
   id?: string
@@ -42,6 +74,7 @@ export interface UseCaseDeploymentPolicy {
   acceptedCircleIds: readonly string[]
   allowSupersededCircleIds: boolean
   circleManifests: readonly CircleManifest[]
+  companionEvidence?: readonly CompanionEvidenceRequirement[]
   expectedSubject: string
   expectedSubjectTagValue?: string
   id: string
@@ -55,10 +88,12 @@ export interface UseCaseDeploymentPolicy {
 
 export interface VerifyDeploymentPolicyOptions {
   aggregateFn?: AggregateFn
+  companionEvidence?: readonly CompanionEvidence[]
   now?: number
 }
 
 export interface DeploymentPolicyVerification {
+  companionEvidence: CompanionEvidenceVerification
   decision: DeploymentDecision
   errors: string[]
   issues?: VerificationIssue[]
@@ -84,6 +119,10 @@ function assertFinite(value: number | undefined, label: string): void {
   }
 }
 
+function nowSeconds(): number {
+  return Math.floor(Date.now() / 1000)
+}
+
 function assertMetricPolicy(name: string, policy: DeploymentMetricPolicy): void {
   assertFinite(policy.min, `metricPolicies.${name}.min`)
   assertFinite(policy.max, `metricPolicies.${name}.max`)
@@ -102,6 +141,42 @@ function cloneMetricPolicies(
     if (name.trim() === '') throw new Error('metric policy name must be non-empty')
     assertMetricPolicy(name, policy)
     cloned[name] = Object.freeze({ ...policy })
+  }
+
+  return Object.freeze(cloned)
+}
+
+function assertEvidenceRequirement(requirement: CompanionEvidenceRequirement, index: number): CompanionEvidenceRequirement {
+  const id = requirement.id.trim()
+  if (id === '') throw new Error(`companionEvidence[${index}].id must be non-empty`)
+  assertNonNegativeInteger(requirement.maxAgeSeconds ?? 0, `companionEvidence[${index}].maxAgeSeconds`)
+  if (requirement.expectedSubject !== undefined && requirement.expectedSubject.trim() === '') {
+    throw new Error(`companionEvidence[${index}].expectedSubject must be non-empty`)
+  }
+  if (requirement.label !== undefined && requirement.label.trim() === '') {
+    throw new Error(`companionEvidence[${index}].label must be non-empty`)
+  }
+
+  return Object.freeze({
+    id,
+    ...(requirement.label === undefined ? {} : { label: requirement.label }),
+    ...(requirement.expectedSubject === undefined ? {} : { expectedSubject: requirement.expectedSubject }),
+    ...(requirement.maxAgeSeconds === undefined ? {} : { maxAgeSeconds: requirement.maxAgeSeconds }),
+    required: requirement.required ?? true,
+  })
+}
+
+function cloneCompanionEvidenceRequirements(
+  requirements: readonly CompanionEvidenceRequirement[] | undefined,
+): readonly CompanionEvidenceRequirement[] {
+  const cloned: CompanionEvidenceRequirement[] = []
+  const seen = new Set<string>()
+
+  for (const [index, requirement] of (requirements ?? []).entries()) {
+    const checked = assertEvidenceRequirement(requirement, index)
+    if (seen.has(checked.id)) throw new Error(`companionEvidence[${index}].id is duplicated`)
+    seen.add(checked.id)
+    cloned.push(checked)
   }
 
   return Object.freeze(cloned)
@@ -210,11 +285,13 @@ export function createDeploymentPolicy(
   if (circleResolution.acceptedCircleIds.length === 0) {
     throw new Error('acceptedCircleIds or circleManifests must supply at least one active circle')
   }
+  const companionEvidence = cloneCompanionEvidenceRequirements(options.companionEvidence)
 
   return Object.freeze({
     acceptedCircleIds: rawCircleIds,
     allowSupersededCircleIds,
     circleManifests,
+    ...(companionEvidence.length === 0 ? {} : { companionEvidence }),
     expectedSubject: options.expectedSubject,
     ...(options.expectedSubjectTagValue === undefined ? {} : { expectedSubjectTagValue: options.expectedSubjectTagValue }),
     id: options.id ?? profile.id,
@@ -224,6 +301,90 @@ export function createDeploymentPolicy(
     profile,
     rejectUnknownMetrics: options.rejectUnknownMetrics ?? false,
     requireNostrSignature: options.requireNostrSignature ?? false,
+  })
+}
+
+function cloneCompanionEvidence(evidence: CompanionEvidence): CompanionEvidence {
+  return Object.freeze({
+    id: evidence.id,
+    status: evidence.status,
+    ...(evidence.checkedAt === undefined ? {} : { checkedAt: evidence.checkedAt }),
+    ...(evidence.subject === undefined ? {} : { subject: evidence.subject }),
+    ...(evidence.summary === undefined ? {} : { summary: evidence.summary }),
+  })
+}
+
+function companionEvidenceById(
+  evidence: readonly CompanionEvidence[] | undefined,
+  errors: string[],
+): Map<string, CompanionEvidence> {
+  const byId = new Map<string, CompanionEvidence>()
+
+  for (const [index, item] of (evidence ?? []).entries()) {
+    const id = item.id.trim()
+    if (id === '') {
+      errors.push(`companion evidence[${index}] id must be non-empty`)
+      continue
+    }
+    if (byId.has(id)) {
+      errors.push(`companion evidence "${id}" is duplicated`)
+      continue
+    }
+    if (item.status !== 'pass' && item.status !== 'fail') {
+      errors.push(`companion evidence "${id}" status is invalid`)
+      continue
+    }
+    byId.set(id, cloneCompanionEvidence({ ...item, id }))
+  }
+
+  return byId
+}
+
+function verifyCompanionEvidence(
+  policy: UseCaseDeploymentPolicy,
+  options: VerifyDeploymentPolicyOptions,
+): CompanionEvidenceVerification {
+  const requirements = Object.freeze([...(policy.companionEvidence ?? [])])
+  const errors: string[] = []
+  const byId = companionEvidenceById(options.companionEvidence, errors)
+  const missingIds: string[] = []
+  const now = options.now ?? nowSeconds()
+
+  for (const requirement of requirements) {
+    const evidence = byId.get(requirement.id)
+    if (evidence === undefined) {
+      if (requirement.required !== false) {
+        missingIds.push(requirement.id)
+        errors.push(`companion evidence "${requirement.id}" is missing`)
+      }
+      continue
+    }
+
+    if (evidence.status !== 'pass') {
+      errors.push(`companion evidence "${requirement.id}" did not pass`)
+    }
+    if (requirement.expectedSubject !== undefined && evidence.subject !== requirement.expectedSubject) {
+      errors.push(`companion evidence "${requirement.id}" subject does not match expected subject`)
+    }
+    if ((requirement.maxAgeSeconds ?? 0) > 0) {
+      if (evidence.checkedAt === undefined) {
+        errors.push(`companion evidence "${requirement.id}" missing checkedAt for freshness check`)
+      } else if (!Number.isSafeInteger(evidence.checkedAt) || evidence.checkedAt < 0) {
+        errors.push(`companion evidence "${requirement.id}" checkedAt is invalid`)
+      } else if (evidence.checkedAt > now) {
+        errors.push(`companion evidence "${requirement.id}" checkedAt is in the future`)
+      } else if (evidence.checkedAt < now - (requirement.maxAgeSeconds ?? 0)) {
+        errors.push(`companion evidence "${requirement.id}" is outside the accepted freshness window`)
+      }
+    }
+  }
+
+  return Object.freeze({
+    evidence: Object.freeze([...byId.values()]),
+    errors,
+    missingIds: Object.freeze(missingIds),
+    requirements,
+    valid: errors.length === 0,
   })
 }
 
@@ -349,16 +510,19 @@ export function verifyDeploymentPolicy(
     now: options.now,
   })
   const metricVerification = verifyMetricPolicies(eventList, policy)
+  const companionEvidence = verifyCompanionEvidence(policy, options)
   const nostrSignatures = verifyNostrSignatures(eventList, policy)
   const errors = [
     ...circleResolution.errors,
     ...profileVerification.errors,
     ...metricVerification.errors,
+    ...companionEvidence.errors,
     ...nostrSignatures.errors,
   ]
   const valid = errors.length === 0
 
   return {
+    companionEvidence,
     decision: valid ? 'accept' : 'reject',
     errors,
     issues: issuesFromErrors(errors),

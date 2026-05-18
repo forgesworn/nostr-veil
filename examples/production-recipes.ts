@@ -20,6 +20,7 @@ import {
   validateUseCaseProfileDefinition,
   verifyProductionDeployment,
 } from 'nostr-veil/profiles'
+import type { CompanionEvidence } from 'nostr-veil/profiles'
 import { assertion as listLabelerAssertion } from './use-cases/list-labeler-moderation-list-reputation.js'
 import { assertion as nip05Assertion } from './use-cases/nip05-domain-service-provider-trust.js'
 import { assertion as packageAssertion } from './use-cases/release-package-maintainer-reputation.js'
@@ -34,6 +35,7 @@ interface RecipeResult {
   issueCodes: string[]
   kind: string
   name: string
+  companionEvidence: string[]
   profileDefinitionWarnings: string[]
   remediations: string[]
   valid: boolean
@@ -96,6 +98,7 @@ function normaliseEvents(events: EventTemplate | readonly EventTemplate[]): Even
 function verifyWithSignedBundle(
   events: EventTemplate | readonly EventTemplate[],
   policy: ReturnType<typeof createDeploymentPolicy>,
+  companionEvidence: readonly CompanionEvidence[] = [],
 ) {
   const signedEvents = normaliseEvents(events).map(event => signEvent(event, RELAY_PUBLISHER_KEY))
   const now = Math.max(...signedEvents.map(event => event.created_at))
@@ -107,9 +110,23 @@ function verifyWithSignedBundle(
   })
 
   return verifyProductionDeployment(signedEvents, bundle, {
+    companionEvidence,
     now,
     trustedPublishers: [bundle.signer],
   })
+}
+
+function passingEvidence(
+  ids: readonly string[],
+  subject: string,
+  checkedAt: number,
+): CompanionEvidence[] {
+  return ids.map(id => ({
+    checkedAt,
+    id,
+    status: 'pass',
+    subject,
+  }))
 }
 
 function recipeDiagnostics(result: ReturnType<typeof verifyWithSignedBundle>) {
@@ -131,6 +148,11 @@ function packageReleaseGate(): RecipeResult {
     circleManifests: [
       manifestFor(packageAssertion, RELEASE_PACKAGE_MAINTAINER_REPUTATION_PROFILE.id, 'Package reviewers', 'Release safety review'),
     ],
+    companionEvidence: [
+      { id: 'npm-provenance', label: 'npm provenance statement', expectedSubject: subject, maxAgeSeconds: 300 },
+      { id: 'sbom', label: 'software bill of materials', expectedSubject: subject, maxAgeSeconds: 300 },
+      { id: 'vulnerability-feed', label: 'vulnerability feed check', expectedSubject: subject, maxAgeSeconds: 300 },
+    ],
     expectedSubject: subject,
     metricPolicies: {
       rank: { required: true, min: 0, max: 100, integer: true },
@@ -138,7 +160,8 @@ function packageReleaseGate(): RecipeResult {
     rejectUnknownMetrics: true,
     requireNostrSignature: true,
   })
-  const result = verifyWithSignedBundle(packageAssertion, policy)
+  const companionEvidence = passingEvidence(['npm-provenance', 'sbom', 'vulnerability-feed'], subject, packageAssertion.created_at ?? 0)
+  const result = verifyWithSignedBundle(packageAssertion, policy, companionEvidence)
   const rank = result.valid ? firstMetric(result.deployment.metrics, 'rank') : 0
 
   return {
@@ -146,6 +169,7 @@ function packageReleaseGate(): RecipeResult {
     ...recipeDiagnostics(result),
     kind: describeNip85Kind(RELEASE_PACKAGE_MAINTAINER_REPUTATION_PROFILE.kind),
     name: 'package-release-gate',
+    companionEvidence: companionEvidence.map(item => item.id),
     profileDefinitionWarnings: profileWarnings,
     valid: result.valid,
   }
@@ -174,6 +198,7 @@ function relayServicePreference(): RecipeResult {
     ...recipeDiagnostics(result),
     kind: describeNip85Kind(RELAY_SERVICE_REPUTATION_PROFILE.kind),
     name: 'relay-service-preference',
+    companionEvidence: [],
     profileDefinitionWarnings: profileWarnings,
     valid: result.valid,
   }
@@ -186,6 +211,11 @@ function nip05DomainWarning(): RecipeResult {
     circleManifests: [
       manifestFor(nip05Assertion, NIP05_DOMAIN_SERVICE_PROVIDER_TRUST_PROFILE.id, 'Provider reviewers', 'NIP-05 and domain provider review'),
     ],
+    companionEvidence: [
+      { id: 'nip05-resolution', label: 'NIP-05 resolution', expectedSubject: subject, maxAgeSeconds: 300 },
+      { id: 'https-probe', label: 'HTTPS service probe', expectedSubject: subject, maxAgeSeconds: 300 },
+      { id: 'dns-owner-check', label: 'DNS owner check', expectedSubject: subject, maxAgeSeconds: 300 },
+    ],
     expectedSubject: subject,
     expectedSubjectTagValue: '0',
     metricPolicies: {
@@ -194,7 +224,8 @@ function nip05DomainWarning(): RecipeResult {
     rejectUnknownMetrics: true,
     requireNostrSignature: true,
   })
-  const result = verifyWithSignedBundle(nip05Assertion, policy)
+  const companionEvidence = passingEvidence(['nip05-resolution', 'https-probe', 'dns-owner-check'], subject, nip05Assertion.created_at ?? 0)
+  const result = verifyWithSignedBundle(nip05Assertion, policy, companionEvidence)
   const rank = result.valid ? firstMetric(result.deployment.metrics, 'rank') : 0
 
   return {
@@ -202,6 +233,7 @@ function nip05DomainWarning(): RecipeResult {
     ...recipeDiagnostics(result),
     kind: describeNip85Kind(NIP05_DOMAIN_SERVICE_PROVIDER_TRUST_PROFILE.kind),
     name: 'nip05-domain-warning',
+    companionEvidence: companionEvidence.map(item => item.id),
     profileDefinitionWarnings: profileWarnings,
     valid: result.valid,
   }
@@ -209,11 +241,17 @@ function nip05DomainWarning(): RecipeResult {
 
 function listLabelerSelection(): RecipeResult {
   const profileWarnings = profileDefinitionWarnings(LIST_LABELER_MODERATION_LIST_REPUTATION_PROFILE)
+  const subject = tagValue(listLabelerAssertion, 'd')
   const policy = createDeploymentPolicy(LIST_LABELER_MODERATION_LIST_REPUTATION_PROFILE, {
     circleManifests: [
       manifestFor(listLabelerAssertion, LIST_LABELER_MODERATION_LIST_REPUTATION_PROFILE.id, 'List reviewers', 'List and labeler review'),
     ],
-    expectedSubject: tagValue(listLabelerAssertion, 'd'),
+    companionEvidence: [
+      { id: 'list-revision-fetch', label: 'reviewed list revision fetched', expectedSubject: subject, maxAgeSeconds: 300 },
+      { id: 'sample-review', label: 'sampled list entries reviewed', expectedSubject: subject, maxAgeSeconds: 300 },
+      { id: 'correction-channel', label: 'correction channel reachable', expectedSubject: subject, maxAgeSeconds: 300 },
+    ],
+    expectedSubject: subject,
     metricPolicies: {
       rank: { required: true, min: 0, max: 100, integer: true },
       reaction_cnt: { required: true, min: 0, integer: true },
@@ -221,7 +259,8 @@ function listLabelerSelection(): RecipeResult {
     rejectUnknownMetrics: true,
     requireNostrSignature: true,
   })
-  const result = verifyWithSignedBundle(listLabelerAssertion, policy)
+  const companionEvidence = passingEvidence(['list-revision-fetch', 'sample-review', 'correction-channel'], subject, listLabelerAssertion.created_at ?? 0)
+  const result = verifyWithSignedBundle(listLabelerAssertion, policy, companionEvidence)
   const rank = result.valid ? firstMetric(result.deployment.metrics, 'rank') : 0
   const reactions = result.valid ? firstMetric(result.deployment.metrics, 'reaction_cnt') : 0
 
@@ -230,6 +269,7 @@ function listLabelerSelection(): RecipeResult {
     ...recipeDiagnostics(result),
     kind: describeNip85Kind(LIST_LABELER_MODERATION_LIST_REPUTATION_PROFILE.kind),
     name: 'list-labeler-selection',
+    companionEvidence: companionEvidence.map(item => item.id),
     profileDefinitionWarnings: profileWarnings,
     valid: result.valid,
   }
@@ -257,6 +297,7 @@ function federatedModerationReview(): RecipeResult {
     ...recipeDiagnostics(result),
     kind: describeNip85Kind(FEDERATED_MODERATION_PROFILE.kind),
     name: 'federated-moderation-review',
+    companionEvidence: [],
     profileDefinitionWarnings: profileWarnings,
     valid: result.valid,
   }
@@ -283,6 +324,7 @@ function relayAdmissionGate(): RecipeResult {
     ...recipeDiagnostics(result),
     kind: describeNip85Kind(RELAY_COMMUNITY_ADMISSION_PROFILE.kind),
     name: 'relay-admission-gate',
+    companionEvidence: [],
     profileDefinitionWarnings: profileWarnings,
     valid: result.valid,
   }
@@ -298,7 +340,7 @@ export const productionRecipeResults = [
 ]
 
 for (const result of productionRecipeResults) {
-  console.log(`${result.name}: valid=${result.valid ? 'yes' : 'no'} kind="${result.kind}" action=${result.action} verifier=${result.verifierAction} profileWarnings=${result.profileDefinitionWarnings.length}`)
+  console.log(`${result.name}: valid=${result.valid ? 'yes' : 'no'} kind="${result.kind}" action=${result.action} verifier=${result.verifierAction} evidence=${result.companionEvidence.join(',') || 'none'} profileWarnings=${result.profileDefinitionWarnings.length}`)
   if (!result.valid) {
     console.log(`  errors=${result.errors.join('; ')}`)
     console.log(`  issueCodes=${result.issueCodes.join(',')}`)

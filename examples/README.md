@@ -43,8 +43,10 @@ use stable issue codes for audit/error handling. Production apps can pass those 
 `explainVerificationIssue()` or `remediationForIssue()` to show the corrective
 operator action, or use `verifyProductionDeploymentReport()` when they need the
 decision, control status, and remediation text in one object. The recipes also
-use NIP-85 kind names such as "kind 30385 identifier assertion" so the subject
-route is explicit.
+model companion evidence for off-chain checks: package provenance/SBOM/feed
+checks, NIP-05/DNS/HTTPS checks, and list revision/sample/correction checks.
+They use NIP-85 kind names such as "kind 30385 identifier assertion" so the
+subject route is explicit.
 
 `admission-gate.ts` shows the additive relay/community admission pattern. The
 vouch remains a normal NIP-85 kind 30382 user assertion with `veil-*` proof
@@ -71,9 +73,9 @@ warnings where a profile may overclaim or omit real-world controls.
 
 For real deployments, canonicalise subjects before signing. The profile helpers
 cover relays, service endpoints, NIP-05, domains, LNURLp, NIP-96, npm packages,
-git repositories, GitHub repositories, maintainers, vendors, and sources, so
-reviewers and verifiers do not accidentally split the same real-world thing
-across several strings.
+package artefact digests, git repositories, GitHub repositories, maintainers,
+vendors, and sources, so reviewers and verifiers do not accidentally split the
+same real-world thing across several strings.
 
 `use-cases-relay.ts` is an opt-in live relay check. It signs every canonical
 use-case example as a Nostr event, publishes the events to

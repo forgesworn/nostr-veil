@@ -360,7 +360,7 @@ export const RELEASE_PACKAGE_MAINTAINER_REPUTATION_PROFILE = profile({
   kind: NIP85_KINDS.IDENTIFIER,
   subjectTag: 'k',
   subjectTagValue: '0',
-  subjectFormats: ['package', 'git', 'maintainer'],
+  subjectFormats: ['package', 'package-digest', 'git', 'maintainer'],
   proofVersion: 'v2',
   minDistinctSigners: 3,
   maxAgeSeconds: 300,

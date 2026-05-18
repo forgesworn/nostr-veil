@@ -23,6 +23,7 @@ export type SubjectFormat =
   | 'maintainer'
   | 'nip96'
   | 'package'
+  | 'package-digest'
   | 'service'
   | 'vendor'
   | 'source'

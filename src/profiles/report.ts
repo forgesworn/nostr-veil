@@ -23,6 +23,7 @@ export type ProductionControlId =
   | 'bundle-freshness'
   | 'event-signatures'
   | 'circle-policy'
+  | 'companion-evidence'
   | 'profile-subject'
   | 'proof-threshold'
   | 'metric-policy'
@@ -157,6 +158,11 @@ function productionControls(result: ProductionDeploymentVerification, issues: re
   const bundleFreshnessStatus: ProductionControlStatus = bundleFreshnessFailed
     ? 'fail'
     : (bundleHasExpiry ? 'pass' : 'not-checked')
+  const companionEvidenceRequired = result.deployment.companionEvidence.requirements.some(requirement => requirement.required !== false)
+  const companionEvidenceChecked = result.deployment.companionEvidence.evidence.length > 0
+  const companionEvidenceStatus: ProductionControlStatus = hasPrefix(codes, 'companion.')
+    ? 'fail'
+    : (companionEvidenceRequired || companionEvidenceChecked ? 'pass' : 'not-checked')
 
   return Object.freeze([
     control(
@@ -242,6 +248,16 @@ function productionControls(result: ProductionDeploymentVerification, issues: re
       hasPrefix(codes, 'metric.')
         ? 'At least one metric is missing, unexpected, non-numeric, non-integer, or outside the deployment bounds.'
         : 'The published metrics satisfy the deployment metric policy.',
+    ),
+    control(
+      'companion-evidence',
+      'Companion evidence',
+      companionEvidenceStatus,
+      companionEvidenceStatus === 'pass'
+        ? 'Configured companion evidence passed for the same subject inside the deployment freshness window.'
+        : companionEvidenceStatus === 'not-checked'
+          ? 'This deployment policy did not require companion evidence checks outside the nostr-veil proof.'
+          : 'A required companion evidence check is missing, failed, stale, malformed, or for the wrong subject.',
     ),
   ])
 }

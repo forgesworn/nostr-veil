@@ -42,7 +42,7 @@ to `supported`.
 
 | Milestone | Status | Exit criteria |
 | --- | --- | --- |
-| Supported expansion hardening | In progress | Package, NIP-05/domain, and list/labeler use cases have profile-definition checks, production recipes, documented verifier actions, and tests proving executable examples do not use undocumented metrics. |
+| Supported expansion hardening | Shipped as first hardening pass | Package, NIP-05/domain, and list/labeler use cases have profile-definition checks, production recipes, documented verifier actions, companion evidence requirements, and tests proving executable examples do not use undocumented metrics. |
 | Relay/community admission gate | Shipped as building block | A reference gate verifies a kind 30382 vouch plus a separate challenge, rejects replay and wrong-relay presentations, keeps admission policy outside the proof, and has live relay evidence for the fetched vouch plus signed bundle carrier. |
 | Credential/attestation co-signing profile research | Blocked on profile shape | A credential or attestation event format defines holder binding, presentation, expiry, and revocation before nostr-veil adds helper APIs. |
 | Public promotion review | Not started | A future profile moves to `supported` only after companion protocol tests, production recipe, live relay evidence, and public wording all pass. |
@@ -136,6 +136,8 @@ work is not a new proof profile; it is integration depth.
 
 What would make it stronger:
 
+- Signed deployment policies can now require companion evidence such as
+  `npm-provenance`, `sbom`, and `vulnerability-feed` before accepting a score.
 - Optional resolver/adaptor examples for npm, GitHub releases, repository tags,
   package signatures, provenance, SBOMs, and vulnerability feeds.
 - A production recipe that distinguishes `surface-reviewed-release`,
@@ -155,6 +157,9 @@ work is resolver and incident-response integration.
 
 What would make it stronger:
 
+- Signed deployment policies can now require companion evidence such as
+  `nip05-resolution`, `https-probe`, and `dns-owner-check` before accepting a
+  provider-trust score.
 - Resolver examples for DNS, HTTPS, NIP-05, LNURLp, NIP-96, and service-specific
   probes.
 - Freshness and revocation policy for compromised providers.
@@ -173,6 +178,9 @@ assertions. The future work is better resolver guidance for list-like subjects.
 
 What would make it stronger:
 
+- Signed deployment policies can now require companion evidence such as
+  `list-revision-fetch`, `sample-review`, and `correction-channel` before
+  accepting a curation-source score.
 - Examples for NIP-51 lists, NIP-32 labels, moderation feeds, and external
   label services.
 - A profile decision tree for choosing kind 30382, 30384, or 30385.

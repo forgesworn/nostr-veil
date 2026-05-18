@@ -697,7 +697,7 @@
 <h2>What to publish</h2>
 <ul><li>The assertion kind that matches the thing clients will consume: list event, operator pubkey, or external feed.</li><li>A <code>rank</code> profile that says whether the score measures accuracy, coverage, freshness, abuse resistance, operational reliability, or community alignment.</li><li>Proof v2 tags and a policy describing accepted curator circles, thresholds, review sampling, correction channels, and expiry.</li><li>Optional item-level review events when clients need to understand why a list or labeler scored well or poorly.</li></ul>
 <h2>Implementation recipe</h2>
-<ol><li>Decide whether the subject is the list event, the list author, the labeler service, or an external feed.</li><li>Define what <code>rank</code> measures: accuracy, coverage, abuse resistance, freshness, political alignment, or operational reliability.</li><li>Use proof v2 and verify the expected subject, circle, namespace or address, threshold, and freshness.</li><li>Score list revisions separately when the contents materially change, or publish an expiry policy for living lists.</li><li>Let clients combine several circle scores instead of treating one list score as universal truth.</li></ol>
+<ol><li>Decide whether the subject is the list event, the list author, the labeler service, or an external feed.</li><li>Define what <code>rank</code> measures: accuracy, coverage, abuse resistance, freshness, political alignment, or operational reliability.</li><li>Use proof v2 and verify the expected subject, circle, namespace or address, threshold, and freshness.</li><li>Score list revisions separately when the contents materially change, or publish an expiry policy for living lists. In production, put list revision, sampling, and correction checks in <code>companionEvidence</code>.</li><li>Let clients combine several circle scores instead of treating one list score as universal truth.</li></ol>
 <h2 id="worked-example">Worked example</h2>
 <div class="code-sample" data-example-slug="list-labeler-moderation-list-reputation">
   <div class="code-sample-toolbar">
@@ -757,8 +757,30 @@
   freshAfter: assertion.created_at - <span class="tok-number">300</span>,
 })</code></pre>
 </div>
+<h2>Companion evidence</h2>
+<p>The proof says accepted curators scored the same list or labeler subject. It does not prove the fetched list revision is the revision they reviewed, or that sample checks and correction paths exist. Require those checks explicitly.</p>
+<pre><code class="language-ts"><span class="tok-keyword">const</span> policy = <span class="tok-fn">createDeploymentPolicy</span>(LIST_LABELER_MODERATION_LIST_REPUTATION_PROFILE, {
+  companionEvidence: [
+    { id: <span class="tok-string">'list-revision-fetch'</span>, expectedSubject: subject, maxAgeSeconds: <span class="tok-number">300</span> },
+    { id: <span class="tok-string">'sample-review'</span>, expectedSubject: subject, maxAgeSeconds: <span class="tok-number">300</span> },
+    { id: <span class="tok-string">'correction-channel'</span>, expectedSubject: subject, maxAgeSeconds: <span class="tok-number">300</span> },
+  ],
+  expectedSubject: subject,
+  <span class="tok-comment">// accepted circles, metrics, freshness, and signature policy omitted here</span>
+})
+
+<span class="tok-keyword">const</span> result = <span class="tok-fn">verifyProductionDeployment</span>(assertionFromRelay, bundle, {
+  companionEvidence: [
+    { id: <span class="tok-string">'list-revision-fetch'</span>, status: <span class="tok-string">'pass'</span>, subject, checkedAt: now },
+    { id: <span class="tok-string">'sample-review'</span>, status: <span class="tok-string">'pass'</span>, subject, checkedAt: now },
+    { id: <span class="tok-string">'correction-channel'</span>, status: <span class="tok-string">'pass'</span>, subject, checkedAt: now },
+  ],
+  now,
+  trustedPublishers,
+})</code></pre>
+<p><code>list-revision-fetch</code> should identify the exact Nostr addressable event or external feed revision the client will use. <code>sample-review</code> records that the deployment's sampling policy ran. <code>correction-channel</code> confirms there is a reachable path for disputes, takedowns, or superseding list assertions.</p>
 <h2>What to verify</h2>
-<ul><li>Strict syntax and a valid proof v2.</li><li>The assertion kind and subject tag match the object the client is about to use: <code>a</code> for addressable lists, <code>p</code> for operators, or <code>k</code> for external feeds.</li><li>The curator circle is trusted for this curation domain and the threshold is high enough for the action.</li><li>The list or labeler revision being used is the one that was reviewed, or the profile explicitly allows living-list inheritance.</li><li>The metric direction is known before comparing scores across circles.</li></ul>
+<ul><li>Strict syntax and a valid proof v2.</li><li>The assertion kind and subject tag match the object the client is about to use: <code>a</code> for addressable lists, <code>p</code> for operators, or <code>k</code> for external feeds.</li><li>The curator circle is trusted for this curation domain and the threshold is high enough for the action.</li><li>The list or labeler revision being used is the one that was reviewed, or the profile explicitly allows living-list inheritance.</li><li>The metric direction is known before comparing scores across circles.</li><li>If the policy requires <code>companionEvidence</code>, missing, failed, stale, or wrong-subject evidence must reject the deployment decision.</li></ul>
 <h2>What this proves</h2>
 <ul><li>Distinct curators scored the exact addressable list or labeler profile.</li><li>The aggregate quality signal is verifiable.</li><li>The reviewers are hidden inside the public circle.</li></ul>
 <h2>What not to claim</h2>

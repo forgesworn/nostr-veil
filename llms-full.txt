@@ -117,6 +117,10 @@ present the safety boundary without inventing their own copy. For custom
 profiles, run `validateUseCaseProfileDefinition(profile)` in tests or CI to
 catch NIP-85 route mismatches, unsupported metrics, missing safety metadata,
 and overclaiming warnings before a score drives production behaviour.
+Deployment policies can also require `companionEvidence` for external facts the
+proof cannot prove. Use it for checks such as `npm-provenance`, `sbom`,
+`vulnerability-feed`, `nip05-resolution`, `https-probe`, `dns-owner-check`,
+`list-revision-fetch`, `sample-review`, and `correction-channel`.
 
 ## Type Definitions
 
@@ -661,8 +665,8 @@ circles, revoked circles, policy URI, contact, and evidence process.
 
 Build a fail-closed verifier policy with accepted circle IDs or manifests,
 expected subject, optional subject-tag value, freshness, signer threshold,
-metric bounds, unknown-metric handling, and optional Nostr event signature
-requirements.
+metric bounds, unknown-metric handling, optional companion evidence
+requirements, and optional Nostr event signature requirements.
 
 #### `createSignedDeploymentBundle(policy, options) → SignedDeploymentBundle`
 
@@ -683,6 +687,11 @@ const bundle = createSignedDeploymentBundle(policy, {
   privateKey: operatorPrivateKey,
 })
 const result = verifyDeploymentBundle(assertionFromRelay, bundle, {
+  companionEvidence: [
+    { id: 'npm-provenance', status: 'pass', subject, checkedAt: now },
+    { id: 'sbom', status: 'pass', subject, checkedAt: now },
+    { id: 'vulnerability-feed', status: 'pass', subject, checkedAt: now },
+  ],
   now,
   trustedPublishers: [operatorPubkey],
 })
@@ -697,6 +706,7 @@ human-readable `errors`, and stable `issues[].code` values.
 
 ```ts
 const result = verifyProductionDeployment(assertionFromRelay, bundle, {
+  companionEvidence,
   now,
   trustedPublishers: [operatorPubkey],
 })
@@ -707,6 +717,8 @@ Use `explainVerificationIssue(issue)` when presenting failures to an operator.
 For example, `bundle.trusted_publishers_missing` means the verifier has no
 pinned publisher keys, while `event.signature_invalid` means the fetched event
 must be rejected and can optionally be retried from another relay.
+Companion evidence failures use stable codes such as `companion.missing`,
+`companion.failed`, `companion.stale`, and `companion.subject_mismatch`.
 
 #### `createProductionDecisionReport(result) → ProductionDecisionReport`
 
@@ -751,9 +763,10 @@ then calls `verifyAdmissionRequest()` on the fetched objects. Do not treat kind
 30078 as a new NIP-85 assertion kind.
 
 Canonical subject helpers cover Nostr-native subjects plus relays, service
-endpoints, NIP-05, domains, LNURLp, NIP-96, npm packages, git repositories,
-GitHub repositories, maintainers, vendors, and sources. Prefer them before
-signing and verification so every contributor scores the same identifier.
+endpoints, NIP-05, domains, LNURLp, NIP-96, npm packages, package artefact
+digests, git repositories, GitHub repositories, maintainers, vendors, and
+sources. Prefer them before signing and verification so every contributor
+scores the same identifier.
 
 ---
 

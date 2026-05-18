@@ -16,10 +16,13 @@ describe('production recipes', () => {
 
     expect(output).toContain('package-release-gate: valid=yes')
     expect(output).toContain('action=surface-reviewed-release')
+    expect(output).toContain('evidence=npm-provenance,sbom,vulnerability-feed')
     expect(output).toContain('nip05-domain-warning: valid=yes')
     expect(output).toContain('action=show-provider-trust-signal')
+    expect(output).toContain('evidence=nip05-resolution,https-probe,dns-owner-check')
     expect(output).toContain('list-labeler-selection: valid=yes')
     expect(output).toContain('action=prefer-curation-source')
+    expect(output).toContain('evidence=list-revision-fetch,sample-review,correction-channel')
   })
 
   it('keeps every recipe signed and profile-definition clean', { timeout: 30_000 }, () => {

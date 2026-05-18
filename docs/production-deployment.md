@@ -18,6 +18,7 @@ should include:
 - the minimum distinct signer count;
 - the freshness window;
 - metric bounds and required metrics;
+- companion evidence requirements for external facts the proof cannot prove;
 - whether unknown metrics should be rejected;
 - whether fetched events must carry a valid Nostr event signature.
 
@@ -36,11 +37,12 @@ const trustedPolicyPublishers = [operatorPubkey]
 const profileCheck = validateUseCaseProfileDefinition(RELEASE_PACKAGE_MAINTAINER_REPUTATION_PROFILE)
 if (!profileCheck.valid) throw new Error(profileCheck.errors.join('; '))
 
+const now = Math.floor(Date.now() / 1000)
 const subject = canonicalNpmPackageSubject('nostr-veil', '0.15.0')
 const reviewerPubkeys = [alicePubkey, bobPubkey, carolPubkey].sort()
 const packageReviewCircle = createCircleManifest({
-  issuedAt: 1778000000,
-  expiresAt: 1778000900,
+  issuedAt: now,
+  expiresAt: now + 900,
   members: reviewerPubkeys,
   name: 'Package reviewers',
   profileIds: [RELEASE_PACKAGE_MAINTAINER_REPUTATION_PROFILE.id],
@@ -48,6 +50,11 @@ const packageReviewCircle = createCircleManifest({
 })
 const policy = createDeploymentPolicy(RELEASE_PACKAGE_MAINTAINER_REPUTATION_PROFILE, {
   circleManifests: [packageReviewCircle],
+  companionEvidence: [
+    { id: 'npm-provenance', expectedSubject: subject, maxAgeSeconds: 300 },
+    { id: 'sbom', expectedSubject: subject, maxAgeSeconds: 300 },
+    { id: 'vulnerability-feed', expectedSubject: subject, maxAgeSeconds: 300 },
+  ],
   expectedSubject: subject,
   metricPolicies: {
     rank: { required: true, min: 0, max: 100, integer: true },
@@ -57,13 +64,18 @@ const policy = createDeploymentPolicy(RELEASE_PACKAGE_MAINTAINER_REPUTATION_PROF
 })
 const bundle = createSignedDeploymentBundle(policy, {
   id: 'package-release-gate',
-  issuedAt: 1778000000,
-  expiresAt: 1778000900,
+  issuedAt: now,
+  expiresAt: now + 900,
   privateKey: operatorPrivateKey,
 })
 
 const report = verifyProductionDeploymentReport(assertionFromRelay, bundle, {
-  now: Math.floor(Date.now() / 1000),
+  companionEvidence: [
+    { id: 'npm-provenance', status: 'pass', subject, checkedAt: now },
+    { id: 'sbom', status: 'pass', subject, checkedAt: now },
+    { id: 'vulnerability-feed', status: 'pass', subject, checkedAt: now },
+  ],
+  now,
   trustedPublishers: trustedPolicyPublishers,
 })
 
@@ -84,7 +96,8 @@ The raw `verifyProductionDeployment()` result keeps human-readable
 `result.errors`. Both the raw result and the decision report include stable
 machine-readable codes such as `bundle.trusted_publishers_missing`,
 `bundle.signer_untrusted`, `bundle.expired`, `event.signature_invalid`,
-`circle.unaccepted`, `metric.below_min`, and `policy.nostr_signature_not_required`.
+`circle.unaccepted`, `metric.below_min`, `companion.missing`,
+`companion.failed`, and `policy.nostr_signature_not_required`.
 Use those codes for audit logs, alerts, retry decisions, and fail-closed policy.
 Use `explainVerificationIssue(issue)` or `remediationForIssue(issue)` when the
 operator or application needs the next action as well as the code. For example,
@@ -113,14 +126,16 @@ The runnable examples in
 six production-shaped flows:
 
 - package release reputation: show a reviewed-release signal only after the
-  signed event, accepted circle, exact package subject, and rank bounds pass;
+  signed event, accepted circle, exact package subject, rank bounds, npm
+  provenance, SBOM, and vulnerability-feed checks pass;
 - relay service preference: prefer a relay only when the relay subject, `k`
   namespace, rank, and count-like metric are all policy-valid;
 - NIP-05/domain warning: display a provider trust signal without replacing DNS,
-  HTTPS, or NIP-05 verification;
+  HTTPS, or NIP-05 verification; the recipe models those checks as required
+  companion evidence;
 - list/labeler selection: prefer a curation source only when the exact
   addressable list, accepted review circle, rank, and count-like corroboration
-  metric pass policy;
+  metric pass policy, and the list revision/sample/correction checks pass;
 - federated moderation review: use cross-circle evidence to queue human review,
   not to auto-ban;
 - relay/community admission: feed the score into a separate admission and rate
@@ -159,6 +174,8 @@ A production verifier should reject, or move to manual review, when:
 - the assertion is stale;
 - the proof is not v2 for a profile that requires v2;
 - the metric is missing, non-numeric, outside range, or unexpected;
+- required companion evidence is missing, failed, stale, malformed, or for a
+  different canonical subject;
 - the relay returned an unsigned or tampered signed event;
 - a federation has too few circles, mixed scopes, or overlapping contributors
   counted incorrectly.

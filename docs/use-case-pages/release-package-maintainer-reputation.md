@@ -9,11 +9,12 @@ or attacker.
 - Status: supported today.
 - NIP-85 kind: 30385 identifier assertion.
 - Subject examples: `npm:nostr-veil@0.14.0`,
+  `package-digest:npm:nostr-veil@0.14.0:sha256:<hex>`,
   `git:https://github.com/forgesworn/nostr-veil@36f74b0`,
   `maintainer:github:forgesworn`.
 - Canonical helpers: `canonicalNpmPackageSubject`,
-  `canonicalGitRepositorySubject`, `canonicalGithubRepositorySubject`, and
-  `canonicalMaintainerSubject`.
+  `canonicalPackageDigestSubject`, `canonicalGitRepositorySubject`,
+  `canonicalGithubRepositorySubject`, and `canonicalMaintainerSubject`.
 - Helpers: `contributeIdentifierAssertion`,
   `aggregateIdentifierContributions`.
 - Proof version: v2 recommended.
@@ -55,11 +56,44 @@ or attacker.
 4. Require proof v2, then verify the expected identifier, namespace, circle,
    threshold, and freshness.
 5. Combine the score with provenance, signatures, SBOMs, reproducible builds,
-   CI, and human audit results.
+   CI, and human audit results. In production, put those required external
+   checks in `companionEvidence` so the verifier can fail closed when they are
+   missing or stale.
 
 ## Worked example
 
 <!-- use-case-example: release-package-maintainer-reputation -->
+
+## Companion evidence
+
+For a reviewed-release gate, require external checks in the signed deployment
+policy and pass their results into `verifyProductionDeployment()`.
+
+```ts
+const policy = createDeploymentPolicy(RELEASE_PACKAGE_MAINTAINER_REPUTATION_PROFILE, {
+  companionEvidence: [
+    { id: 'npm-provenance', expectedSubject: subject, maxAgeSeconds: 300 },
+    { id: 'sbom', expectedSubject: subject, maxAgeSeconds: 300 },
+    { id: 'vulnerability-feed', expectedSubject: subject, maxAgeSeconds: 300 },
+  ],
+  expectedSubject: subject,
+  // accepted circles, metrics, freshness, and signature policy omitted here
+})
+
+const result = verifyProductionDeployment(assertionFromRelay, bundle, {
+  companionEvidence: [
+    { id: 'npm-provenance', status: 'pass', subject, checkedAt: now },
+    { id: 'sbom', status: 'pass', subject, checkedAt: now },
+    { id: 'vulnerability-feed', status: 'pass', subject, checkedAt: now },
+  ],
+  now,
+  trustedPublishers,
+})
+```
+
+Use `canonicalPackageDigestSubject()` when the verifier is acting on a tarball
+or release artefact digest. Use `canonicalNpmPackageSubject()` only when a
+package-version-level review is precise enough for the action.
 
 ## What to verify
 
@@ -70,7 +104,9 @@ or attacker.
   and independence for the package class.
 - The threshold, freshness, and `rank` meaning match the consuming policy.
 - The external artefact checks still pass: registry metadata, digest,
-  signature, provenance, SBOM, CI, and any required audit evidence.
+  signature, provenance, SBOM, CI, and any required audit evidence. If the
+  policy requires `companionEvidence`, missing, failed, stale, or wrong-subject
+  evidence must reject the deployment decision.
 
 ## What this proves
 

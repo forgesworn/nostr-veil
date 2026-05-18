@@ -10,13 +10,15 @@ release or vouch for a review without exposing every reviewer.
 
 Profile:
 
-- Subject: `npm:<package>@<version>` or another application-specific package
-  identifier.
+- Subject: `npm:<package>@<version>`,
+  `package-digest:npm:<package>@<version>:sha256:<hex>`, or another
+  application-specific package identifier.
 - Kind: 30385 identifier assertion.
 - Metric: `rank` as review confidence, maintenance confidence, or release
   safety.
 - Verifier controls: accepted security-review circles, expected package
-  subject, proof v2, freshness, threshold, and a policy for superseded releases.
+  subject, proof v2, freshness, threshold, companion evidence for provenance,
+  SBOM, and vulnerability feeds, and a policy for superseded releases.
 
 What nostr-veil adds: a portable Nostr event saying a threshold of the accepted
 review circle signed the aggregate without naming the individual reviewers.
@@ -56,8 +58,8 @@ Profile:
 - Kind: 30385 identifier assertion.
 - Metric: `rank` as provider trust or service confidence.
 - Verifier controls: canonical subject helper, accepted provider-review circles,
-  proof v2, freshness, threshold, and incident response for compromised
-  providers.
+  proof v2, freshness, threshold, companion evidence for NIP-05/DNS/HTTPS or
+  service probes, and incident response for compromised providers.
 
 What nostr-veil adds: a threshold signal from an accepted review circle that
 can be verified by any client.

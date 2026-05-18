@@ -79,11 +79,16 @@ failures into concrete operator actions instead of only showing negative
 results. Built-in profiles expose `proofClaims`, `proofLimitations`,
 `requiredControls`, and `recommendedActions`; use those fields when explaining
 what nostr-veil proves and what the application must still verify.
+Deployment policies can also require `companionEvidence` for external facts the
+proof cannot prove, such as `npm-provenance`, `sbom`,
+`vulnerability-feed`, `nip05-resolution`, `https-probe`, `dns-owner-check`,
+`list-revision-fetch`, `sample-review`, and `correction-channel`. Missing,
+failed, stale, or wrong-subject companion evidence fails closed.
 Canonical subject helpers cover Nostr-native subjects plus relays, service
-endpoints, NIP-05, domains, LNURLp, NIP-96, npm packages, git repositories,
-GitHub repositories, maintainers, vendors, and sources. Prefer those helpers
-before signing so every contributor scores the same verifier-compatible
-identifier.
+endpoints, NIP-05, domains, LNURLp, NIP-96, npm packages, package artefact
+digests, git repositories, GitHub repositories, maintainers, vendors, and
+sources. Prefer those helpers before signing so every contributor scores the
+same verifier-compatible identifier.
 
 ## Limits
 
