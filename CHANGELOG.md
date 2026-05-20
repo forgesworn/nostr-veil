@@ -29,6 +29,14 @@
 
 # [0.12.0](https://github.com/forgesworn/nostr-veil/compare/v0.11.0...v0.12.0) (2026-05-16)
 
+## 0.29.0 (2026-05-20)
+
+### Features
+
+- add verifier legitimacy use case
+
+
+
 ## 0.28.1 (2026-05-18)
 
 ### Bug Fixes
