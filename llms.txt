@@ -86,9 +86,9 @@ proof cannot prove, such as `npm-provenance`, `sbom`,
 failed, stale, or wrong-subject companion evidence fails closed.
 Canonical subject helpers cover Nostr-native subjects plus relays, service
 endpoints, NIP-05, domains, LNURLp, NIP-96, npm packages, package artefact
-digests, git repositories, GitHub repositories, maintainers, vendors, and
-sources. Prefer those helpers before signing so every contributor scores the
-same verifier-compatible identifier.
+digests, git repositories, GitHub repositories, maintainers, vendors, sources,
+and method-scoped credential verifiers. Prefer those helpers before signing so
+every contributor scores the same verifier-compatible identifier.
 
 ## Limits
 
@@ -108,8 +108,12 @@ corroboration, onboarding vouches, and pubkey-backed trade reputation. Use
 `aggregateAddressableContributions` for long-form review, research, proposals,
 lists, and labeler profiles. Use `aggregateIdentifierContributions` for relays,
 services, packages, releases, maintainers, NIP-05 identifiers, domains, vendors,
-and other external identifiers; the kind 30385 `k` namespace is chosen by the
-application profile, not standardised by nostr-veil. For pubkey-bound
+credential verifiers, and other external identifiers; the kind 30385 `k`
+namespace is chosen by the application profile, not standardised by nostr-veil.
+Verifier and issuer legitimacy profiles answer "who verifies the verifier?" by
+scoring a method-scoped subject such as
+`verifier:proof-of-person:in-person:<pubkey>` before a community accepts
+Attestr-style, NIP-VA-style, or other credential artefacts. For pubkey-bound
 relay/community admission, keep the NIP-85 vouch as kind 30382 and use the
 admission helpers as a separate challenge/presentation companion. The live
 admission-gate example publishes that kind 30382 vouch plus a separate NIP-78

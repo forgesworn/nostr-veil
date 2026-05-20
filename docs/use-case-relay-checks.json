@@ -1,14 +1,14 @@
 {
   "version": 1,
   "relay": "wss://relay.trotters.cc",
-  "checkedAt": "2026-05-17T21:54:12.000Z",
-  "runId": "tf7bic-3b3a5ae6d6",
+  "checkedAt": "2026-05-20T08:49:34.000Z",
+  "runId": "tfbv6m-8b4e05aadd",
   "mode": "live-relay",
   "command": "npm run test:use-cases:relay -- --write docs/use-case-relay-checks.json",
   "summary": {
-    "useCases": 14,
-    "events": 15,
-    "passed": 14,
+    "useCases": 15,
+    "events": 16,
+    "passed": 15,
     "failed": 0
   },
   "useCases": [
@@ -16,7 +16,7 @@
       "slug": "user-reputation-abuse-reporting",
       "status": "pass",
       "eventIds": [
-        "aeabeeb71083c1c0e2515464f8168451055bcad951a3ef8403dcd3400954a15e"
+        "399539b4f81ebe646e12897e608f805e6290901547bbaf3db4b9042228df7894"
       ],
       "events": 1,
       "accepted": 1,
@@ -43,7 +43,7 @@
       "slug": "privacy-preserving-onboarding",
       "status": "pass",
       "eventIds": [
-        "04f895ca48a651fb6fe09447b1c237305b5e8c9d39ee9740788f1ae3ff2f6b4a"
+        "d06ae5ff5ae28e1c4377b9ad030e402097d1a23683de5f02a568af4008165ea1"
       ],
       "events": 1,
       "accepted": 1,
@@ -70,7 +70,7 @@
       "slug": "source-corroboration",
       "status": "pass",
       "eventIds": [
-        "e70e40f1de13eea77bfe4d3a45380646344888dd2d939ece754efc470cb8cbc8"
+        "e35c0f0424f92e606e32306ba5ff599bdc396ef266e2aa87d530feec771bedbd"
       ],
       "events": 1,
       "accepted": 1,
@@ -97,7 +97,7 @@
       "slug": "event-claim-verification",
       "status": "pass",
       "eventIds": [
-        "e9119895987706a235fba64ec13b32a3cab0b9e5dada11f9521c7d5d037de6ba"
+        "83bc99121ad6dc8eee57075729c4e88104b84b9bd5994512309d086758bd9ed7"
       ],
       "events": 1,
       "accepted": 1,
@@ -124,7 +124,7 @@
       "slug": "article-research-review",
       "status": "pass",
       "eventIds": [
-        "36fdfca5da959536e977e05c6c02639e4720f6dcc8d84cb346f68a919d8edbd1"
+        "3f040e649b09aed1ec51d86089836c6f47f749b69ae7dd3611ada1cad88bb80e"
       ],
       "events": 1,
       "accepted": 1,
@@ -151,7 +151,7 @@
       "slug": "relay-service-reputation",
       "status": "pass",
       "eventIds": [
-        "98a1596347e7ae95472e815e0c5dcd73903aeda4e98ef5a9258ac319b4d9e75b"
+        "33fe42ea2ad6da5404854d024b287859e2165f92dc96fc3d5541efafba6f465f"
       ],
       "events": 1,
       "accepted": 1,
@@ -178,7 +178,7 @@
       "slug": "nip05-domain-service-provider-trust",
       "status": "pass",
       "eventIds": [
-        "87b41f8d44e73bdfdc605aab28bbc3c436edfe57241f6378ccd2a27efedeb349"
+        "a6417c9e1bb5597f037b1d5b42b57301176de57536817ee3fafad25cf407da27"
       ],
       "events": 1,
       "accepted": 1,
@@ -205,7 +205,7 @@
       "slug": "list-labeler-moderation-list-reputation",
       "status": "pass",
       "eventIds": [
-        "ea55ef51495b178d69ed95d85de9bede5a4d524b94922c71ad4878de3b09da0e"
+        "89e848e33d52d696aecf5e49029b0b5ebde03959a79b7a66f8c2a6b0d1a91bf9"
       ],
       "events": 1,
       "accepted": 1,
@@ -232,7 +232,34 @@
       "slug": "release-package-maintainer-reputation",
       "status": "pass",
       "eventIds": [
-        "329da289cc4be8e25a402ce543408d7ba0dbc7a9f5af2ed5a3b784433fee6f9a"
+        "e8aa907c54a83e44410390239e07cad0bbef980d94377eeb902a354d020f5b09"
+      ],
+      "events": 1,
+      "accepted": 1,
+      "fetched": 1,
+      "checks": {
+        "localExample": true,
+        "relayStored": true,
+        "nostrSignature": true,
+        "canonicalTags": true,
+        "syntax": true,
+        "proof": true,
+        "profile": true
+      },
+      "proof": {
+        "valid": true,
+        "distinctSigners": 3,
+        "threshold": 3,
+        "circleSize": 3,
+        "errors": []
+      },
+      "publishMessages": []
+    },
+    {
+      "slug": "verifier-issuer-legitimacy",
+      "status": "pass",
+      "eventIds": [
+        "eacdf19f137768742ed901776572938911be807e537c55ed804154266ade8ad9"
       ],
       "events": 1,
       "accepted": 1,
@@ -259,7 +286,7 @@
       "slug": "vendor-marketplace-signals",
       "status": "pass",
       "eventIds": [
-        "7725085e49821fff88e6adad5b6d4a967f45aa2808c59923c03b71540fc44d8e"
+        "2d93141d974890555890b2cdb1e39c55f5104b57fbc57ac74770cdb08fd510b3"
       ],
       "events": 1,
       "accepted": 1,
@@ -286,8 +313,8 @@
       "slug": "federated-moderation",
       "status": "pass",
       "eventIds": [
-        "1b1043fc8803915353719c56dd28bd309a49c64a03804a51961daa396e1b0156",
-        "3af86a6c87633225adbc3783a18af504942428f09b027cf52c4e6b938a4dee12"
+        "c0fb68d58a211cc7d1c06559dc57593174f87bfa17733b9d9e8f6f4cb7fb8c32",
+        "506709cbf32af40c4d4a4a61e93db8fceede5526ffde35b7b44052d5b6b1a92e"
       ],
       "events": 2,
       "accepted": 2,
@@ -314,7 +341,7 @@
       "slug": "grant-funding-proposal-review",
       "status": "pass",
       "eventIds": [
-        "875785599dc1d7a4e2c0508991a562f052df5a64f389c5123d653600762e8647"
+        "d4522b836aeb4e2998e824b8cd3cf1a5913ad7a78ba4bb404af9165904635f72"
       ],
       "events": 1,
       "accepted": 1,
@@ -341,7 +368,7 @@
       "slug": "anonymous-credential-attestation-cosigning",
       "status": "pass",
       "eventIds": [
-        "c300590f1a6f6a9d77fc25cd582448f167689e4fa77256a42a70866f904591d4"
+        "af2de710d417b5a8f0f5c9525200b9dbfaf7ff9ff894889f07160021b370ad7f"
       ],
       "events": 1,
       "accepted": 1,
@@ -368,7 +395,7 @@
       "slug": "relay-community-admission",
       "status": "pass",
       "eventIds": [
-        "d2a88581287fedc7ceb1e0551305a616525126928e74cb0c0688568ceb171093"
+        "07d0900c0f5c3f1e6dde773226cf2eea294d69ad49baaf67b34084c9314c4379"
       ],
       "events": 1,
       "accepted": 1,

@@ -171,8 +171,8 @@ registry.
 
 Use the canonical subject helpers from `nostr-veil/profiles` where one exists.
 They keep package, repository, maintainer, service, NIP-05, LNURLp, NIP-96,
-relay, domain, vendor, and source identifiers in one verifier-compatible form
-before reviewers sign.
+relay, domain, vendor, source, and credential-verifier identifiers in one
+verifier-compatible form before reviewers sign.
 
 ## Detailed pages
 
@@ -189,6 +189,7 @@ security boundary, and policy choices for one use case:
 | Vendor and marketplace signals | Supported today | [vendor and marketplace signals](./use-case-pages/vendor-marketplace-signals.md) |
 | Release, package, and maintainer reputation | Supported today | [release, package, and maintainer reputation](./use-case-pages/release-package-maintainer-reputation.md) |
 | NIP-05, domain, and service-provider trust | Supported today | [NIP-05 and domain trust](./use-case-pages/nip05-domain-service-provider-trust.md) |
+| Verifier and issuer legitimacy | Supported today | [verifier and issuer legitimacy](./use-case-pages/verifier-issuer-legitimacy.md) |
 | Community list, labeler, and moderation-list reputation | Supported today | [list, labeler, and moderation-list reputation](./use-case-pages/list-labeler-moderation-list-reputation.md) |
 | Federated moderation | Supported today | [federated moderation](./use-case-pages/federated-moderation.md) |
 | Privacy-preserving onboarding | Supported today | [privacy-preserving onboarding](./use-case-pages/privacy-preserving-onboarding.md) |
@@ -342,6 +343,30 @@ NIP-05, LNURL, or service-specific verification. In production, require those
 checks as `companionEvidence` such as `nip05-resolution`, `https-probe`, and
 `dns-owner-check`. nostr-veil carries the circle's assessment of the identifier
 after those checks.
+
+### Verifier and issuer legitimacy
+
+- Use: kind 30385 identifier assertion.
+- Subject examples: `verifier:proof-of-person:in-person:<pubkey>`,
+  `verifier:proof-of-residency:document-check:<pubkey>`, or a verifier-service
+  subject when the credential class and method are fixed in policy.
+- Canonical helper: `canonicalVerifierSubject`.
+- Helper: `contributeIdentifierAssertion` and
+  `aggregateIdentifierContributions`.
+- Metrics: `rank` as verifier confidence, issuer confidence, witness quality,
+  or method reliability.
+- Proof: proof v2 recommended.
+
+Communities can answer "who verifies the verifier?" without turning verifier
+reviewers into public targets. A verifier can be accepted for one credential
+class and method, such as in-person proof-of-person, without being accepted for
+another class, such as document-checked residency.
+
+Boundary: nostr-veil does not prove that a verifier performed a concrete
+credential ceremony correctly or that an issued credential is true. Cover that
+with verifier onboarding, audit, holder binding, challenge/presentation,
+expiry, revocation, appeals, and incident response. nostr-veil carries the
+anonymous threshold legitimacy signal for the verifier subject.
 
 ### Community list, labeler, and moderation-list reputation
 

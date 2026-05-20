@@ -66,3 +66,29 @@ can be verified by any client.
 
 What it does not replace: DNS, HTTPS, NIP-05 verification, service uptime
 checks, or contractual provider due diligence.
+
+## Verifier and issuer legitimacy
+
+Problem: credential systems still need to answer who verifies the verifier.
+Communities may want proof-of-person, residency, grant eligibility, maintainer,
+or witness credentials without making the people reviewing verifiers public
+targets.
+
+Profile:
+
+- Subject: `verifier:<credential-class>:<method>:<verifier-id>`, for example
+  `verifier:proof-of-person:in-person:<pubkey>`.
+- Kind: 30385 identifier assertion.
+- Metric: `rank` as verifier confidence, issuer confidence, witness quality, or
+  method reliability.
+- Verifier controls: accepted verifier-review circles, method-scoped subjects,
+  proof v2, freshness, threshold, revocation source, appeal path, and concrete
+  checks for each credential artefact.
+
+What nostr-veil adds: an anonymous threshold signal about whether a community
+accepts a verifier, issuer, or witness service for a specific credential class
+and method.
+
+What it does not replace: holder binding, presentation challenge, expiry,
+revocation, issuer metadata, audit records, or the underlying credential
+protocol.

@@ -25,6 +25,7 @@ const SUBJECT_FORMATS = new Set<SubjectFormat>([
   'package-digest',
   'service',
   'vendor',
+  'verifier',
   'source',
 ])
 
@@ -49,6 +50,7 @@ const ROUTES = new Map<number, { subjectTag: 'p' | 'e' | 'a' | 'k'; subjectForma
         'package-digest',
         'service',
         'vendor',
+        'verifier',
         'source',
       ]),
     },

@@ -88,9 +88,9 @@ The shipped primitives cover these concrete shapes:
 - Kind 30384 addressable assertions: long-form notes, research artefacts,
   grant applications, community lists, labeler profiles, and moderation lists.
 - Kind 30385 identifier assertions: relays, services, vendors, marketplaces,
-  packages, releases, maintainers, NIP-05 identifiers, domains, and other
-  external identifiers. The `k` namespace is chosen by the application profile,
-  not standardised by nostr-veil.
+  packages, releases, maintainers, NIP-05 identifiers, domains, method-scoped
+  credential verifiers, and other external identifiers. The `k` namespace is
+  chosen by the application profile, not standardised by nostr-veil.
 - Scoped federations: cross-circle moderation or review where overlapping
   members should count once across several circles.
 
@@ -104,6 +104,10 @@ a relay, fetches both back, and verifies the fetched material with
 assertion. Credential co-signing and fully anonymous gated access are still
 future profiles: nostr-veil can provide the threshold proof, but those flows
 need separate credential, session, revocation, and transport rules.
+Verifier and issuer legitimacy is supported today as a kind 30385 profile:
+score `verifier:<credential-class>:<method>:<verifier-id>` subjects to answer
+"who verifies the verifier?" before a community accepts Attestr-style,
+NIP-VA-style, or other credential artefacts from that verifier.
 
 The use-case documentation is written as implementation profiles. Each page
 should identify the subject shape, helper, metric meaning, proof version,
@@ -807,9 +811,9 @@ then calls `verifyAdmissionRequest()` on the fetched objects. Do not treat kind
 
 Canonical subject helpers cover Nostr-native subjects plus relays, service
 endpoints, NIP-05, domains, LNURLp, NIP-96, npm packages, package artefact
-digests, git repositories, GitHub repositories, maintainers, vendors, and
-sources. Prefer them before signing and verification so every contributor
-scores the same identifier.
+digests, git repositories, GitHub repositories, maintainers, vendors, sources,
+and method-scoped credential verifiers. Prefer them before signing and
+verification so every contributor scores the same identifier.
 
 ---
 

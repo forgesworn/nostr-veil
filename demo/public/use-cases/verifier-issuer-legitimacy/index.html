@@ -3,11 +3,11 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Relay or community admission | nostr-veil use cases</title>
-  <meta name="description" content="Use this when a relay, forum, chat, marketplace, or private community wants a threshold-backed admission signal without exposing which reviewers vouched for the applicant. nostr-veil supports the admission-gate building block today: a normal NIP-85 kind 30382 vouch for the applicant pubkey, plus an additive challenge/presentation handshake that proves the live applicant controls that pubkey. A complete anonymous-access system still needs session continuity, transport privacy, revocation, rate limiting, and abuse handling outside the NIP-85 assertion. Treat nostr-veil as the verifiable admission evidence, not as the whole relay policy engine." />
+  <title>Verifier and issuer legitimacy | nostr-veil use cases</title>
+  <meta name="description" content="Use this when a community, relay, marketplace, grant programme, or credential consumer needs to decide which verifiers, issuers, or witness services are acceptable for a credential class. This answers &quot;who verifies the verifier?&quot; without forcing the people reviewing the verifier to become public targets." />
   <meta property="og:type" content="article" />
-  <meta property="og:title" content="Relay or community admission" />
-  <meta property="og:description" content="Use this when a relay, forum, chat, marketplace, or private community wants a threshold-backed admission signal without exposing which reviewers vouched for the applicant. nostr-veil supports the admission-gate building block today: a normal NIP-85 kind 30382 vouch for the applicant pubkey, plus an additive challenge/presentation handshake that proves the live applicant controls that pubkey. A complete anonymous-access system still needs session continuity, transport privacy, revocation, rate limiting, and abuse handling outside the NIP-85 assertion. Treat nostr-veil as the verifiable admission evidence, not as the whole relay policy engine." />
+  <meta property="og:title" content="Verifier and issuer legitimacy" />
+  <meta property="og:description" content="Use this when a community, relay, marketplace, grant programme, or credential consumer needs to decide which verifiers, issuers, or witness services are acceptable for a credential class. This answers &quot;who verifies the verifier?&quot; without forcing the people reviewing the verifier to become public targets." />
   <meta property="og:image" content="https://raw.githubusercontent.com/forgesworn/nostr-veil/main/social-preview.png" />
   <meta name="twitter:card" content="summary_large_image" />
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='9' fill='none' stroke='%2340c7aa' stroke-width='3'/></svg>" />
@@ -643,16 +643,16 @@
     <section class="hero">
       <div class="wrap hero-inner">
         <div>
-          <span class="eyebrow">Future profiles</span>
-          <h1>Relay or community admission</h1>
-          <p>Use this when a relay, forum, chat, marketplace, or private community wants a threshold-backed admission signal without exposing which reviewers vouched for the applicant. nostr-veil supports the admission-gate building block today: a normal NIP-85 kind 30382 vouch for the applicant pubkey, plus an additive challenge/presentation handshake that proves the live applicant controls that pubkey. A complete anonymous-access system still needs session continuity, transport privacy, revocation, rate limiting, and abuse handling outside the NIP-85 assertion. Treat nostr-veil as the verifiable admission evidence, not as the whole relay policy engine.</p>
+          <span class="eyebrow">Infrastructure</span>
+          <h1>Verifier and issuer legitimacy</h1>
+          <p>Use this when a community, relay, marketplace, grant programme, or credential consumer needs to decide which verifiers, issuers, or witness services are acceptable for a credential class. This answers &quot;who verifies the verifier?&quot; without forcing the people reviewing the verifier to become public targets.</p>
           <div class="button-row">
             <a class="button primary" href="#worked-example">Jump to worked example</a>
             <a class="button" href="../">Back to atlas</a>
           </div>
         </div>
         <aside class="status-panel" aria-label="Use-case status">
-          <span class="status-pill today">Gate supported</span>
+          <span class="status-pill today">Supported today</span>
           <dl>
             <div>
               <dt>Includes</dt>
@@ -660,7 +660,7 @@
             </div>
             <div>
               <dt>Profile</dt>
-              <dd>Future profiles</dd>
+              <dd>Infrastructure</dd>
             </div>
             <div>
               <dt>Pages</dt>
@@ -680,159 +680,104 @@
 <a href="../article-research-review/">Article, research, and long-form review</a>
 <a href="../relay-service-reputation/">Relay and service reputation</a>
 <a href="../nip05-domain-service-provider-trust/">NIP-05, domain, and service-provider trust</a>
-<a href="../verifier-issuer-legitimacy/">Verifier and issuer legitimacy</a>
+<a href="../verifier-issuer-legitimacy/" aria-current="page">Verifier and issuer legitimacy</a>
 <a href="../list-labeler-moderation-list-reputation/">Community list, labeler, and moderation-list reputation</a>
 <a href="../release-package-maintainer-reputation/">Release, package, and maintainer reputation</a>
 <a href="../vendor-marketplace-signals/">Vendor and marketplace signals</a>
 <a href="../federated-moderation/">Federated moderation</a>
 <a href="../grant-funding-proposal-review/">Grant, funding, and proposal review</a>
 <a href="../anonymous-credential-attestation-cosigning/">Anonymous credential or attestation co-signing</a>
-<a href="../relay-community-admission/" aria-current="page">Relay or community admission</a>
+<a href="../relay-community-admission/">Relay or community admission</a>
       </nav>
       <article>
-        <p>Use this when a relay, forum, chat, marketplace, or private community wants a threshold-backed admission signal without exposing which reviewers vouched for the applicant. nostr-veil supports the admission-gate building block today: a normal NIP-85 kind 30382 vouch for the applicant pubkey, plus an additive challenge/presentation handshake that proves the live applicant controls that pubkey.</p>
-<p>A complete anonymous-access system still needs session continuity, transport privacy, revocation, rate limiting, and abuse handling outside the NIP-85 assertion. Treat nostr-veil as the verifiable admission evidence, not as the whole relay policy engine.</p>
+        <p>Use this when a community, relay, marketplace, grant programme, or credential consumer needs to decide which verifiers, issuers, or witness services are acceptable for a credential class. This answers &quot;who verifies the verifier?&quot; without forcing the people reviewing the verifier to become public targets.</p>
 <h2>Fit</h2>
-<ul><li>Status: supported admission-gate building block today; full anonymous-access profile still future.</li><li>Current NIP-85 shape: kind 30382 user assertion for the candidate pubkey.</li><li>Subject: candidate account pubkey in <code>d</code>, mirrored in <code>p</code>.</li><li>Helper path: <code>createAdmissionChallenge()</code>, <code>createAdmissionPresentation()</code>, and <code>verifyAdmissionRequest()</code>.</li><li>Proof version: v2 recommended because it binds the kind and subject hint to the proof context.</li><li>Useful metric today: <code>rank</code> as admission confidence, sponsor confidence, or policy completeness.</li></ul>
+<ul><li>Status: supported today.</li><li>NIP-85 kind: 30385 identifier assertion.</li><li>Subject: a method-scoped verifier identifier such as <code>verifier:proof-of-person:in-person:&lt;verifier-pubkey&gt;</code>.</li><li>Canonical helper: <code>canonicalVerifierSubject</code>.</li><li>Helpers: <code>contributeIdentifierAssertion</code> and <code>aggregateIdentifierContributions</code>.</li><li>Proof version: v2 recommended.</li><li>Useful metrics: <code>rank</code> as verifier confidence, plus <code>reaction_cnt</code> as a count-like corroboration signal.</li></ul>
 <h2>Subject design</h2>
-<ul><li>The NIP-85 subject is the applicant pubkey. Use kind 30382, with <code>d</code> and <code>p</code> equal to that pubkey.</li><li>The admission challenge is separate from the NIP-85 event. It binds a single admission attempt to the applicant pubkey, the relay or community audience, an expiry, and a nonce.</li><li>The applicant presentation is also separate from the NIP-85 event. It is a Schnorr signature by the applicant pubkey over the challenge context.</li><li>The deployment bundle is signed operator policy. It says which admission circle, threshold, subject, freshness, and metric bounds the verifier accepts.</li><li>If the bundle is distributed over Nostr, carry it in a separate application event such as NIP-78 kind 30078. That transport event is not a NIP-85 assertion and must not be counted as the vouch.</li></ul>
+<ul><li>Use <code>verifier:&lt;credential-class&gt;:&lt;method&gt;:&lt;verifier-id&gt;</code> when the community is deciding whether to trust a verifier for one credential class and method.</li><li>Use separate subjects for different methods. A verifier trusted for <code>proof-of-person:in-person</code> is not automatically trusted for <code>proof-of-residency:document-check</code>.</li><li>Use service subjects for verifier services only when the method and class are already captured elsewhere in the deployment policy.</li><li>Do not use a generic domain or pubkey score when the decision depends on a specific verification ceremony, credential class, or issuer role.</li></ul>
 <h2>What to publish</h2>
-<ul><li>Publish the vouch as a signed NIP-85 kind 30382 event produced by <code>aggregateContributions()</code>.</li><li>Keep the vouch tags canonical: <code>d</code>, <code>p</code>, metric tags such as <code>rank</code>, and <code>veil-*</code> proof tags. Do not add <code>admission-*</code> tags to the NIP-85 event.</li><li>Publish or distribute the signed deployment bundle from a trusted operator key. This can be HTTPS, a release artefact, operator config, or a NIP-78 kind 30078 application data event.</li><li>Do not publish the challenge as long-lived state. It is an admission attempt, so keep it short-lived and store only the replay cache or audit record needed by the relay.</li></ul>
-<h2>Operator recipe</h2>
-<ol><li>Build an admission circle manifest with the reviewer pubkeys and the <code>relay-community-admission</code> profile id.</li><li>Build a deployment policy for the applicant pubkey, requiring <code>rank</code>, proof v2, an accepted circle, fresh events, and valid Nostr signatures.</li><li>Sign that policy with <code>createSignedDeploymentBundle()</code> and pin the bundle signer in relay config.</li><li>When an applicant connects, create an admission challenge for <code>relay:wss://your-relay.example</code>.</li><li>Ask the applicant to return <code>createAdmissionPresentation(challenge, applicantPrivateKey)</code>, or the equivalent wallet/client signature.</li><li>Fetch the applicant's signed kind 30382 vouch and the current signed bundle.</li><li>Call <code>verifyAdmissionRequest(vouch, bundle, challenge, presentation, { trustedPublishers, expectedAudience, usedChallengeIds, revokedApplicantPubkeys })</code>.</li><li>Act on the decision band: <code>admit</code>, <code>rate-limit</code>, <code>manual-review</code>, <code>deny</code>, or <code>revoke</code>.</li></ol>
-<pre><code class="language-ts"><span class="tok-keyword">const</span> challenge = <span class="tok-fn">createAdmissionChallenge</span>({
-  applicantPubkey,
-  audience: <span class="tok-string">'relay:wss://relay.example.com'</span>,
-  maxAgeSeconds: <span class="tok-number">120</span>,
-})
-
-<span class="tok-keyword">const</span> result = <span class="tok-fn">verifyAdmissionRequest</span>(vouchFromRelay, signedBundle, challenge, presentation, {
-  admitRank: <span class="tok-number">90</span>,
-  expectedAudience: <span class="tok-string">'relay:wss://relay.example.com'</span>,
-  now: Math.<span class="tok-fn">floor</span>(Date.<span class="tok-fn">now</span>() / <span class="tok-number">1000</span>),
-  rateLimitRank: <span class="tok-number">75</span>,
-  revokedApplicantPubkeys,
-  trustedPublishers: [operatorBundlePubkey],
-  usedChallengeIds,
-})
-
-<span class="tok-keyword">if</span> (result.decision === <span class="tok-string">'admit'</span>) <span class="tok-fn">admit</span>(applicantPubkey)
-<span class="tok-keyword">if</span> (result.decision === <span class="tok-string">'rate-limit'</span>) <span class="tok-fn">admitWithLimits</span>(applicantPubkey)
-<span class="tok-keyword">if</span> (result.decision === <span class="tok-string">'manual-review'</span>) <span class="tok-fn">queueReview</span>(applicantPubkey, result.errors)
-<span class="tok-keyword">if</span> (result.decision === <span class="tok-string">'deny'</span>) <span class="tok-fn">rejectAdmission</span>(applicantPubkey, result.errors)
-<span class="tok-keyword">if</span> (result.decision === <span class="tok-string">'revoke'</span>) <span class="tok-fn">revokeSession</span>(applicantPubkey)</code></pre>
-<h2 id="worked-example">Worked example for the vouch</h2>
-<div class="code-sample" data-example-slug="relay-community-admission">
+<ul><li>A kind 30385 identifier assertion whose <code>d</code> tag is the canonical verifier subject and whose <code>k</code> tag is the deployment namespace.</li><li>A <code>rank</code> profile explaining whether the score means verifier legitimacy, issuer confidence, witness quality, method reliability, or incident status.</li><li>Proof v2 tags, accepted reviewer-circle policy, threshold, freshness, and the credential class being considered.</li><li>Companion records for verifier onboarding, audit results, revocation source, issuer metadata, accepted methods, and incident response.</li></ul>
+<h2>Implementation recipe</h2>
+<ol><li>Define the credential class and verification method before reviewers sign.</li><li>Canonicalise the verifier with <code>canonicalVerifierSubject</code>.</li><li>Have an accepted reviewer circle publish proof v2 identifier contributions.</li><li>Verify the exact subject, <code>k</code> namespace, circle, threshold, freshness, and metric bounds.</li><li>Accept attestations from that verifier only when the concrete attestation artefact also passes holder binding, presentation, expiry, and revocation checks.</li></ol>
+<h2 id="worked-example">Worked example</h2>
+<div class="code-sample" data-example-slug="verifier-issuer-legitimacy">
   <div class="code-sample-toolbar">
-    <span class="code-sample-path">examples/use-cases/relay-community-admission.ts</span>
+    <span class="code-sample-path">examples/use-cases/verifier-issuer-legitimacy.ts</span>
     <div class="code-sample-actions">
-      <a href="https://github.com/forgesworn/nostr-veil/blob/main/examples/use-cases/relay-community-admission.ts" target="_blank" rel="noreferrer">Runnable source</a>
+      <a href="https://github.com/forgesworn/nostr-veil/blob/main/examples/use-cases/verifier-issuer-legitimacy.ts" target="_blank" rel="noreferrer">Runnable source</a>
       <a href="https://github.com/forgesworn/nostr-veil/blob/main/examples/use-cases/_shared.ts" target="_blank" rel="noreferrer">Shared harness</a>
       <button class="code-copy" type="button" data-copy-code aria-label="Copy example source">Copy</button>
     </div>
   </div>
   <pre><code class="language-ts"><span class="tok-keyword">import</span> {
   NIP85_KINDS,
-  aggregateContributions,
-  contributeAssertion,
+  aggregateIdentifierContributions,
+  canonicalVerifierSubject,
+  contributeIdentifierAssertion,
   createTrustCircle,
 } <span class="tok-keyword">from</span> <span class="tok-string">'nostr-veil'</span>
 <span class="tok-keyword">import</span> {
   defaultMembers,
+  externalProfileKind,
   memberIndex,
   proofVersion,
-  subjectPubkey,
   verifyUseCaseAssertion,
   withCreatedAt,
 } <span class="tok-keyword">from</span> <span class="tok-string">'./_shared.js'</span>
 
-<span class="tok-keyword">const</span> slug = <span class="tok-string">'relay-community-admission'</span>
-<span class="tok-keyword">const</span> applicantPubkey = subjectPubkey
+<span class="tok-keyword">const</span> slug = <span class="tok-string">'verifier-issuer-legitimacy'</span>
+<span class="tok-keyword">const</span> verifierSubject = <span class="tok-fn">canonicalVerifierSubject</span>(
+  <span class="tok-string">'proof-of-person'</span>,
+  <span class="tok-string">'in-person'</span>,
+  <span class="tok-string">'aa'</span>.<span class="tok-fn">repeat</span>(<span class="tok-number">32</span>),
+)
 <span class="tok-keyword">const</span> circle = <span class="tok-fn">createTrustCircle</span>(defaultMembers.<span class="tok-fn">map</span>(member =&gt; member.pub))
 
-<span class="tok-keyword">const</span> contributions = defaultMembers.<span class="tok-fn">map</span>((member, index) =&gt;
-  <span class="tok-fn">contributeAssertion</span>(
+<span class="tok-keyword">const</span> contributions = defaultMembers.<span class="tok-fn">map</span>((reviewer, index) =&gt;
+  <span class="tok-fn">contributeIdentifierAssertion</span>(
     circle,
-    applicantPubkey,
-    { rank: <span class="tok-number">91</span> + index },
-    member.priv,
-    <span class="tok-fn">memberIndex</span>(circle, member.pub),
+    verifierSubject,
+    externalProfileKind,
+    {
+      rank: <span class="tok-number">82</span> + index * <span class="tok-number">3</span>,
+      reaction_cnt: index + <span class="tok-number">2</span>,
+    },
+    reviewer.priv,
+    <span class="tok-fn">memberIndex</span>(circle, reviewer.pub),
     { proofVersion },
   ),
 )
 
-<span class="tok-keyword">export</span> <span class="tok-keyword">const</span> assertion = <span class="tok-fn">withCreatedAt</span>(<span class="tok-fn">aggregateContributions</span>(
+<span class="tok-keyword">export</span> <span class="tok-keyword">const</span> assertion = <span class="tok-fn">withCreatedAt</span>(<span class="tok-fn">aggregateIdentifierContributions</span>(
   circle,
-  applicantPubkey,
+  verifierSubject,
+  externalProfileKind,
   contributions,
   { proofVersion },
 ))
 
 <span class="tok-keyword">export</span> <span class="tok-keyword">const</span> result = <span class="tok-fn">verifyUseCaseAssertion</span>(slug, assertion, {
-  kind: NIP85_KINDS.USER,
-  subject: applicantPubkey,
-  subjectTag: <span class="tok-string">'p'</span>,
+  kind: NIP85_KINDS.IDENTIFIER,
+  subject: verifierSubject,
+  subjectTag: <span class="tok-string">'k'</span>,
+  subjectTagValue: externalProfileKind,
   circleId: circle.circleId,
   minDistinctSigners: <span class="tok-number">3</span>,
   freshAfter: assertion.created_at - <span class="tok-number">300</span>,
 })</code></pre>
 </div>
-<h2>Live relay proof</h2>
-<p>The public live smoke test publishes two signed events to <code>wss://relay.trotters.cc</code>:</p>
-<ul><li>a NIP-85 kind 30382 admission vouch whose tags stay byte-for-byte aligned with the canonical example;</li><li>a NIP-78 kind 30078 application data event that carries the signed deployment bundle for the verifier.</li></ul>
-<p>The test fetches both events back by id, verifies their Nostr signatures, parses the signed bundle, verifies the bundle signature and trusted publisher, then runs <code>verifyAdmissionRequest()</code> against the fetched vouch. Run it locally with:</p>
-<pre><code class="language-bash">npm run test:admission-gate:relay -- --dry-run
-npm run test:admission-gate:relay -- --write docs/admission-gate-relay-check.json</code></pre>
 <h2>What to verify</h2>
-<ul><li>The vouch is NIP-85 kind 30382, with <code>d</code> and <code>p</code> equal to the applicant pubkey.</li><li>The vouch has strict syntax and a valid proof v2.</li><li>The vouch Nostr event signature is valid after relay fetch.</li><li>The admission circle is accepted by the signed deployment bundle and has enough distinct signers.</li><li>The <code>rank</code> metric is present, numeric, bounded, and has a documented decision meaning.</li><li>The deployment bundle is signed, unexpired, and signed by a trusted operator key.</li><li>The challenge is fresh, for the expected relay or community audience, and not in the replay cache.</li><li>The presentation signature verifies against the applicant pubkey.</li><li>The presentation applicant matches the vouch subject.</li><li>The applicant is not revoked, banned, or already rate-limited by local policy.</li></ul>
-<h2>What this proves today</h2>
-<ul><li>Enough distinct admission-circle members vouched for the applicant pubkey.</li><li>The public vouch does not reveal which circle members contributed.</li><li>The live applicant controlled the vouched pubkey for this challenge.</li><li>The relay can make an admission decision using signed policy instead of handwritten glue.</li></ul>
-<h2>What this does not solve by itself</h2>
-<div class="table-wrap"><table><thead><tr><th>Boundary</th><th>What to do</th></tr></thead><tbody><tr><td>The applicant pubkey is public in the kind 30382 vouch.</td><td>Use this as pubkey-bound admission today. For anonymous admission, add a credential/session profile that does not reuse the public applicant pubkey as the access token.</td></tr><tr><td>IP address, timing, and relay metadata are outside the proof.</td><td>Add transport privacy, batching, short logs, and metadata-minimising client flows.</td></tr><tr><td>A valid vouch is not a permanent right to enter.</td><td>Keep bans, revocation, expiry, rate limits, and appeal policy in the relay/community system.</td></tr><tr><td>A signed bundle says what policy was configured, not that the policy is socially good.</td><td>Govern circle membership, reviewer independence, conflicts, evidence retention, and incident response.</td></tr><tr><td>Replay protection is local state.</td><td>Store used challenge ids until expiry and reject duplicates before applying the admission decision.</td></tr></tbody></table></div>
+<ul><li>Strict NIP-85 syntax and a valid proof v2.</li><li>Kind 30385, with <code>d</code> equal to the canonical verifier subject and <code>k</code> equal to the deployment namespace.</li><li>The reviewer circle is accepted for that credential class and method.</li><li><code>proof.distinctSigners</code> meets the verifier-legitimacy threshold.</li><li>The <code>rank</code> meaning is documented before it affects verifier admission, warning, rate-limiting, or revocation.</li><li>The concrete credential or attestation being consumed still passes its own issuer, holder, presentation, expiry, revocation, and evidence checks.</li></ul>
+<h2>What this proves</h2>
+<ul><li>Distinct members of an accepted reviewer circle scored the same verifier subject.</li><li>The aggregate score is bound to the verifier subject, kind, and subject hint.</li><li>Individual reviewer identities are hidden inside the ring.</li></ul>
 <h2>What not to claim</h2>
-<ul><li>Do not claim nostr-veil currently implements complete anonymous relay access.</li><li>Do not claim the vouch hides the applicant pubkey; today's building block is a public assertion about that pubkey.</li><li>Do not claim a valid vouch overrides relay policy, bans, rate limits, moderation action, or abuse response.</li><li>Do not treat the NIP-78 kind 30078 bundle transport event as a NIP-85 assertion. It is just a signed carrier for operator policy in the live test.</li></ul>
+<ul><li>Do not claim a trusted verifier makes every credential true.</li><li>Do not claim nostr-veil verifies the underlying personhood, residency, professional status, or credential claim.</li><li>Do not claim verifier legitimacy replaces revocation, audit, appeal, or incident response.</li><li>Do not let trust for one credential class or method spill into another class without a separate assertion or explicit policy.</li></ul>
 <h2>Failure handling</h2>
-<ul><li>Reject vouches for the wrong pubkey, wrong kind, stale proof, unknown circle, insufficient threshold, or invalid Nostr signature.</li><li>Reject bundles that are missing, expired, unsigned, tampered, or signed by an untrusted publisher.</li><li>Reject presentations for the wrong audience, expired challenges, replayed challenge ids, invalid applicant signatures, or a pubkey mismatch.</li><li>Move to manual review when the proof is valid but the score falls into the manual band.</li><li>Rate-limit instead of fully admitting when the score is enough to reduce friction but not enough for normal privileges.</li><li>Revoke or deny when the applicant is in local revocation, ban, or abuse state, even if the old vouch still verifies.</li></ul>
-<h2>Operational controls</h2>
-<div class="table-wrap"><table><thead><tr><th>Risk to handle</th><th>Required control</th></tr></thead><tbody><tr><td>Challenge replay</td><td>Short challenge TTL, replay cache keyed by challenge id, and one decision per challenge.</td></tr><tr><td>Clock skew</td><td>Small tolerance in the relay, short bundle/assertion expiry, and monitoring for future-dated events.</td></tr><tr><td>Stale reviewers</td><td>Circle manifests with expiry, supersession, and revoked circle ids.</td></tr><tr><td>Untrusted policy updates</td><td>Pin trusted bundle publisher pubkeys and rotate with an explicit operator process.</td></tr><tr><td>Applicant compromise</td><td>Revocation list, re-admission rules, session invalidation, and appeal path.</td></tr><tr><td>Reviewer abuse</td><td>Circle governance, independence rules, evidence retention, audit logs, and conflict handling.</td></tr></tbody></table></div>
-        <h2>Live admission gate test</h2>
-<p>The opt-in admission gate test publishes the normal NIP-85 kind 30382 vouch and a separate NIP-78 kind 30078 carrier for the signed deployment bundle to <code>wss://relay.trotters.cc</code>, fetches both back by id, and runs <code>verifyAdmissionRequest()</code> against the fetched material.</p>
-<div class="relay-evidence pass">
-  <div class="relay-evidence-head">
-    <span>Passed</span>
-    <strong>2026-05-18T08:55:39.000Z</strong>
-  </div>
-  <dl>
-    <div>
-      <dt>Decision</dt>
-      <dd>admit at rank 92</dd>
-    </div>
-    <div>
-      <dt>Vouch</dt>
-      <dd>kind 30382 NIP-85 user assertion</dd>
-    </div>
-    <div>
-      <dt>Bundle</dt>
-      <dd>kind 30078 NIP-78 application data carrier</dd>
-    </div>
-  </dl>
-  <ul class="relay-checks">
-    <li class="pass"><span aria-hidden="true"></span>Local admission gate verifies before publishing</li>
-    <li class="pass"><span aria-hidden="true"></span>NIP-85 kind 30382 vouch was fetched from relay</li>
-    <li class="pass"><span aria-hidden="true"></span>Vouch Nostr signature verifies after relay fetch</li>
-    <li class="pass"><span aria-hidden="true"></span>Vouch tags stayed unchanged from the canonical example</li>
-    <li class="pass"><span aria-hidden="true"></span>NIP-78 kind 30078 bundle carrier was fetched from relay</li>
-    <li class="pass"><span aria-hidden="true"></span>Bundle carrier Nostr signature verifies</li>
-    <li class="pass"><span aria-hidden="true"></span>Signed deployment bundle signature verifies</li>
-    <li class="pass"><span aria-hidden="true"></span>Applicant challenge presentation verifies</li>
-    <li class="pass"><span aria-hidden="true"></span>verifyAdmissionRequest() admits the fetched material</li>
-  </ul>
-  <div class="relay-event-ids">
-    <code title="4a288c5fceca7f0189ce59dfd01e4d6b335dce7f48c911b698b9405f5dfd0d5b">vouch 4a288c5fceca...5dfd0d5b</code>
-    <code title="131b014e498281c3aa892a4d79a0d6c293cfe5daab3b0770d57b1a7a32bc0634">bundle 131b014e4982...32bc0634</code>
-  </div>
-  <p class="relay-command">Run the same check with <code>npm run test:admission-gate:relay -- --write docs/admission-gate-relay-check.json</code>.</p>
-</div>
+<ul><li>Reject verifier scores from unknown circles, stale manifests, wrong methods, wrong credential classes, or unaccepted namespaces.</li><li>Treat missing holder-binding, presentation, expiry, or revocation checks on the concrete credential as a verifier failure.</li><li>Publish downgrade, incident, or replacement assertions when a verifier is compromised, captured, negligent, or no longer accepted for a method.</li><li>Route borderline scores to manual review rather than making verifier acceptance permanent.</li></ul>
+<h2>Operational requirements</h2>
+<div class="table-wrap"><table><thead><tr><th>Risk to handle</th><th>Required control</th></tr></thead><tbody><tr><td>Verifier reputation becomes a single unchecked trust root.</td><td>Scope trust by credential class, method, issuer key, accepted circle, expiry, revocation, appeal path, and incident response.</td></tr><tr><td>A trusted verifier can still issue a bad credential.</td><td>Verify each concrete credential artefact, holder binding, presentation challenge, expiry, revocation, and evidence trail.</td></tr><tr><td>Reviewer pressure can capture verifier admission.</td><td>Use anonymous threshold review, conflict rules, rotation, audit logs, and independent circles for high-stakes methods.</td></tr><tr><td>First-person credentials and verifier-issued credentials start from different trust directions.</td><td>Treat first-person claims, social witnessing, verifier ceremonies, and anonymous circle endorsement as separate layers that policy combines explicitly.</td></tr></tbody></table></div>
+<h2>Open questions for deployments</h2>
+<ul><li>Does <code>rank</code> mean verifier admission, ongoing reliability, incident severity, or method confidence?</li><li>Which credential classes need method-scoped verifier subjects?</li><li>What revocation source tells clients that a verifier is no longer accepted?</li><li>Which Attestr-style, NIP-VA-style, NIP-58, or custom attestation artefacts can this verifier issue or witness?</li></ul>
         <h2>NIP-85 kind reference</h2>
 <p>NIP-85 defines the assertion kind by the subject being scored. The kind number is part of the proof v2 context, so deployments should verify both the number and the subject hint tag.</p>
 <div class="kind-reference">
@@ -894,7 +839,7 @@ npm run test:admission-gate:relay -- --write docs/admission-gate-relay-check.jso
     <li class="pass"><span aria-hidden="true"></span>Deployment profile verifier passes</li>
   </ul>
   <div class="relay-event-ids">
-    <code title="07d0900c0f5c3f1e6dde773226cf2eea294d69ad49baaf67b34084c9314c4379">07d0900c0f5c...314c4379</code>
+    <code title="eacdf19f137768742ed901776572938911be807e537c55ed804154266ade8ad9">eacdf19f1377...6ade8ad9</code>
   </div>
   <p class="relay-command">Run the same check with <code>npm run test:use-cases:relay -- --write docs/use-case-relay-checks.json</code>.</p>
 </div>
@@ -945,13 +890,13 @@ npm run test:admission-gate:relay -- --write docs/admission-gate-relay-check.jso
 <p>Use <code>validateUseCaseProfileDefinition()</code> for custom profiles, then <code>verifyProductionDeployment()</code> with trusted bundle publishers, signed relay events, accepted circle manifests, expected subject, freshness, and threshold policy so these checks are not left to application glue. For application UI and audit logs, use <code>verifyProductionDeploymentReport()</code> or <code>createProductionDecisionReport()</code> so failures include issue codes, remediation text, a recommended action, pass/fail/not-checked status for the controls, and the profile's <code>proofClaims</code>, <code>proofLimitations</code>, <code>requiredControls</code>, and <code>recommendedActions</code>.</p>
         <h2>Next examples</h2>
         <div class="next-grid">
-          <a class="next-card" href="../anonymous-credential-attestation-cosigning/">
+          <a class="next-card" href="../nip05-domain-service-provider-trust/">
             <span>Previous</span>
-            <strong>Anonymous credential or attestation co-signing</strong>
+            <strong>NIP-05, domain, and service-provider trust</strong>
           </a>
-          <a class="next-card" href="../user-reputation-abuse-reporting/">
+          <a class="next-card" href="../list-labeler-moderation-list-reputation/">
             <span>Next</span>
-            <strong>User reputation and abuse reporting</strong>
+            <strong>Community list, labeler, and moderation-list reputation</strong>
           </a>
         </div>
       </article>

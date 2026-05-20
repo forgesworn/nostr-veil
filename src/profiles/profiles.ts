@@ -320,6 +320,46 @@ export const NIP05_DOMAIN_SERVICE_PROVIDER_TRUST_PROFILE = profile({
   }),
 })
 
+export const VERIFIER_ISSUER_LEGITIMACY_PROFILE = profile({
+  id: 'verifier-issuer-legitimacy',
+  title: 'Verifier and issuer legitimacy',
+  group: 'Infrastructure',
+  status: 'supported',
+  kind: NIP85_KINDS.IDENTIFIER,
+  subjectTag: 'k',
+  subjectTagValue: '0',
+  subjectFormats: ['verifier', 'service'],
+  proofVersion: 'v2',
+  minDistinctSigners: 3,
+  maxAgeSeconds: 300,
+  metrics: [rankMetric, reactionMetric],
+  failurePolicy: [
+    ...commonFailurePolicy,
+    'Do not treat verifier legitimacy as proof that every attestation from that verifier is true.',
+  ],
+  ...safety({
+    proofClaims: [
+      'The accepted reviewer circle anonymously scored the same verifier, issuer, witness service, or method-scoped verifier subject.',
+    ],
+    proofLimitations: [
+      'It does not prove a verifier performed a specific ceremony correctly or that an issued credential is true.',
+    ],
+    recommendedActions: [
+      'Use the signal to decide whether a community should accept, warn about, rate-limit, or manually review attestations from that verifier under the credential-class policy.',
+    ],
+    requiredControls: [
+      {
+        risk: 'Verifier reputation can become a single unchecked trust root.',
+        control: 'Scope trust by credential class, verification method, issuer key, expiry, revocation source, appeal path, and incident response.',
+      },
+      {
+        risk: 'A trusted verifier can still issue a bad or stale attestation.',
+        control: 'Verify the concrete attestation artefact, holder binding, presentation challenge, expiry, revocation, and evidence trail before accepting it.',
+      },
+    ],
+  }),
+})
+
 export const LIST_LABELER_MODERATION_LIST_REPUTATION_PROFILE = profile({
   id: 'list-labeler-moderation-list-reputation',
   title: 'Community list, labeler, and moderation-list reputation',
@@ -580,6 +620,7 @@ export const USE_CASE_PROFILES = [
   NIP05_DOMAIN_SERVICE_PROVIDER_TRUST_PROFILE,
   LIST_LABELER_MODERATION_LIST_REPUTATION_PROFILE,
   RELEASE_PACKAGE_MAINTAINER_REPUTATION_PROFILE,
+  VERIFIER_ISSUER_LEGITIMACY_PROFILE,
   VENDOR_MARKETPLACE_SIGNALS_PROFILE,
   FEDERATED_MODERATION_PROFILE,
   GRANT_FUNDING_PROPOSAL_REVIEW_PROFILE,

@@ -645,7 +645,7 @@
           <article class="route-card">
             <span class="kind">30385</span>
             <h3>NIP-73/external identifier assertion</h3>
-            <p>Relays, services, domains, NIP-05 names, packages, releases, maintainers, and marketplace identities.</p>
+            <p>Relays, services, domains, NIP-05 names, packages, releases, maintainers, verifier subjects, and marketplace identities.</p>
             <p><code>aggregateIdentifierContributions</code></p>
           </article>
         </div>
@@ -672,7 +672,7 @@
             <p>Why: proof v2 binds the exact kind and subject hint. If two clients score different strings, they are not scoring the same thing.</p>
             <ul>
               <li>Use NIP-85 kind 30382 for a user pubkey, 30383 for an event id, 30384 for a NIP-33 address, and 30385 for NIP-73/external identifiers.</li>
-              <li>Define identifier normalisation before signing: domains, relays, packages, releases, vendors, and maintainers all need stable strings.</li>
+              <li>Define identifier normalisation before signing: domains, relays, packages, releases, vendors, maintainers, and credential verifiers all need stable strings.</li>
               <li>Prefer digest-bound package or release identifiers when the exact artefact matters.</li>
             </ul>
           </article>
@@ -849,7 +849,7 @@
             <section id="infrastructure" class="case-group">
               <div class="group-head">
                 <h3>Infrastructure and software</h3>
-                <p>Portable reputation for services, domains, relays, lists, packages, releases, and maintainers.</p>
+                <p>Portable reputation for services, domains, relays, verifier subjects, lists, packages, releases, and maintainers.</p>
               </div>
               <div class="case-grid">
                 <article class="case-card">
@@ -883,6 +883,23 @@
                   <div class="requirement">Requires DNS, HTTPS, NIP-05 resolution, canonicalisation, expiry, and provider checks.</div>
                   <div class="case-links">
                     <a href="./nip05-domain-service-provider-trust/">Worked example</a>
+                  </div>
+                </article>
+
+                <article class="case-card">
+                  <div class="case-top">
+                    <span class="pill">Credentials</span>
+                    <span class="pill today">Today</span>
+                  </div>
+                  <h4>Verifier and issuer legitimacy</h4>
+                  <p>Answer who verifies the verifier for personhood, residency, credential, and witness workflows.</p>
+                  <div class="case-meta">
+                    <span>NIP-85 kind 30385 / verifier subject</span>
+                    <span>Helper: aggregateIdentifierContributions</span>
+                  </div>
+                  <div class="requirement">Requires method-scoped subjects, issuer policy, concrete credential checks, revocation, and appeals.</div>
+                  <div class="case-links">
+                    <a href="./verifier-issuer-legitimacy/">Worked example</a>
                   </div>
                 </article>
 

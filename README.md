@@ -319,6 +319,7 @@ Supported today:
 - Event and claim verification with NIP-85 kind 30383 event assertions via `aggregateEventContributions`.
 - Article, long-form note, research, grant, and proposal review with NIP-85 kind 30384 addressable event assertions via `aggregateAddressableContributions`.
 - Relay, service, vendor, marketplace, package, release, maintainer, NIP-05, and domain reputation with NIP-85 kind 30385 identifier assertions via `aggregateIdentifierContributions`.
+- Verifier and issuer legitimacy, so communities can decide which personhood, residency, credential, or witness verifiers they accept without exposing every reviewer.
 - Community list, labeler, and moderation-list reputation where users can compare curation sources without mapping every reviewer.
 - Federated moderation where scoped circles count overlapping contributors once, not once per circle.
 - Privacy-preserving onboarding where an already-trusted circle can vouch for a new account without naming the individual vouchees.

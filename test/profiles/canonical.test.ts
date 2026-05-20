@@ -15,6 +15,7 @@ import {
   canonicalRelaySubject,
   canonicalServiceSubject,
   canonicalSourceSubject,
+  canonicalVerifierSubject,
   canonicalVendorSubject,
   subjectMatchesFormat,
 } from '../../src/profiles/index.js'
@@ -45,6 +46,7 @@ describe('profile subject canonicalisation', () => {
     expect(canonicalNip96Subject('HTTPS://Upload.Example.com/')).toBe('nip96:https://upload.example.com')
     expect(canonicalVendorSubject('Market.Example', 'alice')).toBe('vendor:market.example:alice')
     expect(canonicalSourceSubject('Newsroom_A', 'case-2026-05')).toBe('source:newsroom_a:case-2026-05')
+    expect(canonicalVerifierSubject('Proof-of-Person', 'In_Person', hex.toUpperCase())).toBe(`verifier:proof-of-person:in_person:${hex}`)
   })
 
   it('validates profile subject formats', () => {
@@ -63,6 +65,7 @@ describe('profile subject canonicalisation', () => {
     expect(subjectMatchesFormat('nip96:https://upload.example.com', 'nip96')).toBe(true)
     expect(subjectMatchesFormat('vendor:market.example:alice', 'vendor')).toBe(true)
     expect(subjectMatchesFormat('source:newsroom-a:case-1', 'source')).toBe(true)
+    expect(subjectMatchesFormat(`verifier:proof-of-person:in-person:${hex}`, 'verifier')).toBe(true)
   })
 
   it('rejects ambiguous or malformed subjects', () => {
@@ -78,6 +81,8 @@ describe('profile subject canonicalisation', () => {
     expect(() => canonicalNip96Subject('wss://upload.example.com')).toThrow()
     expect(() => canonicalVendorSubject('market.example', 'bad id')).toThrow()
     expect(() => canonicalSourceSubject('newsroom-a', 'bad id')).toThrow()
+    expect(() => canonicalVerifierSubject('proof of person', 'in-person', hex)).toThrow()
+    expect(() => canonicalVerifierSubject('proof-of-person', 'in-person', 'bad id')).toThrow()
     expect(subjectMatchesFormat('relay:https://relay.example.com', 'relay')).toBe(false)
     expect(subjectMatchesFormat('relay:wss://relay.example.com/', 'relay')).toBe(false)
     expect(subjectMatchesFormat('domain:example..com', 'domain')).toBe(false)
@@ -86,5 +91,6 @@ describe('profile subject canonicalisation', () => {
     expect(subjectMatchesFormat('git:ssh://git.example.com/repo', 'git')).toBe(false)
     expect(subjectMatchesFormat('maintainer:github:bad id', 'maintainer')).toBe(false)
     expect(subjectMatchesFormat('service:blossom:not a host', 'service')).toBe(false)
+    expect(subjectMatchesFormat(`verifier:Proof-of-Person:in-person:${hex}`, 'verifier')).toBe(false)
   })
 })

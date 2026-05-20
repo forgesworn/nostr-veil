@@ -23,6 +23,8 @@ describe('production recipes', () => {
     expect(output).toContain('list-labeler-selection: valid=yes')
     expect(output).toContain('action=prefer-curation-source')
     expect(output).toContain('evidence=list-revision-fetch,sample-review,correction-channel')
+    expect(output).toContain('verifier-legitimacy-gate: valid=yes')
+    expect(output).toContain('action=accept-verifier-for-personhood')
   })
 
   it('keeps every recipe signed and profile-definition clean', { timeout: 30_000 }, () => {
@@ -31,6 +33,7 @@ describe('production recipes', () => {
     expect(output).not.toContain('valid=no')
     expect(output).not.toContain('errors=')
     expect(output).toMatch(/^package-release-gate: .* profileWarnings=0$/m)
+    expect(output).toMatch(/^verifier-legitimacy-gate: .* profileWarnings=0$/m)
     expect(output).toMatch(/^nip05-domain-warning: .* profileWarnings=0$/m)
     expect(output).toMatch(/^list-labeler-selection: .* profileWarnings=0$/m)
   })

@@ -146,6 +146,9 @@ six production-shaped flows:
   provenance, SBOM, and vulnerability-feed checks pass;
 - relay service preference: prefer a relay only when the relay subject, `k`
   namespace, rank, and count-like metric are all policy-valid;
+- verifier legitimacy gate: accept a proof-of-person verifier only when the
+  method-scoped verifier subject, accepted reviewer circle, rank, and
+  corroboration metric pass policy;
 - NIP-05/domain warning: display a provider trust signal without replacing DNS,
   HTTPS, or NIP-05 verification; the recipe models those checks as required
   companion evidence;

@@ -256,6 +256,11 @@ export function canonicalSourceSubject(namespace: string, sourceId: string): str
   return `source:${normaliseSlug(namespace, 'source namespace')}:${trimNoWhitespace(sourceId, 'source id')}`
 }
 
+/** Canonical credential verifier subject: `verifier:credential-class:method:verifier-id`. */
+export function canonicalVerifierSubject(credentialClass: string, method: string, verifierId: string): string {
+  return `verifier:${normaliseSlug(credentialClass, 'credential class')}:${normaliseSlug(method, 'verification method')}:${normaliseSlug(verifierId, 'verifier id')}`
+}
+
 function canonicalNpmPackageSubjectFromSubject(subject: string): string {
   if (!subject.startsWith('npm:')) throw new Error('npm package subject must start with npm:')
   const spec = subject.slice('npm:'.length)
@@ -325,6 +330,15 @@ function canonicalSourceSubjectFromSubject(subject: string): string {
   return canonicalSourceSubject(rest.slice(0, separator), rest.slice(separator + 1))
 }
 
+function canonicalVerifierSubjectFromSubject(subject: string): string {
+  if (!subject.startsWith('verifier:')) throw new Error('verifier subject must start with verifier:')
+  const [, credentialClass, method, verifierId, ...extra] = subject.split(':')
+  if (credentialClass === undefined || method === undefined || verifierId === undefined || extra.length > 0) {
+    throw new Error('verifier subject must be verifier:credential-class:method:verifier-id')
+  }
+  return canonicalVerifierSubject(credentialClass, method, verifierId)
+}
+
 function matchesCanonical(subject: string, canonicalise: (value: string) => string): boolean {
   try {
     return canonicalise(subject) === subject
@@ -364,6 +378,8 @@ export function subjectMatchesFormat(subject: string, format: SubjectFormat): bo
       return matchesCanonical(subject, canonicalServiceSubjectFromSubject)
     case 'vendor':
       return matchesCanonical(subject, canonicalVendorSubjectFromSubject)
+    case 'verifier':
+      return matchesCanonical(subject, canonicalVerifierSubjectFromSubject)
     case 'source':
       return matchesCanonical(subject, canonicalSourceSubjectFromSubject)
   }

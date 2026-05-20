@@ -11,6 +11,7 @@ import { result as relayServiceReputation } from './relay-service-reputation.js'
 import { result as releasePackageMaintainerReputation } from './release-package-maintainer-reputation.js'
 import { result as sourceCorroboration } from './source-corroboration.js'
 import { result as userReputationAbuseReporting } from './user-reputation-abuse-reporting.js'
+import { result as verifierIssuerLegitimacy } from './verifier-issuer-legitimacy.js'
 import { result as vendorMarketplaceSignals } from './vendor-marketplace-signals.js'
 
 export const useCaseResults = [
@@ -23,6 +24,7 @@ export const useCaseResults = [
   nip05DomainServiceProviderTrust,
   listLabelerModerationListReputation,
   releasePackageMaintainerReputation,
+  verifierIssuerLegitimacy,
   vendorMarketplaceSignals,
   federatedModeration,
   grantFundingProposalReview,

@@ -10,6 +10,7 @@ import {
   RELAY_COMMUNITY_ADMISSION_PROFILE,
   RELAY_SERVICE_REPUTATION_PROFILE,
   RELEASE_PACKAGE_MAINTAINER_REPUTATION_PROFILE,
+  VERIFIER_ISSUER_LEGITIMACY_PROFILE,
   type UseCaseProfile,
   canonicalNip05Subject,
   canonicalNpmPackageSubject,
@@ -32,6 +33,7 @@ import { assertion as nip05Assertion } from './use-cases/nip05-domain-service-pr
 import { assertion as packageAssertion } from './use-cases/release-package-maintainer-reputation.js'
 import { assertion as relayAdmissionAssertion } from './use-cases/relay-community-admission.js'
 import { assertion as relayReputationAssertion } from './use-cases/relay-service-reputation.js'
+import { assertion as verifierLegitimacyAssertion } from './use-cases/verifier-issuer-legitimacy.js'
 import { events as moderationEvents } from './use-cases/federated-moderation.js'
 import { keys } from './use-cases/_shared.js'
 
@@ -258,6 +260,36 @@ function relayServicePreference(): RecipeResult {
   }
 }
 
+function verifierLegitimacyGate(): RecipeResult {
+  const profileWarnings = profileDefinitionWarnings(VERIFIER_ISSUER_LEGITIMACY_PROFILE)
+  const policy = createDeploymentPolicy(VERIFIER_ISSUER_LEGITIMACY_PROFILE, {
+    circleManifests: [
+      manifestFor(verifierLegitimacyAssertion, VERIFIER_ISSUER_LEGITIMACY_PROFILE.id, 'Verifier reviewers', 'Proof-of-person verifier legitimacy review'),
+    ],
+    expectedSubject: tagValue(verifierLegitimacyAssertion, 'd'),
+    expectedSubjectTagValue: '0',
+    metricPolicies: {
+      rank: { required: true, min: 0, max: 100, integer: true },
+      reaction_cnt: { required: true, min: 0, integer: true },
+    },
+    rejectUnknownMetrics: true,
+    requireNostrSignature: true,
+  })
+  const result = verifyWithSignedBundle(verifierLegitimacyAssertion, policy)
+  const rank = result.valid ? firstMetric(result.deployment.metrics, 'rank') : 0
+  const corroboration = result.valid ? firstMetric(result.deployment.metrics, 'reaction_cnt') : 0
+
+  return {
+    action: result.valid && rank >= 80 && corroboration >= 2 ? 'accept-verifier-for-personhood' : 'manual-verifier-review',
+    ...recipeDiagnostics(result),
+    kind: describeNip85Kind(VERIFIER_ISSUER_LEGITIMACY_PROFILE.kind),
+    name: 'verifier-legitimacy-gate',
+    companionEvidence: [],
+    profileDefinitionWarnings: profileWarnings,
+    valid: result.valid,
+  }
+}
+
 async function nip05DomainWarning(): Promise<RecipeResult> {
   const profileWarnings = profileDefinitionWarnings(NIP05_DOMAIN_SERVICE_PROVIDER_TRUST_PROFILE)
   const subject = canonicalNip05Subject('alice@example.com')
@@ -408,6 +440,7 @@ function relayAdmissionGate(): RecipeResult {
 export const productionRecipeResults = await Promise.all([
   packageReleaseGate(),
   relayServicePreference(),
+  verifierLegitimacyGate(),
   nip05DomainWarning(),
   listLabelerSelection(),
   federatedModerationReview(),

@@ -55,6 +55,12 @@ const cases = [
     status: 'Supported today',
   },
   {
+    slug: 'verifier-issuer-legitimacy',
+    file: 'verifier-issuer-legitimacy.md',
+    group: 'Infrastructure',
+    status: 'Supported today',
+  },
+  {
     slug: 'list-labeler-moderation-list-reputation',
     file: 'list-labeler-moderation-list-reputation.md',
     group: 'Infrastructure',

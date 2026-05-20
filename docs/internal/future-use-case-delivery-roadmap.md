@@ -43,6 +43,7 @@ to `supported`.
 | Milestone | Status | Exit criteria |
 | --- | --- | --- |
 | Supported expansion hardening | Shipped as second hardening pass | Package, NIP-05/domain, and list/labeler use cases have profile-definition checks, production recipes, documented verifier actions, companion evidence requirements, collector/resolver helpers, and tests proving executable examples do not use undocumented metrics or static pass evidence for off-chain controls. |
+| Verifier and issuer legitimacy | Shipped as supported profile | Communities can score method-scoped verifier subjects such as proof-of-person in-person verifiers, use the signal to decide which issuers or witness services to accept, and still verify each concrete credential artefact separately. |
 | Relay/community admission gate | Shipped as building block | A reference gate verifies a kind 30382 vouch plus a separate challenge, rejects replay and wrong-relay presentations, keeps admission policy outside the proof, and has live relay evidence for the fetched vouch plus signed bundle carrier. |
 | Credential/attestation co-signing profile research | Blocked on profile shape | A credential or attestation event format defines holder binding, presentation, expiry, and revocation before nostr-veil adds helper APIs. |
 | Public promotion review | Not started | A future profile moves to `supported` only after companion protocol tests, production recipe, live relay evidence, and public wording all pass. |
@@ -53,7 +54,9 @@ to `supported`.
 
 Current state: nostr-veil can score a specific credential or attestation event
 with a threshold-backed proof v2 assertion. That is a useful endorsement signal,
-but it is not a full credential system.
+and can separately score method-scoped verifiers or issuers before a community
+accepts credentials from them. That is useful credential governance, but it is
+not a full credential system.
 
 What must exist before promotion:
 

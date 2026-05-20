@@ -38,7 +38,7 @@ const requiredImplementationSections = [
 
 describe('public use-case pages', () => {
   it('publishes a generated detail page for every use-case source', () => {
-    expect(slugs).toHaveLength(14)
+    expect(slugs).toHaveLength(15)
 
     for (const pagePath of detailPagePaths) {
       expect(existsSync(pagePath), pagePath).toBe(true)
@@ -136,8 +136,8 @@ describe('public use-case pages', () => {
     }
 
     expect(report.relay).toBe('wss://relay.trotters.cc')
-    expect(report.summary.useCases).toBe(14)
-    expect(report.summary.passed).toBe(14)
+    expect(report.summary.useCases).toBe(slugs.length)
+    expect(report.summary.passed).toBe(slugs.length)
     expect(Number.isNaN(Date.parse(report.checkedAt))).toBe(false)
 
     for (const slug of slugs) {

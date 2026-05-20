@@ -26,6 +26,7 @@ export type SubjectFormat =
   | 'package-digest'
   | 'service'
   | 'vendor'
+  | 'verifier'
   | 'source'
 
 export interface MetricProfile {
