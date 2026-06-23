@@ -29,6 +29,14 @@
 
 # [0.12.0](https://github.com/forgesworn/nostr-veil/compare/v0.11.0...v0.12.0) (2026-05-16)
 
+## 0.30.0 (2026-06-23)
+
+### Features
+
+- add anonymous group decisions use case
+
+
+
 ## 0.29.0 (2026-05-20)
 
 ### Features
