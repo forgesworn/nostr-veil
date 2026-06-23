@@ -330,6 +330,7 @@ Future profiles:
 
 - Anonymous credential or attestation co-signing, once endorsement event formats define subject, expiry, revocation, and presentation rules.
 - Full anonymous relay or community admission, once credential/session continuity, revocation, and transport privacy semantics are defined.
+- Anonymous group decisions, voting, and petitions: a verifiable one-vote-per-member tally ships as a building block today, with a full profile pending a ballot format and a coercion-resistance (receipt-freeness) decision.
 
 nostr-veil proves that distinct keys from a public trust circle contributed. Trust-circle formation, Sybil policy, revocation, and anonymous access control are separate application-layer decisions.
 

@@ -610,6 +610,52 @@ export const RELAY_COMMUNITY_ADMISSION_PROFILE = profile({
   }),
 })
 
+export const ANONYMOUS_GROUP_DECISIONS_PROFILE = profile({
+  id: 'anonymous-group-decisions',
+  title: 'Anonymous group decisions, voting, and petitions',
+  group: 'Future profiles',
+  status: 'profile-needed',
+  kind: NIP85_KINDS.EVENT,
+  subjectTag: 'e',
+  subjectFormats: ['event'],
+  proofVersion: 'v2',
+  minDistinctSigners: 3,
+  maxAgeSeconds: 300,
+  metrics: [
+    {
+      name: 'rank',
+      meaning: 'Approval tally for the motion: each ballot contributes 1 (aye) or 0, sum-aggregated into the count of aye ballots. Bounded to 0-100 by rank validation, so suited to small electorates; petitions count distinct signatories instead.',
+      direction: 'count',
+    },
+  ],
+  failurePolicy: [
+    ...commonFailurePolicy,
+    'Treat this as an anonymous tally building block, not a coercion-resistant or receipt-free election.',
+  ],
+  ...safety({
+    proofClaims: [
+      'A threshold of distinct members of the accepted decision circle cast ballots about the same motion, and the published tally matches the signed ballots.',
+    ],
+    proofLimitations: [
+      'It is not receipt-free or coercion-resistant: a voter can demonstrate how they voted.',
+      'Ballot values are public, only unlinked from identity, so a small or lopsided circle can leak the distribution.',
+    ],
+    recommendedActions: [
+      'Use the tally as an anonymous decision or petition signal where coercion is out of scope, and keep eligibility, quorum, and dispute handling outside the proof.',
+    ],
+    requiredControls: [
+      {
+        risk: 'A coordinator-free tally can be mistaken for a coercion-resistant secret ballot.',
+        control: 'For coercion-sensitive votes, add a receipt-free companion layer or a coordinator-based scheme; do not use this profile alone for binding secret ballots.',
+      },
+      {
+        risk: 'Weighted or cumulative multi-vote rules are not supported.',
+        control: 'Keep one ballot per member; defer cumulative or bounded multi-vote rules to a k-linkable ring-signature construction.',
+      },
+    ],
+  }),
+})
+
 export const USE_CASE_PROFILES = [
   USER_REPUTATION_ABUSE_REPORTING_PROFILE,
   PRIVACY_PRESERVING_ONBOARDING_PROFILE,
@@ -626,6 +672,7 @@ export const USE_CASE_PROFILES = [
   GRANT_FUNDING_PROPOSAL_REVIEW_PROFILE,
   ANONYMOUS_CREDENTIAL_ATTESTATION_COSIGNING_PROFILE,
   RELAY_COMMUNITY_ADMISSION_PROFILE,
+  ANONYMOUS_GROUP_DECISIONS_PROFILE,
 ] as const satisfies readonly UseCaseProfile[]
 
 export const USE_CASE_PROFILE_BY_ID = Object.freeze(

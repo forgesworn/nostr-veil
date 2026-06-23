@@ -16,3 +16,6 @@ serviceAccountKey.json
 .DS_Store
 .idea/
 docs/record/
+
+# Tooling artefacts
+.playwright-mcp/

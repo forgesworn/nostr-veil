@@ -3,11 +3,11 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Privacy-preserving onboarding | nostr-veil use cases</title>
-  <meta name="description" content="Use this when an existing circle wants to vouch that a new account passed an admission or onboarding policy without naming which members vouched." />
+  <title>Anonymous group decisions, voting, and petitions | nostr-veil use cases</title>
+  <meta name="description" content="A fixed, known circle can make or signal a decision — a vote, a board or committee resolution, or a petition — and publish a verifiable, one-vote-per-member tally without recording who voted which way. Every other page in this atlas scores a subject; this profile tallies a decision with the same machinery. The LSAG primitive nostr-veil builds on gives a duplicate-resistant, unlinkable ballot — a strong foundation for verifiable group decisions — so the proof carries an anonymous threshold tally. The workflow around it (ballot format and coercion-resistance) and the range limits below are what keep this a future profile." />
   <meta property="og:type" content="article" />
-  <meta property="og:title" content="Privacy-preserving onboarding" />
-  <meta property="og:description" content="Use this when an existing circle wants to vouch that a new account passed an admission or onboarding policy without naming which members vouched." />
+  <meta property="og:title" content="Anonymous group decisions, voting, and petitions" />
+  <meta property="og:description" content="A fixed, known circle can make or signal a decision — a vote, a board or committee resolution, or a petition — and publish a verifiable, one-vote-per-member tally without recording who voted which way. Every other page in this atlas scores a subject; this profile tallies a decision with the same machinery. The LSAG primitive nostr-veil builds on gives a duplicate-resistant, unlinkable ballot — a strong foundation for verifiable group decisions — so the proof carries an anonymous threshold tally. The workflow around it (ballot format and coercion-resistance) and the range limits below are what keep this a future profile." />
   <meta property="og:image" content="https://raw.githubusercontent.com/forgesworn/nostr-veil/main/social-preview.png" />
   <meta name="twitter:card" content="summary_large_image" />
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='9' fill='none' stroke='%2340c7aa' stroke-width='3'/></svg>" />
@@ -643,16 +643,16 @@
     <section class="hero">
       <div class="wrap hero-inner">
         <div>
-          <span class="eyebrow">People</span>
-          <h1>Privacy-preserving onboarding</h1>
-          <p>Use this when an existing circle wants to vouch that a new account passed an admission or onboarding policy without naming which members vouched.</p>
+          <span class="eyebrow">Future profiles</span>
+          <h1>Anonymous group decisions, voting, and petitions</h1>
+          <p>A fixed, known circle can make or signal a decision — a vote, a board or committee resolution, or a petition — and publish a verifiable, one-vote-per-member tally without recording who voted which way. Every other page in this atlas scores a subject; this profile tallies a decision with the same machinery. The LSAG primitive nostr-veil builds on gives a duplicate-resistant, unlinkable ballot — a strong foundation for verifiable group decisions — so the proof carries an anonymous threshold tally. The workflow around it (ballot format and coercion-resistance) and the range limits below are what keep this a future profile.</p>
           <div class="button-row">
             <a class="button primary" href="#worked-example">Jump to worked example</a>
             <a class="button" href="../">Back to atlas</a>
           </div>
         </div>
         <aside class="status-panel" aria-label="Use-case status">
-          <span class="status-pill today">Supported today</span>
+          <span class="status-pill today">Tally supported</span>
           <dl>
             <div>
               <dt>Includes</dt>
@@ -660,7 +660,7 @@
             </div>
             <div>
               <dt>Profile</dt>
-              <dd>People</dd>
+              <dd>Future profiles</dd>
             </div>
             <div>
               <dt>Pages</dt>
@@ -674,7 +674,7 @@
     <div class="wrap layout">
       <nav class="side-nav" aria-label="All use cases">
         <a href="../user-reputation-abuse-reporting/">User reputation and abuse reporting</a>
-<a href="../privacy-preserving-onboarding/" aria-current="page">Privacy-preserving onboarding</a>
+<a href="../privacy-preserving-onboarding/">Privacy-preserving onboarding</a>
 <a href="../source-corroboration/">Source corroboration</a>
 <a href="../event-claim-verification/">Event and claim verification</a>
 <a href="../article-research-review/">Article, research, and long-form review</a>
@@ -688,87 +688,93 @@
 <a href="../grant-funding-proposal-review/">Grant, funding, and proposal review</a>
 <a href="../anonymous-credential-attestation-cosigning/">Anonymous credential or attestation co-signing</a>
 <a href="../relay-community-admission/">Relay or community admission</a>
-<a href="../anonymous-group-decisions/">Anonymous group decisions, voting, and petitions</a>
+<a href="../anonymous-group-decisions/" aria-current="page">Anonymous group decisions, voting, and petitions</a>
       </nav>
       <article>
-        <p>Use this when an existing circle wants to vouch that a new account passed an admission or onboarding policy without naming which members vouched.</p>
+        <p>A fixed, known circle can make or signal a decision — a vote, a board or committee resolution, or a petition — and publish a verifiable, one-vote-per-member tally without recording who voted which way. Every other page in this atlas scores a subject; this profile tallies a decision with the same machinery. The LSAG primitive nostr-veil builds on gives a duplicate-resistant, unlinkable ballot — a strong foundation for verifiable group decisions — so the proof carries an anonymous threshold tally. The workflow around it (ballot format and coercion-resistance) and the range limits below are what keep this a future profile.</p>
 <h2>Fit</h2>
-<ul><li>Status: supported today as a vouch assertion.</li><li>NIP-85 kind: 30382 user assertion.</li><li>Subject: candidate account pubkey.</li><li>Helpers: <code>contributeAssertion</code>, <code>aggregateContributions</code>.</li><li>Proof version: v2 recommended.</li><li>Useful metrics: <code>rank</code> as admission confidence or community standing.</li></ul>
-<p>This is not anonymous gated access by itself. It creates a verifiable vouch event that another client, relay, or community can use as an input to policy.</p>
+<ul><li>Status: future profile, with a supported tally building block today.</li><li>NIP-85 kind: 30383 for a posted motion event. Use 30384 for a standing or addressable motion, or 30385 for an app-private ballot identifier.</li><li>Subject: the motion, proposal, or petition id. Never a voter.</li><li>Helpers: <code>contributeEventAssertion</code>, then <code>aggregateEventContributions</code> with <code>{ aggregate: 'sum' }</code>, then <code>verifyProof</code>. Use <code>verifyFederation</code> to count distinct voters across sub-circles that share a <code>scope</code>.</li><li>Proof version: v2, so the ballot is bound to the motion kind and id and cannot be replayed onto another motion.</li><li>Useful metric: <code>rank</code> as the ballot — 1 for aye, 0 against, summed into the count of ayes. Because <code>rank</code> is validated as 0–100, the aye-count must stay within 100, so the sum tally suits boards, committees, and panels (the small-electorate boardroom setting) rather than mass ballots.</li><li>For a petition or approval count, read <code>distinctSigners</code> — the number of distinct signatories, bounded only by the ring size — instead of a summed <code>rank</code>, so the count is not limited to the 0–100 range. Multi-choice and ranked ballots are not supported yet; see *What a full profile still needs*.</li></ul>
 <h2>Subject design</h2>
-<ul><li>Use the candidate pubkey as the subject when the vouch should be portable across clients or communities.</li><li>Put the candidate pubkey in both <code>d</code> and <code>p</code>; proof v2 binds the vouch to that candidate, not to a future session or account-creation flow.</li><li>Keep onboarding vouches separate from later behaviour scores. A good admission signal should not permanently override moderation outcomes.</li><li>If the candidate pubkey itself must stay private, this profile is not enough; use the future admission profile with a separate presentation handshake.</li></ul>
+<ul><li>Identify the decision by a stable id: an event id for a posted motion, a NIP-33 address for a standing motion, or an app-private identifier for an internal ballot.</li><li>Use one subject, and therefore one election id, per decision. Reusing a subject across two votes would let a ballot from the first count in the second.</li><li>Keep voter identity and ballot-secrecy material out of the subject. The subject is public once published.</li><li>Keep the motion text, eligibility list, and quorum rule in the circle's governance record, not inside the proof.</li></ul>
 <h2>What to publish</h2>
-<ul><li>A kind 30382 assertion created with <code>aggregateContributions</code>.</li><li>A <code>rank</code> value with a clear meaning such as admission confidence, community fit, or verified-sponsor confidence.</li><li>Proof v2 tags and a public policy for accepted circles, minimum threshold, expiry, revocation, and re-review.</li><li>No private application notes or onboarding evidence in the assertion content; keep those in the community's internal workflow.</li></ul>
+<ul><li>A NIP-85 event for the motion whose metric tag is the tally, with <code>veil-agg</code> recording <code>sum</code>.</li><li><code>veil-ring</code> for the electorate, <code>veil-threshold</code> for signers against circle size (turnout; the proof does not encode a quorum), the proof v2 tags, and one <code>veil-sig</code> per ballot.</li><li>The aggregate only. Do not publish per-voter ballots tied to identities; the ring proof already binds the count to distinct members without naming them.</li></ul>
 <h2>Implementation recipe</h2>
-<ol><li>Define the admission policy and the threshold needed before a vouch is useful.</li><li>Publish a kind 30382 assertion about the candidate pubkey with proof v2.</li><li>Verify the expected circle, threshold, candidate subject, and score before applying community policy.</li><li>Add expiry and revocation policy so old vouches do not become permanent social credentials.</li><li>For anonymous gated access, pair this with the future admission handshake described in <a href="../relay-community-admission/">relay or community admission</a>.</li></ol>
+<ol><li>Agree the electorate and admit its members into a trust circle.</li><li>Identify the motion by a stable subject id.</li><li>Collect one anonymous ballot per member: <code>{ rank: 1 }</code> for aye, <code>{ rank: 0 }</code> against.</li><li>Aggregate with <code>{ aggregate: 'sum' }</code> so the published <code>rank</code> tag is the count of ayes.</li><li>Sign and publish the aggregate as a standard Nostr event.</li><li>Verify with <code>verifyProof(event, { requireProofVersion: 'v2' })</code>; read <code>distinctSigners</code> as turnout and the <code>rank</code> tag as ayes.</li></ol>
 <h2 id="worked-example">Worked example</h2>
-<div class="code-sample" data-example-slug="privacy-preserving-onboarding">
+<div class="code-sample" data-example-slug="anonymous-group-decisions">
   <div class="code-sample-toolbar">
-    <span class="code-sample-path">examples/use-cases/privacy-preserving-onboarding.ts</span>
+    <span class="code-sample-path">examples/use-cases/anonymous-group-decisions.ts</span>
     <div class="code-sample-actions">
-      <a href="https://github.com/forgesworn/nostr-veil/blob/main/examples/use-cases/privacy-preserving-onboarding.ts" target="_blank" rel="noreferrer">Runnable source</a>
+      <a href="https://github.com/forgesworn/nostr-veil/blob/main/examples/use-cases/anonymous-group-decisions.ts" target="_blank" rel="noreferrer">Runnable source</a>
       <a href="https://github.com/forgesworn/nostr-veil/blob/main/examples/use-cases/_shared.ts" target="_blank" rel="noreferrer">Shared harness</a>
       <button class="code-copy" type="button" data-copy-code aria-label="Copy example source">Copy</button>
     </div>
   </div>
   <pre><code class="language-ts"><span class="tok-keyword">import</span> {
   NIP85_KINDS,
-  aggregateContributions,
-  contributeAssertion,
+  aggregateEventContributions,
+  contributeEventAssertion,
   createTrustCircle,
 } <span class="tok-keyword">from</span> <span class="tok-string">'nostr-veil'</span>
 <span class="tok-keyword">import</span> {
   defaultMembers,
   memberIndex,
   proofVersion,
-  subjectPubkey,
   verifyUseCaseAssertion,
   withCreatedAt,
 } <span class="tok-keyword">from</span> <span class="tok-string">'./_shared.js'</span>
 
-<span class="tok-keyword">const</span> slug = <span class="tok-string">'privacy-preserving-onboarding'</span>
-<span class="tok-keyword">const</span> candidatePubkey = subjectPubkey
+<span class="tok-keyword">const</span> slug = <span class="tok-string">'anonymous-group-decisions'</span>
+
+<span class="tok-comment">// A motion put to a known three-member committee. Its event id is the subject</span>
+<span class="tok-comment">// every ballot is bound to. Each member casts one ballot: { rank: 1 } for aye,</span>
+<span class="tok-comment">// { rank: 0 } against. Summing the rank metric yields the count of ayes — an</span>
+<span class="tok-comment">// anonymous, verifiable tally where the key image keeps it to one vote each and</span>
+<span class="tok-comment">// no party can link a ballot to its signer. The summed rank is bounded 0-100, so</span>
+<span class="tok-comment">// this suits small committees; petitions count distinct signers instead.</span>
+<span class="tok-keyword">const</span> motionEventId = <span class="tok-string">'cd'</span>.<span class="tok-fn">repeat</span>(<span class="tok-number">32</span>)
 <span class="tok-keyword">const</span> circle = <span class="tok-fn">createTrustCircle</span>(defaultMembers.<span class="tok-fn">map</span>(member =&gt; member.pub))
 
+<span class="tok-keyword">const</span> ballots = [<span class="tok-number">1</span>, <span class="tok-number">1</span>, <span class="tok-number">0</span>] <span class="tok-comment">// two ayes, one against — full turnout of the committee</span>
 <span class="tok-keyword">const</span> contributions = defaultMembers.<span class="tok-fn">map</span>((member, index) =&gt;
-  <span class="tok-fn">contributeAssertion</span>(
+  <span class="tok-fn">contributeEventAssertion</span>(
     circle,
-    candidatePubkey,
-    { rank: <span class="tok-number">88</span> + index },
+    motionEventId,
+    { rank: ballots[index] },
     member.priv,
     <span class="tok-fn">memberIndex</span>(circle, member.pub),
     { proofVersion },
   ),
 )
 
-<span class="tok-keyword">export</span> <span class="tok-keyword">const</span> assertion = <span class="tok-fn">withCreatedAt</span>(<span class="tok-fn">aggregateContributions</span>(
+<span class="tok-keyword">export</span> <span class="tok-keyword">const</span> assertion = <span class="tok-fn">withCreatedAt</span>(<span class="tok-fn">aggregateEventContributions</span>(
   circle,
-  candidatePubkey,
+  motionEventId,
   contributions,
-  { proofVersion },
+  { proofVersion, aggregate: <span class="tok-string">'sum'</span> },
 ))
 
 <span class="tok-keyword">export</span> <span class="tok-keyword">const</span> result = <span class="tok-fn">verifyUseCaseAssertion</span>(slug, assertion, {
-  kind: NIP85_KINDS.USER,
-  subject: candidatePubkey,
-  subjectTag: <span class="tok-string">'p'</span>,
+  kind: NIP85_KINDS.EVENT,
+  subject: motionEventId,
+  subjectTag: <span class="tok-string">'e'</span>,
   circleId: circle.circleId,
   minDistinctSigners: <span class="tok-number">3</span>,
   freshAfter: assertion.created_at - <span class="tok-number">300</span>,
 })</code></pre>
 </div>
 <h2>What to verify</h2>
-<ul><li>Strict NIP-85 syntax and a valid proof v2.</li><li>Kind 30382, with <code>d</code> and <code>p</code> equal to the candidate pubkey being considered.</li><li>The <code>veil-ring</code> belongs to an accepted admission circle and <code>proof.distinctSigners</code> meets the community threshold.</li><li>The <code>rank</code> meaning matches the community's onboarding policy.</li><li>The assertion is not expired or superseded by a revocation, ban, or later re-review.</li></ul>
-<h2>What this proves</h2>
-<ul><li>Enough distinct circle members vouched for the candidate.</li><li>The candidate subject is bound to the proof.</li><li>No individual vouching member is identified.</li></ul>
+<ul><li>Strict syntax and a valid proof v2.</li><li>The kind matches the motion route, <code>d</code> equals the exact motion id, and the <code>e</code> subject hint matches.</li><li><code>veil-agg</code> is the agreed tally rule and the <code>rank</code> tag matches the recomputed sum of the signed ballots.</li><li>The ring is the accepted electorate, and <code>veil-threshold</code> meets the quorum the governance policy requires.</li><li>The motion id is not reused from an earlier decision.</li></ul>
+<h2>What this proves today</h2>
+<ul><li>Distinct members of the published electorate cast ballots, each unlinked to identity.</li><li>The published tally matches the signed ballots, and turnout (<code>distinctSigners</code>) is provable.</li><li>No party, including whoever ran the tally, can link a ballot to its signer — there is no escrow or opening authority. Ballot values themselves are public inside the proof, so what is hidden is who cast which ballot, not the ballot.</li><li>Read the <code>rank</code> tag only alongside <code>distinctSigners</code> and circle size: ayes are <code>rank</code>, against votes are <code>distinctSigners − rank</code>, and abstentions are circle size − <code>distinctSigners</code>. The <code>rank</code> tag alone cannot distinguish an against vote from an abstention.</li></ul>
 <h2>What not to claim</h2>
-<ul><li>Do not claim the user was admitted anonymously. The candidate pubkey is public in the assertion.</li><li>Do not claim the assertion grants relay access by itself. A relay or community still needs policy code that accepts or rejects the verified vouch.</li><li>Do not claim a vouch predicts future behaviour. It is an admission signal at a point in time.</li></ul>
+<ul><li>Do not claim it is receipt-free or coercion-resistant. A voter can demonstrate how they voted, so it is unsuitable where vote-buying or coercion is in scope.</li><li>Do not claim individual ballots are hidden. Ballot values are public but anonymous; a small or lopsided electorate can leak the distribution.</li><li>Do not claim it supports weighted or cumulative multi-vote rules. One ballot per member is enforced.</li><li>Do not claim the proof establishes eligibility, quorum legitimacy, or that the motion is well-formed.</li></ul>
+<h2>What a full profile still needs</h2>
+<ul><li>A ballot and motion event format: option encoding, abstentions, tie-breaks, and ranked or score layout across metric keys.</li><li>A coercion-resistance decision, and the companion protocol or coordinator that provides receipt-freeness where it is required.</li><li>Failure handling for replayed, wrong-motion, and late ballots, and for quorum failure.</li><li>A canonical motion-subject helper and accepted-circle policy for the electorate.</li></ul>
 <h2>Failure handling</h2>
-<ul><li>Reject vouches from unknown circles, below-threshold circles, expired assertions, or assertions about the wrong pubkey.</li><li>Expire onboarding vouches by default and require re-review for sensitive communities.</li><li>Publish a revocation or updated assertion when a sponsor withdraws support or the candidate later violates policy.</li><li>Fall back to manual review when independent circles disagree.</li></ul>
+<ul><li>Reject ballots whose motion id, kind, electorate ring, aggregate rule, or proof version does not match the decision policy.</li><li>Reject a tally whose <code>rank</code> tag does not match the recomputed sum, and a turnout below the required quorum.</li><li>Treat a missing coercion-resistance control as a profile limitation to disclose for any decision where coercion is plausible.</li><li>Publish a fresh tally for re-votes or corrected motions instead of mutating an existing decision event.</li></ul>
 <h2>Operational requirements</h2>
-<div class="table-wrap"><table><thead><tr><th>Risk to handle</th><th>Required control</th></tr></thead><tbody><tr><td>The assertion does not admit the user to a relay by itself.</td><td>Implement relay or community policy that checks the assertion and then grants access.</td></tr><tr><td>The candidate pubkey is visible.</td><td>Use this for portable vouching today. For private membership or unlinkable entry, add a separate anonymous admission protocol.</td></tr><tr><td>The proof does not prevent later misbehaviour.</td><td>Add expiry, re-review, revocation, moderation policy, and post-admission enforcement.</td></tr><tr><td>A single circle may be captured or too local.</td><td>Require multiple independent circles or a scoped federation for higher-risk communities.</td></tr></tbody></table></div>
-<h2>Policy choices</h2>
-<ul><li>What threshold is enough to join?</li><li>Should onboarding vouches expire?</li><li>Can a vouch be revoked later?</li><li>Does the candidate need multiple independent circles?</li></ul>
+<div class="table-wrap"><table><thead><tr><th>Risk to handle</th><th>Required control</th></tr></thead><tbody><tr><td>The tally is not receipt-free or coercion-resistant.</td><td>For coercion-sensitive decisions, add a receipt-free companion layer or a coordinator-based scheme; do not use this profile alone for binding secret ballots.</td></tr><tr><td>Ballot values are public, only anonymous.</td><td>A small or lopsided electorate can leak the ballot distribution; size the electorate to the risk and publish only the aggregate where the profile allows.</td></tr><tr><td>The <code>rank</code> sum tally is capped at 100.</td><td>The aye-count rides on the 0–100 <code>rank</code> metric, so an event with more than 100 ayes fails NIP-85 validation. Keep the electorate's aye-count within 100 (boards, committees, panels); for larger approval counts read <code>distinctSigners</code> instead of a summed <code>rank</code>.</td></tr><tr><td>A scoped petition reveals cross-circle overlap.</td><td>Use a <code>scope</code> only when federated counting across sub-circles is worth exposing that one signatory appears in several of them; omit it for petition circles where overlap must stay hidden.</td></tr><tr><td>A ballot could be replayed onto another motion.</td><td>Require proof v2, bind kind and motion id, and use one election id per decision.</td></tr><tr><td>Weighted or cumulative voting is not supported.</td><td>Keep one ballot per member; defer cumulative rules to a k-linkable ring-signature construction.</td></tr><tr><td>Eligibility and quorum are governance policy.</td><td>Publish electorate admission, quorum, and tally rules, and verify <code>veil-threshold</code> against them.</td></tr></tbody></table></div>
         <h2>NIP-85 kind reference</h2>
 <p>NIP-85 defines the assertion kind by the subject being scored. The kind number is part of the proof v2 context, so deployments should verify both the number and the subject hint tag.</p>
 <div class="kind-reference">
@@ -830,7 +836,7 @@
     <li class="pass"><span aria-hidden="true"></span>Deployment profile verifier passes</li>
   </ul>
   <div class="relay-event-ids">
-    <code title="e9e6b5d1ea39124ef887fa6c00ac29dd7ce8e5a5fc9794f2d3d41c6a02d16d53">e9e6b5d1ea39...02d16d53</code>
+    <code title="453f869b78d81f96a2b55b739e3ff888e17f4b52ea3f6686d9c27ba4a4182a54">453f869b78d8...a4182a54</code>
   </div>
   <p class="relay-command">Run the same check with <code>npm run test:use-cases:relay -- --write docs/use-case-relay-checks.json</code>.</p>
 </div>
@@ -881,13 +887,13 @@
 <p>Use <code>validateUseCaseProfileDefinition()</code> for custom profiles, then <code>verifyProductionDeployment()</code> with trusted bundle publishers, signed relay events, accepted circle manifests, expected subject, freshness, and threshold policy so these checks are not left to application glue. For application UI and audit logs, use <code>verifyProductionDeploymentReport()</code> or <code>createProductionDecisionReport()</code> so failures include issue codes, remediation text, a recommended action, pass/fail/not-checked status for the controls, and the profile's <code>proofClaims</code>, <code>proofLimitations</code>, <code>requiredControls</code>, and <code>recommendedActions</code>.</p>
         <h2>Next examples</h2>
         <div class="next-grid">
-          <a class="next-card" href="../user-reputation-abuse-reporting/">
+          <a class="next-card" href="../relay-community-admission/">
             <span>Previous</span>
-            <strong>User reputation and abuse reporting</strong>
+            <strong>Relay or community admission</strong>
           </a>
-          <a class="next-card" href="../source-corroboration/">
+          <a class="next-card" href="../user-reputation-abuse-reporting/">
             <span>Next</span>
-            <strong>Source corroboration</strong>
+            <strong>User reputation and abuse reporting</strong>
           </a>
         </div>
       </article>

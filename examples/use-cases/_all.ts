@@ -1,4 +1,5 @@
 import { result as anonymousCredentialAttestationCosigning } from './anonymous-credential-attestation-cosigning.js'
+import { result as anonymousGroupDecisions } from './anonymous-group-decisions.js'
 import { result as articleResearchReview } from './article-research-review.js'
 import { result as eventClaimVerification } from './event-claim-verification.js'
 import { result as federatedModeration } from './federated-moderation.js'
@@ -30,4 +31,5 @@ export const useCaseResults = [
   grantFundingProposalReview,
   anonymousCredentialAttestationCosigning,
   relayCommunityAdmission,
+  anonymousGroupDecisions,
 ]

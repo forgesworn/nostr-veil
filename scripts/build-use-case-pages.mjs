@@ -102,6 +102,12 @@ const cases = [
     group: 'Future profiles',
     status: 'Gate supported',
   },
+  {
+    slug: 'anonymous-group-decisions',
+    file: 'anonymous-group-decisions.md',
+    group: 'Future profiles',
+    status: 'Tally supported',
+  },
 ]
 
 const caseByDoc = new Map(cases.map((useCase) => [useCase.file, useCase]))

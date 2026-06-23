@@ -46,6 +46,8 @@ to `supported`.
 | Verifier and issuer legitimacy | Shipped as supported profile | Communities can score method-scoped verifier subjects such as proof-of-person in-person verifiers, use the signal to decide which issuers or witness services to accept, and still verify each concrete credential artefact separately. |
 | Relay/community admission gate | Shipped as building block | A reference gate verifies a kind 30382 vouch plus a separate challenge, rejects replay and wrong-relay presentations, keeps admission policy outside the proof, and has live relay evidence for the fetched vouch plus signed bundle carrier. |
 | Credential/attestation co-signing profile research | Blocked on profile shape | A credential or attestation event format defines holder binding, presentation, expiry, and revocation before nostr-veil adds helper APIs. |
+| Anonymous group decisions / voting profile research | Shipped as building block; full profile pending | The one-vote-per-member tally ships as a public atlas building block. A ballot/motion format, a coercion-resistance decision, and failure tests for replayed, wrong-motion, and late ballots are still needed before it is promoted from `profile-needed` to `supported`. See the worked page [anonymous-group-decisions.md](../use-case-pages/anonymous-group-decisions.md). |
+| Healthcare clinician peer-rating vertical research | Candidate; demand evidenced | The medico-legal due-process model is resolved (never-de-anonymising vs auditable disclosure) and circle enrolment is defined before any public healthcare positioning. |
 | Public promotion review | Not started | A future profile moves to `supported` only after companion protocol tests, production recipe, live relay evidence, and public wording all pass. |
 
 ## Candidate roadmap
@@ -202,6 +204,72 @@ Public positioning:
   service.
 - Do not imply one community's list reputation is universal or politically
   neutral.
+
+### Anonymous group decisions, voting, and petitions
+
+Current state: a NEW pattern dimension, not a new subject. Every shipped use case
+scores a subject; the same circle + LSAG + key-image machinery also tallies a
+*decision*. The one-vote-per-member tally already works: `{ aggregate: 'sum' }`
+over a `rank` ballot via `aggregateEventContributions`, with duplicate key images
+rejected and `verifyProof` reporting `distinctSigners` as turnout. The summed
+`rank` is validated as 0–100, so the sum tally is bounded to small electorates
+(≤100 ayes); petitions instead count distinct signatories with `distinctSigners`,
+bounded only by the ring size. Multi-choice and ranked/score (Borda) ballots do
+NOT work yet — custom per-option metric keys fail strict validation, and bounded
+multi-vote needs a k-LRS construction. The worked page is at
+[anonymous-group-decisions.md](../use-case-pages/anonymous-group-decisions.md).
+
+What must exist before promotion:
+
+- A ballot/motion event format: option encoding, abstentions, tie-breaks, ranked
+  and score layout across metric keys.
+- A coercion-resistance decision. LSAG alone is NOT receipt-free — a voter can
+  prove how they voted — so decide which target decisions need receipt-freeness
+  and which companion protocol or coordinator (e.g. MACI-style) provides it.
+- Failure handling for replayed, wrong-motion, and late ballots, plus quorum
+  failure, all failing closed.
+- A worked example, adversarial tests, live relay evidence, a `USE_CASE_PROFILES`
+  entry, and a canonical motion-subject helper.
+
+Likely nostr-veil work:
+
+- Keep the NIP-85 aggregate event as the tally carrier; no new event shape.
+- Add a ballot-encoding helper and a motion-subject canonicaliser only after the
+  ballot format is fixed.
+- Document the coercion-resistance boundary prominently rather than papering over
+  it.
+
+Do not claim publicly yet:
+
+- That nostr-veil is a voting system, or that ballots are secret (values are
+  public-but-anonymous; small or lopsided electorates leak the distribution).
+- That it is receipt-free or coercion-resistant.
+- That it supports weighted or cumulative multi-vote rules. Those need a
+  k-linkable ring signature (k-LRS, IACR 2025/243) construction the current
+  `@forgesworn/ring-sig` primitive does not implement — the single highest-
+  leverage build/no-build question for this candidate.
+
+### Healthcare clinician peer-rating (FPPE)
+
+Current state: the one new VERTICAL the 2026-06-23 research surfaced with hard,
+current primary-source demand. Hospital Focused Professional Practice Evaluation
+(FPPE) anonymous reporting is documented as "weaponised" because nobody can tell
+many distinct reviewers from one recurring accuser ("there is no numerator or
+denominator"; Moore et al., Cureus 2025). A verifiable count of N distinct,
+linkable, one-vote-per-member contributors is exactly the missing signal.
+
+What must be resolved before any public healthcare positioning:
+
+- The medico-legal model: peer-review privilege and due-process rights of the
+  accused may DEMAND auditable de-anonymisation — the opposite of nostr-veil's
+  never-de-anonymising guarantee. The surveyed surgeons themselves leaned toward
+  removing anonymity for accountability, so the "accountable anonymity" fit is an
+  analyst inference from a documented failure, not a recommendation in the source.
+- Circle enrolment and key distribution: who curates the credentialled-peer
+  circle, and how that survives HIPAA and hospital governance.
+
+Do not claim publicly yet: any healthcare positioning, until the due-process and
+enrolment models are resolved. This is vertical research, not a shipped profile.
 
 ## Working order
 

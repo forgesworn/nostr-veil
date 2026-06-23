@@ -196,6 +196,7 @@ security boundary, and policy choices for one use case:
 | Grant, funding, and proposal review | Supported today | [grant, funding, and proposal review](./use-case-pages/grant-funding-proposal-review.md) |
 | Anonymous credential or attestation co-signing | Future profile | [anonymous credential co-signing](./use-case-pages/anonymous-credential-attestation-cosigning.md) |
 | Relay or community admission | Supported admission gate; full anonymous profile future | [relay or community admission](./use-case-pages/relay-community-admission.md) |
+| Anonymous group decisions, voting, and petitions | Future profile; supported tally building block today | [anonymous group decisions](./use-case-pages/anonymous-group-decisions.md) |
 
 The runnable cross-check for these shapes is
 [`examples/use-cases.ts`](../examples/use-cases.ts).
@@ -466,6 +467,28 @@ continuity and revocation must be defined, and the transport must avoid leaking
 equivalent metadata. Until then, publish a threshold-backed vouch assertion,
 verify the admission challenge, and let the relay or community apply its
 ordinary admission policy.
+
+### Anonymous group decisions, voting, and petitions
+
+Every other use case here scores a subject. The same circle, LSAG, and key-image
+machinery also tallies a *decision*: a vote, a board or committee resolution, or
+a petition. Today, a circle can already produce a verifiable, one-vote-per-member
+tally — `{ aggregate: 'sum' }` over a `rank` ballot via
+`aggregateEventContributions`, with duplicate key images rejected and
+`verifyProof` reporting `distinctSigners` as turnout. The summed `rank` is
+validated as 0–100, so the tally suits small electorates (boards, committees,
+panels); a petition instead counts distinct signatories with `distinctSigners`,
+bounded only by the ring size.
+
+This stays a future profile because a binding voting workflow needs more than the
+tally: a defined ballot/motion format, a coercion-resistance decision (LSAG alone
+is not receipt-free — a voter can prove how they voted, so pair it with a
+receipt-free companion protocol where that matters), and failure handling for
+replayed, wrong-motion, or late ballots. Multi-choice, weighted, and ranked or
+score (Borda) ballots are not supported yet: custom per-option metric keys fail
+strict validation, and bounded multi-vote rules would need a k-linkable ring
+signature (k-LRS) construction the current primitive does not implement. See
+[anonymous group decisions](./use-case-pages/anonymous-group-decisions.md).
 
 ## Recommended defaults
 

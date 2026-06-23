@@ -119,10 +119,15 @@ admission helpers as a separate challenge/presentation companion. The live
 admission-gate example publishes that kind 30382 vouch plus a separate NIP-78
 kind 30078 deployment-bundle carrier to a relay, fetches both back, and verifies
 the fetched material with `verifyAdmissionRequest()`. Kind 30078 is only a
-transport wrapper, not a NIP-85 assertion. Credential co-signing and fully
+transport wrapper, not a NIP-85 assertion. For anonymous group decisions, voting,
+and petitions, aggregate a `rank` ballot with `{ aggregate: 'sum' }` over
+`aggregateEventContributions` for a verifiable one-vote-per-member tally; the
+summed `rank` is bounded to 0-100, so it suits small electorates (boards,
+committees, panels), while a petition counts distinct signatories with
+`distinctSigners`. Credential co-signing, anonymous group voting, and fully
 anonymous gated access remain future profiles: nostr-veil can provide the
-threshold proof, but those flows need separate credential, session, revocation,
-and transport rules.
+threshold proof, but those flows need separate credential, ballot-format,
+coercion-resistance, session, revocation, and transport rules.
 
 Use-case pages are implementation profiles. Each page should identify the
 subject shape, helper, metric meaning, proof version, verifier action, proof
