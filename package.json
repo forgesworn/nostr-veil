@@ -78,7 +78,7 @@
   },
   "funding": {
     "type": "lightning",
-    "url": "lightning:thedonkey@strike.me"
+    "url": "lightning:profusemeat89@walletofsatoshi.com"
   },
   "engines": {
     "node": ">=20"
