@@ -152,7 +152,7 @@ The resulting `assertion` is a plain `EventTemplate` you sign and publish like a
 | `aggregateEventContributions(circle, eventId, contributions, options?)` | Aggregate into a kind 30383 event assertion with `d`/`e` tags |
 | `aggregateAddressableContributions(circle, address, contributions, options?)` | Aggregate into a kind 30384 addressable assertion with `d`/`a` tags |
 | `aggregateIdentifierContributions(circle, identifier, kTag, contributions, options?)` | Aggregate into a kind 30385 identifier assertion with `d`/`k` tags |
-| `verifyProof(event, options?)` | Verify ring signatures, threshold metadata, signed metric aggregation, and optional proof-version requirements |
+| `verifyProof(event, options?)` | Verify ring signatures, threshold metadata, signed metric aggregation, and optional proof-version (`requireProofVersion`) and kind (`expectedKind`) requirements |
 | `verifyFederation(events, options?)` | Verify several scoped events together and count distinct contributors across circles ([cross-circle deduplication](#cross-circle-deduplication)) |
 | `canonicalMessage(circleId, subject, metrics)` | Compute the canonical message signed by contributors |
 | `canonicalMessageV2(circleId, subject, metrics, context)` | Compute the opt-in v2 canonical message that binds kind and subject hint tag |
@@ -185,6 +185,11 @@ The resulting `assertion` is a plain `EventTemplate` you sign and publish like a
 | `fetchNpmPackageVersionEvidence()`, `fetchOsvVulnerabilityReport()`, `normaliseSbomEvidence()`, `fetchNip05DocumentEvidence()`, `probeHttpsService()`, `fetchAddressableEventFromRelay()`, `probeCorrectionChannel()` | Lower-level adapters for building custom evidence collection pipelines |
 | `canonicalRelaySubject`, `canonicalServiceSubject`, `canonicalNip05Subject`, `canonicalDomainSubject`, `canonicalLnurlpSubject`, `canonicalNip96Subject`, `canonicalNpmPackageSubject`, `canonicalPackageDigestSubject`, `canonicalGitRepositorySubject`, `canonicalGithubRepositorySubject`, `canonicalMaintainerSubject` | Canonical subject helpers for common real-world identifiers |
 | `canonicalPubkeySubject`, `canonicalEventSubject`, `canonicalAddressSubject` | Canonical subject helpers for Nostr-native subjects |
+
+Freshness checks in `verifyCircleManifest`, `verifyDeploymentBundle`,
+`verifyAdmissionPresentation`, and the verifiers built on them are fail closed:
+expiry and future-`issuedAt` checks run against the current time unless you
+pass an explicit `now` (intended for tests and historical verification).
 
 The built-in profiles include safety metadata for production UX and agentic
 integrations: `proofClaims`, `proofLimitations`, `requiredControls`, and
@@ -262,6 +267,18 @@ const result = verifyProof(assertion, { requireProofVersion: 'v2' })
 ```
 
 Old v1 events still verify without changes. Use `requireProofVersion: 'v2'` only when your application policy wants to reject legacy proofs for that workflow.
+
+Note that v1 signatures are not bound to the event kind: a valid v1 proof can
+be re-published under a different NIP-85 kind with the same `d` tag (for
+example, a user assertion re-tagged as an event assertion) and still pass bare
+`verifyProof`. When consuming v1 proofs, pass `expectedKind` so verification
+fails unless the event carries the kind your workflow expects:
+
+```ts
+const result = verifyProof(assertion, { expectedKind: NIP85_KINDS.USER })
+```
+
+The CLI equivalent is `nostr-veil verify <event-json> --kind 30382`.
 
 ---
 

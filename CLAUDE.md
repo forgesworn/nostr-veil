@@ -18,7 +18,7 @@ Supporting files:
 
 ```bash
 npm run build    # tsc -p tsconfig.build.json
-npm test         # vitest run (165 tests across 12 files)
+npm test         # vitest run (299 tests across 28 files)
 npm run lint     # tsc --noEmit (type-checking only)
 npm run demo     # Vite dev server for the interactive demo
 ```
@@ -67,6 +67,8 @@ These libraries complement nostr-veil but are independently maintained:
 
 ## Common pitfalls
 
+- v1 proofs are not bound to the event kind: a valid v1 proof verifies under any NIP-85 kind with the same d-tag. Consumers should pass `expectedKind` to `verifyProof` (or require proof v2). The CLI exposes this as `nostr-veil verify <json> --kind <n>`.
+- Freshness checks in the profiles verifiers are fail closed: `verifyCircleManifest`, `verifySignedDeploymentBundle`, and `verifyAdmissionPresentation` default `now` to the current time, so expired artifacts are rejected unless the caller passes an explicit `now`.
 - `contributeAssertion` requires the member's index in the circle (0-based, matching the sorted pubkey order). Getting this wrong produces an invalid signature.
 - `aggregateContributions` validates all LSAG signatures before aggregating. If any signature is invalid, it throws rather than silently dropping the contribution.
 - The demo is a separate Vite app in `demo/` with its own `package.json` and `node_modules`.

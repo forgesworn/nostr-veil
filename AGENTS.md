@@ -6,7 +6,7 @@ Generic AI agent instructions. See also: [CLAUDE.md](./CLAUDE.md) for Claude-spe
 
 ```bash
 npm run build    # tsc -p tsconfig.build.json
-npm test         # vitest run (115 tests across 11 files)
+npm test         # vitest run (299 tests across 28 files)
 npm run lint     # tsc --noEmit
 npm run demo     # Vite dev server for demo app
 ```
@@ -39,5 +39,7 @@ Tests mirror source: `test/nip85/`, `test/proof/`, `test/integration.test.ts`
 ## Pitfalls
 
 - Noble v2 requires `Uint8Array`, not hex strings. Use `hexToBytes()` before noble calls.
+- v1 proofs are not kind-bound: pass `expectedKind` to `verifyProof` (or require v2) when consuming them.
+- Profiles verifiers are fail closed on freshness: `now` defaults to the current time, so expired manifests/bundles/challenges are rejected unless `now` is passed explicitly.
 - `contributeAssertion` needs the member's 0-based index in `circle.members` (sorted order).
 - The demo app is separate (`demo/` with its own package.json).
