@@ -40,6 +40,7 @@ function bundle(): SignedDeploymentBundle {
     metricPolicies: {
       rank: { required: true, min: 80, max: 100, integer: true },
     },
+    now: packageAssertion.created_at ?? 0,
     rejectUnknownMetrics: true,
     requireNostrSignature: true,
   })
@@ -87,6 +88,17 @@ describe('signed deployment bundles', () => {
 
     expect(result.valid).toBe(false)
     expect(result.errors.join('; ')).toContain('bundle signature is invalid')
+  })
+
+  it('rejects expired bundles when no now is supplied (fail closed)', () => {
+    const signedAssertion = signEvent(packageAssertion, RELAY_PUBLISHER_KEY)
+    const signedBundle = bundle()
+    const result = verifyDeploymentBundle(signedAssertion, signedBundle, {
+      trustedPublishers: [signedBundle.signer],
+    })
+
+    expect(result.valid).toBe(false)
+    expect(result.errors.join('; ')).toContain('bundle is expired')
   })
 
   it('rejects untrusted, expired, and unsigned deployment authority', () => {

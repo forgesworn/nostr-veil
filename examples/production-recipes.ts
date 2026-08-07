@@ -201,6 +201,7 @@ async function packageReleaseGate(): Promise<RecipeResult> {
     circleManifests: [
       manifestFor(packageAssertion, RELEASE_PACKAGE_MAINTAINER_REPUTATION_PROFILE.id, 'Package reviewers', 'Release safety review'),
     ],
+    now: packageAssertion.created_at ?? 0,
     companionEvidence: packageReleaseCompanionEvidenceRequirements(subject, { maxAgeSeconds: 300 }),
     expectedSubject: subject,
     metricPolicies: {
@@ -237,6 +238,7 @@ function relayServicePreference(): RecipeResult {
     circleManifests: [
       manifestFor(relayReputationAssertion, RELAY_SERVICE_REPUTATION_PROFILE.id, 'Relay reviewers', 'Relay and service review'),
     ],
+    now: relayReputationAssertion.created_at ?? 0,
     expectedSubject: tagValue(relayReputationAssertion, 'd'),
     expectedSubjectTagValue: '10002',
     metricPolicies: {
@@ -266,6 +268,7 @@ function verifierLegitimacyGate(): RecipeResult {
     circleManifests: [
       manifestFor(verifierLegitimacyAssertion, VERIFIER_ISSUER_LEGITIMACY_PROFILE.id, 'Verifier reviewers', 'Proof-of-person verifier legitimacy review'),
     ],
+    now: verifierLegitimacyAssertion.created_at ?? 0,
     expectedSubject: tagValue(verifierLegitimacyAssertion, 'd'),
     expectedSubjectTagValue: '0',
     metricPolicies: {
@@ -302,6 +305,7 @@ async function nip05DomainWarning(): Promise<RecipeResult> {
     circleManifests: [
       manifestFor(nip05Assertion, NIP05_DOMAIN_SERVICE_PROVIDER_TRUST_PROFILE.id, 'Provider reviewers', 'NIP-05 and domain provider review'),
     ],
+    now: nip05Assertion.created_at ?? 0,
     companionEvidence: nip05DomainCompanionEvidenceRequirements(subject, { maxAgeSeconds: 300 }),
     expectedSubject: subject,
     expectedSubjectTagValue: '0',
@@ -342,6 +346,7 @@ async function listLabelerSelection(): Promise<RecipeResult> {
     circleManifests: [
       manifestFor(listLabelerAssertion, LIST_LABELER_MODERATION_LIST_REPUTATION_PROFILE.id, 'List reviewers', 'List and labeler review'),
     ],
+    now: listLabelerAssertion.created_at ?? 0,
     companionEvidence: listLabelerCompanionEvidenceRequirements(subject, { maxAgeSeconds: 300 }),
     expectedSubject: subject,
     metricPolicies: {
@@ -388,6 +393,7 @@ function federatedModerationReview(): RecipeResult {
     circleManifests: moderationEvents.map((event, index) =>
       manifestFor(event, FEDERATED_MODERATION_PROFILE.id, `Moderation circle ${index + 1}`, 'Federated moderation review'),
     ),
+    now: moderationEvents[0].created_at ?? 0,
     expectedSubject: tagValue(moderationEvents[0], 'd'),
     metricPolicies: {
       rank: { required: true, min: 0, max: 100, integer: true },
@@ -416,6 +422,7 @@ function relayAdmissionGate(): RecipeResult {
     circleManifests: [
       manifestFor(relayAdmissionAssertion, RELAY_COMMUNITY_ADMISSION_PROFILE.id, 'Admission reviewers', 'Relay or community admission review'),
     ],
+    now: relayAdmissionAssertion.created_at ?? 0,
     expectedSubject: tagValue(relayAdmissionAssertion, 'd'),
     metricPolicies: {
       rank: { required: true, min: 0, max: 100, integer: true },

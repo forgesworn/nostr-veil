@@ -157,6 +157,7 @@ function signedDeploymentBundleFor(result: UseCaseResult) {
     circleManifests,
     expectedSubject: subject,
     ...(profile.subjectTagValue === undefined ? {} : { expectedSubjectTagValue: profile.subjectTagValue }),
+    now,
     requireNostrSignature: true,
   })
 

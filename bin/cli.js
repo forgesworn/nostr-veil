@@ -19,7 +19,9 @@ Usage:
   nostr-veil assert address <address> [--json metrics]     Build kind 30384 addressable assertion
   nostr-veil assert identifier <id> <k-tag> [--json metrics]  Build kind 30385 identifier assertion
   nostr-veil provider-declare [--json entries]             Build kind 10040 provider declaration
-  nostr-veil verify <event-json>                           Verify veil ring proof, print result
+  nostr-veil verify <event-json> [--kind n]                Verify veil ring proof, print result
+                                                           (--kind binds the expected NIP-85 kind; recommended
+                                                            for v1 proofs, which are not kind-bound)
   nostr-veil --help                                        Show this message
 
 Environment:
@@ -103,12 +105,29 @@ function cmdProviderDeclare(args) {
   console.log(JSON.stringify(signed, null, 2))
 }
 
+/** Extract --kind value from args (the next arg after --kind), as a number. */
+function extractKindFlag(args) {
+  const idx = args.indexOf('--kind')
+  if (idx === -1) return undefined
+  if (idx + 1 >= args.length) {
+    console.error('Error: --kind requires a value')
+    process.exit(1)
+  }
+  const kind = Number(args[idx + 1])
+  if (!Number.isInteger(kind) || kind < 0) {
+    console.error('Error: --kind must be a non-negative integer')
+    process.exit(1)
+  }
+  return kind
+}
+
 function cmdVerify(args) {
   const eventJson = args[0]
   if (!eventJson) {
     console.error('Error: verify requires <event-json>')
     process.exit(1)
   }
+  const expectedKind = extractKindFlag(args)
 
   let event
   try {
@@ -121,7 +140,7 @@ function cmdVerify(args) {
     console.error('Error: event must be a JSON object with a "tags" array')
     process.exit(1)
   }
-  const result = verifyProof(event)
+  const result = verifyProof(event, expectedKind === undefined ? undefined : { expectedKind })
   console.log(JSON.stringify(result, null, 2))
 }
 

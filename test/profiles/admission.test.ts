@@ -47,6 +47,7 @@ function signedBundle() {
     metricPolicies: {
       rank: { required: true, min: 0, max: 100, integer: true },
     },
+    now,
     rejectUnknownMetrics: true,
     requireNostrSignature: true,
   })
@@ -112,6 +113,15 @@ describe('relay/community admission reference flow', () => {
     expect(wrongAudience.errors.join('; ')).toContain('audience does not match')
     expect(expired.valid).toBe(false)
     expect(expired.errors.join('; ')).toContain('expired')
+  })
+
+  it('rejects expired challenges when no now is supplied (fail closed)', () => {
+    const challenge = challengeFor()
+    const presentation = createAdmissionPresentation(challenge, keys[3].priv, { createdAt: now + 1 })
+    const result = verifyAdmissionPresentation(presentation, challenge)
+
+    expect(result.valid).toBe(false)
+    expect(result.errors.join('; ')).toContain('admission challenge is expired')
   })
 
   it('reports malformed presentations instead of treating them as weak admissions', () => {

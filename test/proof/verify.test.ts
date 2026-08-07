@@ -309,6 +309,28 @@ describe('verifyProof', () => {
     expect(result.errors.some(e => /subject tag/i.test(e))).toBe(true)
   })
 
+  it('rejects events whose kind does not match expectedKind', () => {
+    const event = makeEvent()
+    const wrong = verifyProof(event, { expectedKind: NIP85_KINDS.EVENT })
+    const right = verifyProof(event, { expectedKind: NIP85_KINDS.USER })
+
+    expect(wrong.valid).toBe(false)
+    expect(wrong.errors[0]).toMatch(/kind/i)
+    expect(right.valid, right.errors.join('; ')).toBe(true)
+  })
+
+  it('does not let a v1 proof be re-published under a different kind when expectedKind is set', () => {
+    const event = makeEvent()
+    const replayed = { ...event, kind: NIP85_KINDS.EVENT }
+
+    // v1 signatures are not bound to the kind: bare verification still passes
+    expect(verifyProof(replayed).valid).toBe(true)
+    // binding the expected kind rejects the cross-kind replay
+    const bound = verifyProof(replayed, { expectedKind: NIP85_KINDS.USER })
+    expect(bound.valid).toBe(false)
+    expect(bound.errors[0]).toMatch(/kind/i)
+  })
+
   it('rejects an oversized veil-sig payload before processing the signature', () => {
     const event = makeEvent()
     const sigIdx = event.tags.findIndex(t => t[0] === 'veil-sig')

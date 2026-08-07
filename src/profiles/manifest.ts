@@ -36,6 +36,7 @@ export interface CreateCircleManifestOptions {
 
 export interface VerifyCircleManifestOptions {
   allowSuperseded?: boolean
+  /** Reference timestamp for freshness checks. Defaults to the current time (fail closed). */
   now?: number
   profileId?: string
   revokedCircleIds?: Iterable<string>
@@ -50,6 +51,7 @@ export interface CircleManifestVerification {
 
 export interface ResolveCircleManifestsOptions {
   allowSuperseded?: boolean
+  /** Reference timestamp for freshness checks. Defaults to the current time (fail closed). */
   now?: number
   profileId?: string
 }
@@ -63,6 +65,10 @@ export interface CircleManifestResolution {
 }
 
 const HEX64_RE = /^[0-9a-f]{64}$/
+
+function nowSeconds(): number {
+  return Math.floor(Date.now() / 1000)
+}
 
 function assertHex64(value: string, label: string): void {
   if (!HEX64_RE.test(value)) {
@@ -197,6 +203,7 @@ export function verifyCircleManifest(
   options: VerifyCircleManifestOptions = {},
 ): CircleManifestVerification {
   const errors: string[] = []
+  const now = options.now ?? nowSeconds()
   const revokedCircleIds = new Set(options.revokedCircleIds ?? [])
 
   if (manifest.version !== 1) errors.push('manifest version must be 1')
@@ -222,11 +229,11 @@ export function verifyCircleManifest(
       errors.push('expiresAt must be a non-negative Unix timestamp')
     } else if (manifest.expiresAt <= manifest.issuedAt) {
       errors.push('expiresAt must be greater than issuedAt')
-    } else if (options.now !== undefined && options.now > manifest.expiresAt) {
+    } else if (now > manifest.expiresAt) {
       errors.push('manifest is expired')
     }
   }
-  if (options.now !== undefined && manifest.issuedAt > options.now) {
+  if (manifest.issuedAt > now) {
     errors.push('manifest issuedAt is in the future')
   }
 

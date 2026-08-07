@@ -43,6 +43,7 @@ const policy = createDeploymentPolicy(RELAY_COMMUNITY_ADMISSION_PROFILE, {
   metricPolicies: {
     rank: { required: true, min: 0, max: 100, integer: true },
   },
+  now,
   rejectUnknownMetrics: true,
   requireNostrSignature: true,
 })

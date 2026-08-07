@@ -66,6 +66,12 @@ export interface CreateDeploymentPolicyOptions {
   maxAgeSeconds?: number
   metricPolicies?: Readonly<Record<string, DeploymentMetricPolicy>>
   minDistinctSigners?: number
+  /**
+   * Reference timestamp for manifest freshness checks. Defaults to the
+   * current time (fail closed); pass an explicit value for tests or
+   * historical verification.
+   */
+  now?: number
   rejectUnknownMetrics?: boolean
   requireNostrSignature?: boolean
 }
@@ -278,6 +284,7 @@ export function createDeploymentPolicy(
     rawCircleIds,
     circleManifests,
     allowSupersededCircleIds,
+    options.now,
   )
   if (circleResolution.errors.length > 0) {
     throw new Error(circleResolution.errors.join('; '))

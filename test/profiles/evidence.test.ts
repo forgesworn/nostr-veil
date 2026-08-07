@@ -17,6 +17,7 @@ import {
   listLabelerCompanionEvidenceRequirements,
   nip05DomainCompanionEvidenceRequirements,
   packageReleaseCompanionEvidenceRequirements,
+  probeHttpsService,
   resolveListLabelerCompanionEvidence,
   resolveNip05DomainCompanionEvidence,
   resolvePackageReleaseCompanionEvidence,
@@ -302,5 +303,34 @@ describe('companion evidence resolvers', () => {
       'correction-channel',
     ])
     expect(NIP05_DOMAIN_SERVICE_PROVIDER_TRUST_PROFILE.id).toBe('nip05-domain-service-provider-trust')
+  })
+})
+
+describe('probeHttpsService', () => {
+  it('does not fetch subjects that fail canonicalisation (SSRF guard)', async () => {
+    let fetched = false
+    const result = await probeHttpsService('http://169.254.169.254/latest/meta-data', {
+      fetch: async () => {
+        fetched = true
+        return { ok: true, status: 200 }
+      },
+    })
+
+    expect(fetched).toBe(false)
+    expect(result.ok).toBe(false)
+    expect(result.url).toBeUndefined()
+  })
+
+  it('probes the canonical https URL for parseable subjects', async () => {
+    const urls: string[] = []
+    const result = await probeHttpsService('domain:example.com', {
+      fetch: async input => {
+        urls.push(String(input))
+        return { ok: true, status: 200 }
+      },
+    })
+
+    expect(result.ok).toBe(true)
+    expect(urls).toEqual(['https://example.com/'])
   })
 })

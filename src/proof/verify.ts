@@ -50,6 +50,13 @@ const META_TAGS = new Set(['d', 'p', 'e', 'a', 'k'])
 
 export type VerifyOptions = AggregateFn | {
   aggregateFn?: AggregateFn
+  /**
+   * Expected event kind. Strongly recommended for v1 proofs: their signatures
+   * are not bound to the event kind, so a valid proof can be re-published under
+   * a different NIP-85 kind with the same d-tag. Pass the kind you intend to
+   * consume (or require proof version v2 via `requireProofVersion`).
+   */
+  expectedKind?: number
   limits?: Partial<VerifyLimits>
   requireProofVersion?: ProofVersion
 }
@@ -496,6 +503,14 @@ export function verifyProof(event: {
   const errors: string[] = []
   const limits = limitsFromOptions(options)
   const requiredVersion = requiredProofVersion(options)
+  const expectedKind = typeof options === 'function' ? undefined : options?.expectedKind
+
+  // Bind the assertion class: v1 signatures are not bound to the event kind,
+  // so without this check a proof can be replayed under a different NIP-85 kind
+  if (expectedKind !== undefined && event.kind !== expectedKind) {
+    errors.push(`Event kind ${event.kind} does not match expected kind ${expectedKind}`)
+    return { valid: false, circleSize: 0, threshold: 0, distinctSigners: 0, errors }
+  }
 
   // Require d tag -- without it the electionId check cannot bind signatures to a subject
   const dTag = event.tags.find(t => t[0] === 'd')

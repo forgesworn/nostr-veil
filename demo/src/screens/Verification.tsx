@@ -57,9 +57,10 @@ export function Verification({ flow }: Props) {
         await pause(150)
       }
 
-      // Actually verify
+      // Actually verify (expectedKind binds the assertion class -- v1 proofs
+      // are not kind-bound, so verifiers should always pass it)
       const event = flow.state.aggregatedEvent as { kind: number; tags: string[][]; content: string }
-      const verification = verifyProof(event)
+      const verification = verifyProof(event, { expectedKind: 30382 })
       setResult(verification)
       flow.setProofResult(verification)
 

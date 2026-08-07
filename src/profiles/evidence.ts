@@ -853,7 +853,8 @@ export async function probeHttpsService(
   try {
     url = httpsProbeUrl(parseNip05Subject(subject))
   } catch {
-    url = subject
+    // Never fetch the raw subject: it may be attacker-controlled (SSRF)
+    return { ok: false }
   }
   try {
     const fetch = options.fetch ?? defaultFetch()

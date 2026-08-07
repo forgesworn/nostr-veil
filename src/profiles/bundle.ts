@@ -31,6 +31,7 @@ export interface CreateSignedDeploymentBundleOptions {
 }
 
 export interface VerifySignedDeploymentBundleOptions {
+  /** Reference timestamp for freshness checks. Defaults to the current time (fail closed). */
   now?: number
   trustedPublishers?: Iterable<string>
 }
@@ -58,6 +59,10 @@ export interface DeploymentBundleVerification {
 
 const HEX64_RE = /^[0-9a-f]{64}$/
 const HEX128_RE = /^[0-9a-f]{128}$/
+
+function nowSeconds(): number {
+  return Math.floor(Date.now() / 1000)
+}
 
 function assertHex64(value: string, label: string): void {
   if (!HEX64_RE.test(value)) {
@@ -161,6 +166,7 @@ export function verifySignedDeploymentBundle(
   options: VerifySignedDeploymentBundleOptions = {},
 ): SignedDeploymentBundleVerification {
   const errors: string[] = []
+  const now = options.now ?? nowSeconds()
   const trustedPublishers = trustedPublisherSet(options.trustedPublishers, errors)
 
   if (bundle.version !== 1) errors.push('bundle version must be 1')
@@ -174,11 +180,11 @@ export function verifySignedDeploymentBundle(
       errors.push('bundle expiresAt must be a non-negative Unix timestamp')
     } else if (bundle.expiresAt <= bundle.issuedAt) {
       errors.push('bundle expiresAt must be greater than issuedAt')
-    } else if (options.now !== undefined && options.now > bundle.expiresAt) {
+    } else if (now > bundle.expiresAt) {
       errors.push('bundle is expired')
     }
   }
-  if (options.now !== undefined && bundle.issuedAt > options.now) {
+  if (bundle.issuedAt > now) {
     errors.push('bundle issuedAt is in the future')
   }
 

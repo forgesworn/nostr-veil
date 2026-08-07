@@ -82,6 +82,13 @@ describe('circle manifests', () => {
     expect(superseded.errors.join('; ')).toContain('superseded')
   })
 
+  it('rejects expired manifests when no now is supplied (fail closed)', () => {
+    const result = verifyCircleManifest(manifest())
+
+    expect(result.valid).toBe(false)
+    expect(result.errors.join('; ')).toContain('manifest is expired')
+  })
+
   it('lets deployment policies use manifests instead of raw circle ids', () => {
     const circleManifest = manifest()
     const policy = createDeploymentPolicy(RELEASE_PACKAGE_MAINTAINER_REPUTATION_PROFILE, {
@@ -90,6 +97,7 @@ describe('circle manifests', () => {
       metricPolicies: {
         rank: { required: true, min: 80, max: 100, integer: true },
       },
+      now: packageAssertion.created_at,
       rejectUnknownMetrics: true,
     })
 
@@ -116,12 +124,14 @@ describe('circle manifests', () => {
       acceptedCircleIds: [oldCircleId],
       circleManifests: [replacement],
       expectedSubject: tagValue(packageAssertion, 'd'),
+      now: packageAssertion.created_at,
     })
     const historicalPolicy = createDeploymentPolicy(RELEASE_PACKAGE_MAINTAINER_REPUTATION_PROFILE, {
       acceptedCircleIds: [oldCircleId],
       allowSupersededCircleIds: true,
       circleManifests: [replacement],
       expectedSubject: tagValue(packageAssertion, 'd'),
+      now: packageAssertion.created_at,
     })
 
     const result = verifyDeploymentPolicy(packageAssertion, policy, { now: packageAssertion.created_at })

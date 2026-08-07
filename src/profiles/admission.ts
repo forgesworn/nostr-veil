@@ -54,6 +54,7 @@ export interface CreateAdmissionPresentationOptions {
 export interface VerifyAdmissionPresentationOptions {
   expectedApplicantPubkey?: string
   expectedAudience?: string
+  /** Reference timestamp for freshness checks. Defaults to the current time (fail closed). */
   now?: number
   usedChallengeIds?: Iterable<string>
 }
@@ -332,9 +333,10 @@ export function verifyAdmissionPresentation(
     errors.push('admission applicant does not match expected applicant')
   }
   if (!presentationCreatedAtValid) errors.push('presentation createdAt must be a non-negative Unix timestamp')
-  if (options.now !== undefined && challengeIssuedAtValid && challengeExpiresAtValid) {
-    if (challenge.issuedAt > options.now) errors.push('admission challenge issuedAt is in the future')
-    if (options.now > challenge.expiresAt) errors.push('admission challenge is expired')
+  const now = options.now ?? nowSeconds()
+  if (challengeIssuedAtValid && challengeExpiresAtValid) {
+    if (challenge.issuedAt > now) errors.push('admission challenge issuedAt is in the future')
+    if (now > challenge.expiresAt) errors.push('admission challenge is expired')
   }
   if (presentationCreatedAtValid && challengeIssuedAtValid && presentation.createdAt < challenge.issuedAt) {
     errors.push('presentation createdAt is before challenge issuedAt')

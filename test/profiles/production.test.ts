@@ -50,6 +50,7 @@ function policy(options: { requireNostrSignature?: boolean } = {}): UseCaseDeplo
     metricPolicies: {
       rank: { required: true, min: 80, max: 100, integer: true },
     },
+    now: packageAssertion.created_at ?? 0,
     rejectUnknownMetrics: true,
     requireNostrSignature: options.requireNostrSignature ?? true,
   })
