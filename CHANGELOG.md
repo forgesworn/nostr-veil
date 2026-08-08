@@ -29,6 +29,12 @@
 
 # [0.12.0](https://github.com/forgesworn/nostr-veil/compare/v0.11.0...v0.12.0) (2026-05-16)
 
+## 0.30.1 (2026-08-08)
+
+### Bug Fixes
+
+- fail closed on freshness checks (previously a verification with an unreadable or malformed timestamp could pass) and add `expectedKind` binding so a proof cannot be replayed against a different assertion kind than the caller intended
+
 ## 0.30.0 (2026-06-23)
 
 ### Features
