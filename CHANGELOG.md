@@ -29,6 +29,14 @@
 
 # [0.12.0](https://github.com/forgesworn/nostr-veil/compare/v0.11.0...v0.12.0) (2026-05-16)
 
+## 0.30.2 (2026-08-08)
+
+### Bug Fixes
+
+- fail closed on freshness checks and add expectedKind binding
+
+
+
 ## 0.30.1 (2026-08-08)
 
 ### Bug Fixes
