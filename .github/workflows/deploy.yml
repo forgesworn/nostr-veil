@@ -38,7 +38,17 @@ jobs:
           mkdir -p ~/.ssh
           echo "$HETZNER_SSH_KEY" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-          ssh-keyscan -H 95.217.39.110 >> ~/.ssh/known_hosts
+          # Pinned host keys for `stall`, the routing host that replaced the retired
+          # 95.217.39.110 box after it was cancelled ~2026-08-27. A cancelled address
+          # gets reassigned, so the old target was both dead and unsafe to keep
+          # pointing an `rsync --delete` at. Never ssh-keyscan per run: TOFU could
+          # redirect the rsync, and a failed scan aborts the step under `set -e` with
+          # no diagnostic at all, which is how this breakage stayed invisible.
+          cat > ~/.ssh/known_hosts <<'EOF'
+          62.238.98.53 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINr4gdIzT/1x6isUAmLfoap8d6TPF/3OJjVsjtyhnxx9
+          62.238.98.53 ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQCQmHf8EQX3JsEYgZp7k+rAIwAvtHWXpQ1Ujir+0zqpbXIUeePpWFbSobUd7nRNM4FHn311Csj4uG4qpALXtZNR69d4+QsvAfDPp/8OPEvVDFBqr9sGtuv6Lt4NG4Z0yMwHBweogwaCkL3pwZmrQnL0P2vVQ3C507vv/wdPn9UxwPjVdsj7zS2uB1Q984lpIbNLoOch/vs66evgBU6vh6eySw/A6+AcetHHIeRpychTyfWdUIEvOg3fD84pzktlkl9vGflvfEtqe+B8/3da1mDoa4FPxXL+deuXn8tcnrj6Zr9o//L3EKZot8gWmXXGsaxoT94Ro0u+IQTdeKszRJZ35SAR1fPpgJfeLNEU/E0oyQCnqT/0GJvKKPtbaI77UB6cZmDrMD+kN+XbzMsjuSKANcEdyoTPVAG+VTT/HgaCU48/073wRpPsews8oBoITWx/+oYcbR14zmCyVzMdkr+lKYPvMLaZYVmO2mWCZncmDYExKwqsY1Y6Ve914iVt57M=
+          62.238.98.53 ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBNlArhQaGuK2A5GeEZ4NT01oTFMc0Dl8S4Um1lJRWmepniOQDEaBrQduoxofjOc5o6bW7w+8KB92A4OAYQU/C1k=
+          EOF
           rsync -avz --delete --exclude='*.mp4' --exclude='*.webm' \
             -e "ssh -i ~/.ssh/deploy_key" \
-            demo/dist/ deploy@95.217.39.110:/opt/nostr-veil-demo/
+            demo/dist/ deploy@62.238.98.53:/opt/nostr-veil-demo/
