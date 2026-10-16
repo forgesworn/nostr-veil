@@ -396,20 +396,26 @@ The original proof format remains the default. It signs the circle ID, the `d`-t
 
 Proof v2 is additive and opt-in. It signs the same data plus the NIP-85 assertion kind and the subject hint tag/value (`p`, `e`, `a`, or `k`), and derives the key image from that semantic context. That prevents a valid contribution for one assertion class being replayed as another when a subject string is reused.
 
+This continues from the [Quick start](#quick-start): `alice` and `circle` are defined there. `eventId` is the 64-char lowercase hex id of the Nostr event being assessed; the typed helpers throw if it is not.
+
 ```ts
 import { contributeEventAssertion, aggregateEventContributions, verifyProof } from 'nostr-veil'
+
+const eventId = '0123456789abcdef'.repeat(4) // placeholder: use the real event id
 
 const contribution = contributeEventAssertion(
   circle,
   eventId,
   { rank: 90 },
-  alicePrivkey,
-  circle.members.indexOf(alicePubkey),
+  alice.privkey,
+  circle.members.indexOf(alice.pubkey),
   { proofVersion: 'v2' },
 )
 
-const assertion = aggregateEventContributions(circle, eventId, [contribution], { proofVersion: 'v2' })
-const result = verifyProof(assertion, { requireProofVersion: 'v2' })
+// One contribution keeps the example short; a real workflow collects several.
+const eventAssertion = aggregateEventContributions(circle, eventId, [contribution], { proofVersion: 'v2' })
+const eventResult = verifyProof(eventAssertion, { requireProofVersion: 'v2' })
+// { valid: true, circleSize: 3, threshold: 1, distinctSigners: 1, errors: [] }
 ```
 
 Old v1 events still verify without changes. Use `requireProofVersion: 'v2'` only when your application policy wants to reject legacy proofs for that workflow.
@@ -421,6 +427,7 @@ example, a user assertion re-tagged as an event assertion) and still pass bare
 fails unless the event carries the kind your workflow expects:
 
 ```ts
+// `assertion` is the v1 user assertion from the Quick start
 const result = verifyProof(assertion, { expectedKind: NIP85_KINDS.USER })
 ```
 
