@@ -549,14 +549,14 @@ Produce an anonymous ring-signed contribution to a trust circle assertion.
 - **`circle`** `TrustCircle` — Created via `createTrustCircle`
 - **`subject`** `string` — The d-tag value the assertion is about
 - **`metrics`** `Record<string, number>` — Metric key-value pairs
-- **`privateKey`** `string` — 32-byte hex private key of the contributing member
-- **`memberIndex`** `number` — 0-based index in `circle.members` (sorted order)
+- **`privateKey`** `string` -- 64-char hex private key of the contributing member (a `Uint8Array` is rejected with `privateKey must be a string`)
+- **`memberIndex`** `number` -- 0-based index in `circle.members` (sorted order); always use `circle.members.indexOf(memberPubkey)`
 - **`options`** `ProofContext | undefined` — Omit for v1; pass `{ proofVersion: 'v2', kind, subjectTag, subjectTagValue }` for semantic binding
 - **Returns** `Contribution` with ring signature, duplicate-detection token, and metrics
-- **Throws** if `memberIndex` is out of range or the private key doesn't match the expected public key
+- **Throws** if `memberIndex` is out of range (`Signer index out of range`) or the private key doesn't match the pubkey at that index (`Private key does not match ring member at signerIndex`)
 
 ```ts
-const contrib = contributeAssertion(circle, subjectPubkey, { rank: 85 }, alicePrivkey, 0)
+const contrib = contributeAssertion(circle, subjectPubkey, { rank: 85 }, alicePrivkey, circle.members.indexOf(alicePubkey))
 ```
 
 Typed contribution helpers set the v2 context for non-user assertion kinds:
@@ -576,7 +576,7 @@ Validates all ring signatures and checks for duplicate contributors before aggre
 - **`circle`** `TrustCircle` — The trust circle the contributions belong to
 - **`subject`** `string` — The d-tag value (must match what contributors signed)
 - **`contributions`** `Contribution[]` — Array of contributions from circle members
-- **`options`** `AggregateFn | { aggregateFn?: AggregateFn; aggregate?: AggregateName; kind?: number; proofVersion?: ProofVersion }` — Pass a function for custom aggregation (default: median), or an options object with a built-in aggregate name. The legacy `kind` option is kept for compatibility and still emits a user-style `p` subject tag. `proofVersion: 'v2'` requires matching v2 contributions.
+- **`options`** `AggregateFn | { aggregateFn?: AggregateFn; aggregate?: AggregateName; kind?: number; proofVersion?: ProofVersion }` -- Pass a function for custom aggregation (default: median), or an options object with a built-in aggregate name (`'median' | 'mean' | 'sum' | 'min' | 'max'`; `aggregate` wins over `aggregateFn`). A built-in name is recorded in the `veil-agg` tag and `verifyProof` reads it from there; a custom function is recorded as `veil-agg: custom` and must also be passed to `verifyProof`. `median` and `mean` round to integers; `sum`, `min` and `max` do not. The legacy `kind` option is kept for compatibility and still emits a user-style `p` subject tag. `proofVersion: 'v2'` requires matching v2 contributions.
 - **Returns** `EventTemplate` with `veil-ring`, `veil-threshold`, and `veil-sig` tags
 - **Throws** if any ring signature is invalid or duplicate contributors are detected
 
@@ -604,7 +604,7 @@ kind-specific subject tags and can opt into proof v2:
 Verify all ring signatures in a veil-enhanced NIP-85 event.
 
 - **`event`** `{ kind, tags, content }` — A Nostr event containing proof tags
-- **`options`** `AggregateFn | { aggregateFn?: AggregateFn; requireProofVersion?: ProofVersion; limits?: Partial<VerifyLimits> }` — Custom aggregation, proof-version policy, or verifier size limits
+- **`options`** `AggregateFn | { aggregateFn?: AggregateFn; expectedKind?: number; requireProofVersion?: ProofVersion; limits?: Partial<VerifyLimits> }` -- `aggregateFn` is needed only when `veil-agg` is `custom` (built-in names are read from the tag); `expectedKind` rejects events of any other NIP-85 kind and is recommended for v1 proofs, which are not kind-bound; `requireProofVersion` rejects the other proof version; `limits` overrides `DEFAULT_VERIFY_LIMITS` (`maxRingSize` 1000, `maxSigPayloadBytes` 128000, `maxSignedMessageBytes` 16384, `maxMetricCount` 128, `maxMetricNameLength` 64)
 - **Returns** `ProofVerification` with `valid`, `circleSize`, `threshold`, `distinctSigners`, `errors`
 
 ```ts
@@ -716,6 +716,12 @@ output into `verifyDeploymentPolicy()`, `verifyDeploymentBundle()`, or
 Sign a deployment policy and its manifests as trusted operator configuration.
 Use this when policy material is distributed separately from the verifier.
 
+#### `verifySignedDeploymentBundle(bundle, options?) → SignedDeploymentBundleVerification`
+
+Verify only the bundle: shape, expiry and future-`issuedAt` against `options.now` (default: the current time, fail closed), the signer's BIP-340 signature, and `options.trustedPublishers`. It does not look at any events. `verifyDeploymentBundle` calls it first.
+
+---
+
 #### `verifyDeploymentBundle(events, bundle, options) → DeploymentBundleVerification`
 
 Verify that the bundle signature is valid, the signer pubkey is pinned in
@@ -817,7 +823,9 @@ verification so every contributor scores the same identifier.
 
 ---
 
-### `nostr-veil` root export -- Signing Utilities
+### `nostr-veil` root export -- everything, plus signing
+
+The root entry point re-exports all of `nostr-veil/nip85`, `nostr-veil/proof` and `nostr-veil/profiles`, and adds the signing utilities below, which exist only at the root. A `privateKey` is always a 64-char hex string.
 
 #### `computeEventId(event) → string`
 
@@ -837,7 +845,7 @@ const id = computeEventId({ pubkey, created_at, kind: 1, tags: [], content: 'hel
 Sign an unsigned event template with a Schnorr private key (BIP-340).
 
 - **`template`** `UnsignedEvent` — `kind`, `tags`, `content`, optional `created_at`
-- **`privateKey`** `string` — 32-byte hex Schnorr private key (64 chars)
+- **`privateKey`** `string` -- 32-byte hex Schnorr private key (64 chars); a `Uint8Array` is rejected
 - **Returns** `SignedEvent` with `id`, `pubkey`, `created_at`, `kind`, `tags`, `content`, `sig`
 
 ```ts
@@ -851,25 +859,103 @@ const event = signEvent(tmpl, providerPrivkey)
 ## Complete Quick-Start Example
 
 ```ts
-import { createTrustCircle, contributeAssertion, aggregateContributions, verifyProof } from 'nostr-veil/proof'
-import { signEvent } from 'nostr-veil'
+import { schnorr } from '@noble/curves/secp256k1.js'
+import { bytesToHex } from '@noble/hashes/utils.js'
+import {
+  createTrustCircle, contributeAssertion, aggregateContributions, verifyProof, signEvent, NIP85_KINDS,
+} from 'nostr-veil'
 
-// 1. Define a circle of three anonymous members
-const circle = createTrustCircle([alicePubkey, bobPubkey, carolPubkey])
+// 0. Generate keys. nostr-veil takes 64-char lowercase hex strings everywhere.
+function generateKeypair() {
+  const secret = schnorr.utils.randomSecretKey()            // Uint8Array (noble v2)
+  return { privkey: bytesToHex(secret), pubkey: bytesToHex(schnorr.getPublicKey(secret)) }
+}
+const alice = generateKeypair()
+const bob = generateKeypair()
+const carol = generateKeypair()
+const subject = generateKeypair()      // the account being scored; only its pubkey is used
+const aggregator = generateKeypair()   // publishes the result; does not need to be a circle member
+const subjectPubkey = subject.pubkey
 
-// 2. Each member contributes independently — identity hidden inside the ring
-const alice = contributeAssertion(circle, subjectPubkey, { followers: 820, rank: 74 }, alicePrivkey, 0)
-const bob   = contributeAssertion(circle, subjectPubkey, { followers: 900, rank: 80 }, bobPrivkey,   1)
+// 1. Define the circle (three anonymous members)
+const circle = createTrustCircle([alice.pubkey, bob.pubkey, carol.pubkey])
 
-// 3. Aggregate into a standard NIP-85 kind 30382 event (median of contributions)
-const tmpl = aggregateContributions(circle, subjectPubkey, [alice, bob])
-const event = signEvent(tmpl, aggregatorPrivkey)
-await relay.publish(event)
+// 2. Each member contributes independently -- their identity is hidden inside the ring
+const aliceContribution = contributeAssertion(
+  circle, subjectPubkey, { followers: 820, rank: 74 }, alice.privkey, circle.members.indexOf(alice.pubkey),
+)
+const bobContribution = contributeAssertion(
+  circle, subjectPubkey, { followers: 900, rank: 80 }, bob.privkey, circle.members.indexOf(bob.pubkey),
+)
 
-// 4. Verify: two distinct signers agreed, no names attached
-const result = verifyProof(event)
+// 3. Aggregate into a standard NIP-85 kind 30382 user assertion (an unsigned EventTemplate)
+const assertion = aggregateContributions(circle, subjectPubkey, [aliceContribution, bobContribution])
+
+// 4. The aggregator signs it as an ordinary Nostr event and publishes it
+const signed = signEvent(assertion, aggregator.privkey)
+
+// 5. Any client verifies -- two distinct members agreed, no names attached
+const result = verifyProof(signed, { expectedKind: NIP85_KINDS.USER })
 // { valid: true, circleSize: 3, threshold: 2, distinctSigners: 2, errors: [] }
 ```
+
+Formats: pubkeys are 64-char lowercase hex x-only strings and every `privateKey` argument is a 64-char hex string. `memberIndex` must come from `circle.members.indexOf(pubkey)`. The aggregator is whoever collects the contributions and publishes the event; it need not be a circle member. `verifyProof` does not check the outer Nostr signature, so call `verifySignedEvent(event)` on events fetched from untrusted relays. Pass `expectedKind` because v1 proofs are not kind-bound.
+
+## Profiles Example
+
+Continuing from the quick start. The built-in `USER_REPUTATION_ABUSE_REPORTING_PROFILE` needs proof v2, at least three distinct signers and an assertion no older than 300 seconds.
+
+```ts
+import {
+  USER_REPUTATION_ABUSE_REPORTING_PROFILE,
+  createDeploymentPolicy,
+  createSignedDeploymentBundle,
+  verifyProductionDeployment,
+} from 'nostr-veil/profiles'
+
+const operator = generateKeypair() // deployment operator, separate from circle members
+const contributions = [alice, bob, carol].map(member => contributeAssertion(
+  circle, subjectPubkey, { rank: 80 }, member.privkey, circle.members.indexOf(member.pubkey), { proofVersion: 'v2' },
+))
+const event = signEvent(
+  aggregateContributions(circle, subjectPubkey, contributions, { proofVersion: 'v2' }),
+  aggregator.privkey,
+)
+
+const policy = createDeploymentPolicy(USER_REPUTATION_ABUSE_REPORTING_PROFILE, {
+  acceptedCircleIds: [circle.circleId],
+  expectedSubject: subjectPubkey,
+  requireNostrSignature: true,       // verifyProductionDeployment rejects a policy without this
+})
+const now = Math.floor(Date.now() / 1000)
+const bundle = createSignedDeploymentBundle(policy, {
+  id: 'abuse-reporting-2026-01',
+  issuedAt: now,
+  expiresAt: now + 24 * 60 * 60,     // verifyProductionDeployment rejects a bundle without expiry
+  privateKey: operator.privkey,
+})
+
+const verdict = verifyProductionDeployment([event], bundle, { trustedPublishers: [operator.pubkey] })
+// verdict.decision === 'accept'; a bundle signed by another key fails with `bundle.signer_untrusted`
+```
+
+See `examples/production-recipes.ts` in the repository for six production-shaped gates with companion evidence.
+
+## CLI
+
+The package installs a `nostr-veil` binary:
+
+```bash
+nostr-veil assert user <pubkey> [--json '<metrics>']
+nostr-veil assert event <event-id> [--json '<metrics>']
+nostr-veil assert address <address> [--json '<metrics>']
+nostr-veil assert identifier <id> <k-tag> [--json '<metrics>']
+nostr-veil provider-declare [--json '<entries>']
+nostr-veil verify '<event-json>' [--kind <n>]
+nostr-veil --help
+```
+
+`assert` and `provider-declare` build plain NIP-85 events (kinds 30382 to 30385 and 10040), not ring-signed ones, sign them with the key in `NOSTR_SECRET_KEY` (64-char hex) or the file named by `NOSTR_SECRET_KEY_FILE` (takes precedence), and print the signed event as JSON on stdout. `--json` takes a JSON object of metrics (`provider-declare`: an array of `{ kind, metric, servicePubkey, relayHint }`). `verify` needs no key: `<event-json>` is an inline JSON string, not a file path, and must come first (`nostr-veil verify "$(cat event.json)" --kind 30382`). `--kind` takes a non-negative integer and applies `expectedKind`. It prints the `verifyProof` result as JSON and exits 0 even when `valid` is false, so read `valid` rather than the exit code.
 
 ## Companion Libraries
 

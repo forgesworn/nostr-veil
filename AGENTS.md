@@ -59,9 +59,11 @@ These libraries complement nostr-veil but are independently maintained:
 
 ## Pitfalls
 
-- Noble v2 requires `Uint8Array`, not hex strings. Use `hexToBytes()` before noble calls; `signEvent` handles this internally.
+- Noble v2 requires `Uint8Array`, not hex strings. Use `hexToBytes()` before direct noble calls; `signEvent` handles this internally. The reverse holds for nostr-veil's own API: pubkeys and every `privateKey` argument (`contributeAssertion`, `signEvent`, `createSignedDeploymentBundle`) are 64-char lowercase hex strings, and a `Uint8Array` is rejected. Convert noble's byte keys with `bytesToHex()`.
 - v1 proofs are not kind-bound: a valid v1 proof verifies under any NIP-85 kind sharing the same d-tag. Pass `expectedKind` to `verifyProof` (or require v2) when consuming them. The CLI exposes this as `nostr-veil verify <json> --kind <n>`.
 - Profiles verifiers are fail closed on freshness: `verifyCircleManifest`, `verifySignedDeploymentBundle` and `verifyAdmissionPresentation` default `now` to the current time, so expired manifests/bundles/challenges are rejected unless `now` is passed explicitly.
-- `contributeAssertion` needs the member's 0-based index in `circle.members` (sorted order). Getting this wrong produces an invalid signature.
+- `contributeAssertion` needs the member's 0-based index in `circle.members` (sorted order). Use `circle.members.indexOf(pubkey)`. A wrong index throws `Private key does not match ring member at signerIndex` rather than producing a signature.
+- Named aggregates (`{ aggregate: 'sum' }` and the others) are recorded in the `veil-agg` tag and `verifyProof` reads them from it, so no verifier option is needed. Only a custom `aggregateFn` (recorded as `veil-agg: custom`) must also be passed to `verifyProof`.
+- The `nostr-veil` root re-exports `nip85`, `proof` and `profiles` and adds the signing helpers (`signEvent`, `verifySignedEvent`, `computeEventId`), which are not available from any subpath.
 - `aggregateContributions` validates all LSAG signatures before aggregating; if any signature is invalid it throws rather than silently dropping the contribution.
 - The demo app is separate (`demo/` with its own `package.json`).
