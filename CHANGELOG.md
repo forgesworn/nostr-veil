@@ -1,3 +1,11 @@
+## 0.30.4 (2026-10-28)
+
+### Bug Fixes
+
+- stop tag injection through metric names and accept NIP-73 k types (#52) (security)
+
+
+
 ## 0.14.0 (2026-05-17)
 
 
