@@ -277,6 +277,20 @@ describe('deployment policies', () => {
     expect(live.valid, live.errors.join('; ')).toBe(true)
   })
 
+  it('rejects a federation when one of its events has expired', () => {
+    const policy = createDeploymentPolicy(FEDERATED_MODERATION_PROFILE, {
+      acceptedCircleIds: moderationEvents.map(circleId),
+      expectedSubject: tagValue(moderationEvents[0], 'd'),
+    })
+    const now = Math.max(...moderationEvents.map(event => event.created_at ?? 0))
+    const events = moderationEvents.map(cloneEvent)
+    events[1].tags.splice(1, 0, ['expiration', String(now)])
+
+    const result = verifyDeploymentPolicy(events, policy, { now })
+    expect(result.valid).toBe(false)
+    expect(result.errors.join('; ')).toContain('event[1] assertion has expired')
+  })
+
   it('verifies federated moderation policy across accepted scoped circles', () => {
     const policy = createDeploymentPolicy(FEDERATED_MODERATION_PROFILE, {
       acceptedCircleIds: moderationEvents.map(circleId),

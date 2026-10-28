@@ -15,7 +15,7 @@ interface RawEvent {
  * Skips known meta tags (`d`, `p`, `e`, `a`, `k`) and any tag whose name starts with `veil-`.
  * On a veil event (one with a `veil-ring` tag) it also skips the publisher tags
  * `expiration` and `alt`, which the circle does not sign, so `metrics` holds
- * only circle-signed values.
+ * only circle-signed values once `verifyProof` has passed.
  *
  * @param event - A raw Nostr event with `kind`, `tags`, and `content` fields
  * @returns A {@link ParsedAssertion} with the event kind, subject identifier, and metric key-value pairs
