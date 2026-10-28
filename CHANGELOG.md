@@ -1,3 +1,11 @@
+## 0.31.0 (2026-10-28)
+
+### Features
+
+- let the publisher set expiration and alt on veil events (#53)
+
+
+
 ## 0.30.4 (2026-10-28)
 
 ### Bug Fixes
