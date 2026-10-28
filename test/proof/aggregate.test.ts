@@ -2,7 +2,12 @@ import { describe, it, expect } from 'vitest'
 import { schnorr } from '@noble/curves/secp256k1.js'
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js'
 import { createTrustCircle } from '../../src/proof/circle.js'
-import { contributeAssertion, contributeEventAssertion } from '../../src/proof/contribute.js'
+import {
+  contributeAssertion,
+  contributeEventAssertion,
+  contributeIdentifierAssertion,
+} from '../../src/proof/contribute.js'
+import { validateAssertionStrict } from '../../src/nip85/validators.js'
 import {
   aggregateAddressableContributions,
   aggregateContributions,
@@ -270,5 +275,34 @@ describe('aggregateContributions', () => {
     expect(event.tags).toContainEqual(['e', eventId])
     expect(verifyProof(event).valid).toBe(true)
     expect(verifyProof(event, { requireProofVersion: 'v2' }).valid).toBe(true)
+  })
+
+  it('aggregates a v2 identifier assertion with a NIP-73 k type and passes strict validation (issue #40)', () => {
+    const identifier = 'https://example.com/article'
+    const contributions = privKeys.map((pk, i) =>
+      contributeIdentifierAssertion(
+        circle,
+        identifier,
+        'web',
+        { rank: 70 + i * 10 },
+        pk,
+        circle.members.indexOf(pubKeys[i]),
+        { proofVersion: 'v2' },
+      ),
+    )
+    const event = aggregateIdentifierContributions(circle, identifier, 'web', contributions, { proofVersion: 'v2' })
+    expect(event.tags).toContainEqual(['k', 'web'])
+    expect(verifyProof(event, { requireProofVersion: 'v2' }).valid).toBe(true)
+    expect(validateAssertionStrict(event)).toEqual({ valid: true, errors: [] })
+  })
+
+  it('rejects an empty identifier k-tag', () => {
+    const identifier = 'https://example.com/article'
+    const contributions = privKeys.map((pk, i) =>
+      contributeAssertion(circle, identifier, { rank: 80 }, pk, circle.members.indexOf(pubKeys[i])),
+    )
+    for (const bad of ['', ' ', ' web ']) {
+      expect(() => aggregateIdentifierContributions(circle, identifier, bad, contributions)).toThrow(/kTag/)
+    }
   })
 })

@@ -1,5 +1,6 @@
 import type { ValidationResult } from './types.js'
 import { NIP85_KINDS } from './types.js'
+import { GENERAL_TAGS } from './tags.js'
 
 const ASSERTION_KINDS = new Set<number>([
   NIP85_KINDS.USER,
@@ -24,6 +25,8 @@ export interface ValidationOptions {
 
 const HEX64_RE = /^[0-9a-f]{64}$/
 const DECIMAL_INTEGER_RE = /^(0|[1-9]\d*)$/
+// NIP-73 types are short printable ASCII: web, isbn, podcast:guid, <chain>:tx
+const NIP73_K_RE = /^[\x21-\x7e]{1,64}$/
 const ADDRESS_RE = /^(0|[1-9]\d*):[0-9a-f]{64}:.*$/
 const PROVIDER_TAG_RE = /^(0|[1-9]\d*):[A-Za-z0-9_.-]+$/
 const RELAY_HINT_RE = /^wss?:\/\/.+$/i
@@ -114,12 +117,13 @@ function validateOptionalMatchingTag(
   subject: string,
   errors: string[],
 ): void {
-  const values = tagValues(event, name)
-  if (values.length === 0) return
-  if (values.length > 1) {
+  // Count every tag with this name, including ones with a missing or non-string value
+  const tags = event.tags.filter(t => t[0] === name)
+  if (tags.length === 0) return
+  if (tags.length > 1) {
     errors.push(`Duplicate ${name}-tag.`)
   }
-  if (values[0] !== subject) {
+  if (tags.some(t => t[1] !== subject)) {
     errors.push(`${name}-tag must match d-tag.`)
   }
 }
@@ -128,32 +132,39 @@ function validateStrictSubjectTags(event: RawEvent, errors: string[]): void {
   const subject = requireSingletonTag(event, 'd', errors)
   if (subject === undefined) return
 
+  // NIP-85: p, e and a tags MAY repeat the d value as a relay hint, on any kind.
+  // i (relay-indexed, NIP-73) is held to the same rule: on kind 30385 d is the i value.
+  for (const name of ['p', 'e', 'a', 'i']) validateOptionalMatchingTag(event, name, subject, errors)
+  if (event.kind !== NIP85_KINDS.IDENTIFIER && tagValues(event, 'k').length > 1) {
+    errors.push('Duplicate k-tag.')
+  }
+
   switch (event.kind) {
     case NIP85_KINDS.USER:
       if (!HEX64_RE.test(subject)) {
         errors.push('User assertion d-tag must be a 64-character lowercase hex pubkey.')
       }
-      validateOptionalMatchingTag(event, 'p', subject, errors)
       break
     case NIP85_KINDS.EVENT:
       if (!HEX64_RE.test(subject)) {
         errors.push('Event assertion d-tag must be a 64-character lowercase hex event id.')
       }
-      validateOptionalMatchingTag(event, 'e', subject, errors)
       break
     case NIP85_KINDS.ADDRESSABLE:
       if (!ADDRESS_RE.test(subject)) {
         errors.push('Addressable assertion d-tag must be a NIP-33 address: kind:pubkey:d-tag.')
       }
-      validateOptionalMatchingTag(event, 'a', subject, errors)
       break
     case NIP85_KINDS.IDENTIFIER: {
       if (subject === '') {
         errors.push('Identifier assertion d-tag must be non-empty.')
       }
+      // NIP-73 `k` is the identifier type (`web`, `isbn`, `podcast:guid`,
+      // `<blockchain>:tx` and so on), not a kind number. NIP-73 grows new
+      // types, so any short printable-ASCII value without spaces is accepted.
       const kTag = requireSingletonTag(event, 'k', errors)
-      if (kTag !== undefined && !DECIMAL_INTEGER_RE.test(kTag)) {
-        errors.push('Identifier assertion k-tag must be a decimal kind number.')
+      if (kTag !== undefined && !NIP73_K_RE.test(kTag)) {
+        errors.push('Identifier assertion k-tag must be a NIP-73 type of 1 to 64 printable ASCII characters without spaces, such as web or isbn.')
       }
       break
     }
@@ -174,6 +185,18 @@ function strictMetricSets(kind: number): { numeric: Set<string>; string: Set<str
   }
 }
 
+function validateStrictGeneralTags(event: RawEvent, errors: string[]): void {
+  const expirations = event.tags.filter(t => t[0] === 'expiration')
+  if (expirations.length === 0) return
+  if (expirations.length > 1) {
+    errors.push('Duplicate expiration-tag.')
+  }
+  const value: unknown = expirations[0][1]
+  if (typeof value !== 'string' || !DECIMAL_INTEGER_RE.test(value) || !Number.isSafeInteger(Number(value))) {
+    errors.push(`Invalid expiration-tag: "${value}". Must be a unix timestamp in seconds.`)
+  }
+}
+
 function validateStrictMetrics(event: RawEvent, errors: string[]): void {
   const allowed = strictMetricSets(event.kind)
   if (allowed === undefined) return
@@ -181,7 +204,11 @@ function validateStrictMetrics(event: RawEvent, errors: string[]): void {
   const seen = new Set<string>()
   for (const tag of event.tags) {
     const name = tag[0]
-    if (META_TAGS.has(name) || name.startsWith('veil-')) continue
+    if (typeof name !== 'string') {
+      errors.push('Malformed tag: tag name must be a string.')
+      continue
+    }
+    if (META_TAGS.has(name) || GENERAL_TAGS.has(name) || name.startsWith('veil-')) continue
     if (seen.has(name)) {
       errors.push(`Duplicate metric tag "${name}".`)
       continue
@@ -211,8 +238,11 @@ function validateStrictMetrics(event: RawEvent, errors: string[]): void {
  * - `kind` is one of the four NIP-85 assertion kinds (30382–30385)
  * - A `d` tag is present
  * - `rank`, if present, is a number in the range 0–100
- * - when `{ strict: true }` is passed, kind-specific metric names are checked
- *   and optional subject hint tags (`p`, `e`, `a`) are validated if present
+ * - when `{ strict: true }` is passed, kind-specific metric names are checked,
+ *   optional subject hint tags (`p`, `e`, `a`) are validated if present, kind
+ *   30385 needs one non-empty NIP-73 `k` type, and general-purpose tags
+ *   (`expiration`, `alt`, `client`, `L`, `l`, `i`, `-`, `nonce`) are not read
+ *   as metrics; `expiration`, if present, must be one unix timestamp
  *
  * @param event - A raw Nostr event with `kind`, `tags`, and `content` fields
  * @param options - Optional validation mode. Strict mode is additive and opt-in.
@@ -224,8 +254,18 @@ function validateStrictMetrics(event: RawEvent, errors: string[]): void {
  *   console.error('Validation failed:', result.errors)
  * }
  */
-export function validateAssertion(event: RawEvent, options: ValidationOptions = {}): ValidationResult {
+export function validateAssertion(input: RawEvent, options: ValidationOptions = {}): ValidationResult {
   const errors: string[] = []
+
+  // Fail closed rather than throw on relay-supplied junk: drop malformed tags and report them
+  if (input === null || typeof input !== 'object' || !Array.isArray(input.tags)) {
+    return { valid: false, errors: ['Malformed event: tags must be an array.'] }
+  }
+  const wellFormed = input.tags.filter(t => Array.isArray(t) && typeof t[0] === 'string')
+  if (wellFormed.length !== input.tags.length) {
+    errors.push('Malformed tag: every tag must be an array whose name is a string.')
+  }
+  const event: RawEvent = { kind: input.kind, tags: wellFormed, content: input.content }
 
   if (!ASSERTION_KINDS.has(event.kind)) {
     errors.push(`Invalid kind: ${event.kind}. Must be one of 30382, 30383, 30384, 30385.`)
@@ -253,6 +293,7 @@ export function validateAssertion(event: RawEvent, options: ValidationOptions = 
 
   if (options.strict) {
     validateStrictSubjectTags(event, errors)
+    validateStrictGeneralTags(event, errors)
     validateStrictMetrics(event, errors)
   }
 

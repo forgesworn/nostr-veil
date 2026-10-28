@@ -61,8 +61,8 @@ function isAssertionKind(kind: number): boolean {
 // ── tests ────────────────────────────────────────────────────────────
 
 describe('frozen NIP-85 test vectors', () => {
-  it('vectors.json contains exactly 10 vectors', () => {
-    expect(vectors.vectors).toHaveLength(10)
+  it('vectors.json contains exactly 11 vectors', () => {
+    expect(vectors.vectors).toHaveLength(11)
   })
 
   describe.each(vectors.vectors)('$id — $description', (vector) => {

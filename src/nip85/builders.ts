@@ -91,13 +91,13 @@ export function buildAddressableAssertion(address: string, metrics: EventMetrics
 /**
  * Build a kind 30385 identifier assertion with an explicit k-tag.
  *
- * @param identifier - Opaque identifier string used as the `d`-tag value
- * @param kTag - The kind number (as a string) the identifier belongs to
+ * @param identifier - NIP-73 identifier used as the `d`-tag value, such as a normalised URL or `isbn:<id>`
+ * @param kTag - The NIP-73 identifier type: `web`, `isbn`, `geo`, `doi`, `podcast:guid`, `<blockchain>:tx` and so on
  * @param metrics - {@link IdentifierMetrics} to embed as tags (undefined values are omitted)
  * @returns An unsigned {@link EventTemplate} with `d` and `k` tags set accordingly
  *
  * @example
- * const tmpl = buildIdentifierAssertion('npub1abc…', '0', { rank: 60, reaction_cnt: 15 })
+ * const tmpl = buildIdentifierAssertion('https://example.com/article', 'web', { rank: 60, reaction_cnt: 15 })
  * const event = signEvent(tmpl, providerPrivkey)
  * await relay.publish(event)
  */

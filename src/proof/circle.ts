@@ -1,6 +1,7 @@
 import { sha256 } from '@noble/hashes/sha2.js'
 import { bytesToHex } from '@noble/hashes/utils.js'
 import type { ProofContext, SubjectTag, TrustCircle } from './types.js'
+import { assertMetricNamesAllowed } from './metric-names.js'
 
 /** Maximum length of a federation scope string (and of a `veil-scope` tag value). */
 export const MAX_SCOPE_LENGTH = 128
@@ -67,6 +68,7 @@ function assertFiniteMetrics(metrics: Record<string, number>): void {
 }
 
 function sortedMetrics(metrics: Record<string, number>): Record<string, number> {
+  assertMetricNamesAllowed(metrics)
   assertFiniteMetrics(metrics)
   const sorted: Record<string, number> = {}
   for (const key of Object.keys(metrics).sort()) {
@@ -107,7 +109,9 @@ function assertSubjectTag(value: string): asserts value is SubjectTag {
  * @param metrics - Key-value pairs of metric names to finite numeric values
  * @returns A deterministic JSON string suitable for LSAG signing
  *
- * @throws If any metric value is NaN or non-finite (Infinity / -Infinity)
+ * @throws If any metric value is NaN or non-finite (Infinity / -Infinity), or a
+ *   metric name is reserved (a single character, `veil-*`, or a Nostr tag with its
+ *   own meaning such as `expiration`, `-` or `content-warning`)
  *
  * @example
  * const msg = canonicalMessage(circle.circleId, subjectPubkey, { rank: 85, followers: 1200 })

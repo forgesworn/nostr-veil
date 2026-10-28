@@ -163,11 +163,14 @@ or provider profile.
 | Addressable event, such as a long-form note or list | 30384 addressable event assertion | `aggregateAddressableContributions` | `a` |
 | External identifier, such as a package, domain, relay, or vendor id | 30385 NIP-73/external identifier assertion | `aggregateIdentifierContributions` | `k` |
 
-For kind 30385, the `k` tag is a decimal namespace chosen by the application
-profile. nostr-veil validates the shape and binds it in proof v2; it does not
-standardise every external namespace. Examples that use `k = 0` are placeholders
-for an application-private profile, not a Nostr-wide package, domain, or vendor
-registry.
+For kind 30385, NIP-85 asks for a NIP-73 `k` tag: the identifier type, such as
+`web`, `isbn`, `geo`, `doi`, `podcast:guid` or `<blockchain>:tx`. The
+strict validation and `aggregateIdentifierContributions` accept any `k` of 1 to
+64 printable ASCII characters without spaces (`buildIdentifierAssertion` does not validate it), and proof
+v2 binds it. The built-in profiles in `nostr-veil/profiles` use decimal values instead
+(`k = 0` for application-private identifiers, `k = 10002` for relays and
+services). That is a nostr-veil profile convention for subjects NIP-73 has no
+type for, not a NIP-73 type and not a Nostr-wide registry.
 
 Use the canonical subject helpers from `nostr-veil/profiles` where one exists.
 They keep package, repository, maintainer, service, NIP-05, LNURLp, NIP-96,

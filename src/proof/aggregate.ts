@@ -11,6 +11,7 @@ import type {
   TrustCircle,
 } from './types.js'
 import { canonicalMessage, canonicalMessageV2, computeCircleId, electionId, electionIdV2 } from './circle.js'
+import { reservedMetricNameReason } from './metric-names.js'
 
 export type AggregateOptions = AggregateFn | {
   aggregateFn?: AggregateFn
@@ -129,8 +130,8 @@ function assertAddress(value: string): void {
 }
 
 function assertKTag(value: string): void {
-  if (!/^(0|[1-9]\d*)$/.test(value)) {
-    throw new Error('kTag must be a decimal kind number')
+  if (typeof value !== 'string' || !/^[\x21-\x7e]{1,64}$/.test(value)) {
+    throw new Error('kTag must be a NIP-73 type of 1 to 64 printable ASCII characters without spaces, such as web or isbn')
   }
 }
 
@@ -192,6 +193,10 @@ function aggregateContributionsWithSubjectTags(
     if (contribution.signature.electionId !== expectedElectionId) {
       throw new Error(`Signature electionId does not match trust circle subject at contribution index ${i}`)
     }
+    for (const name of Object.keys(contribution.metrics)) {
+      const reason = reservedMetricNameReason(name)
+      if (reason !== undefined) throw new Error(`${reason} (contribution index ${i})`)
+    }
     const expectedMessage = proofContext === undefined
       ? canonicalMessage(circle.circleId, subject, contribution.metrics)
       : canonicalMessageV2(circle.circleId, subject, contribution.metrics, proofContext)
@@ -219,7 +224,9 @@ function aggregateContributionsWithSubjectTags(
   }
   const aggregatedMetrics: Record<string, number> = {}
   for (const key of allMetricKeys) {
-    const values = contributions.map(c => c.metrics[key]).filter((v): v is number => v !== undefined)
+    const values = contributions
+      .map(c => (Object.hasOwn(c.metrics, key) ? c.metrics[key] : undefined))
+      .filter((v): v is number => v !== undefined)
     const aggregated = aggregateFn(values)
     if (!Number.isFinite(aggregated)) {
       throw new Error(`aggregateFn returned non-finite value for metric "${key}": ${aggregated}`)
@@ -330,9 +337,9 @@ export function aggregateAddressableContributions(
 /**
  * Aggregate anonymous contributions into a kind 30385 identifier assertion.
  *
- * Emits `d` for the identifier and `k` for the identifier kind. The proof
- * format is still the backwards-compatible v1 format, so `verifyProof` works
- * unchanged.
+ * Emits `d` for the identifier and `k` for its NIP-73 type (`web`, `isbn`,
+ * `podcast:guid`, `<blockchain>:tx` and so on). Pass `{ proofVersion: 'v2' }`
+ * to bind the kind and `k` value into the signed messages.
  */
 export function aggregateIdentifierContributions(
   circle: TrustCircle,
