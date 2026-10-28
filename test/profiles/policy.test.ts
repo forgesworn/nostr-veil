@@ -258,6 +258,25 @@ describe('deployment policies', () => {
     expect(Object.keys(result.metrics)).toEqual(['rank'])
   })
 
+  it('rejects an assertion the publisher has marked expired', () => {
+    const policy = createDeploymentPolicy(RELEASE_PACKAGE_MAINTAINER_REPUTATION_PROFILE, {
+      acceptedCircleIds: [circleId(packageAssertion)],
+      expectedSubject: tagValue(packageAssertion, 'd'),
+      metricPolicies: { rank: { required: true } },
+      rejectUnknownMetrics: true,
+    })
+    const now = packageAssertion.created_at ?? 0
+    const event = cloneEvent(packageAssertion)
+    event.tags.splice(1, 0, ['expiration', String(now)])
+
+    const expired = verifyDeploymentPolicy(event, policy, { now })
+    expect(expired.valid).toBe(false)
+    expect(expired.errors.join('; ')).toContain('assertion has expired')
+
+    const live = verifyDeploymentPolicy(event, policy, { now: now - 1 })
+    expect(live.valid, live.errors.join('; ')).toBe(true)
+  })
+
   it('verifies federated moderation policy across accepted scoped circles', () => {
     const policy = createDeploymentPolicy(FEDERATED_MODERATION_PROFILE, {
       acceptedCircleIds: moderationEvents.map(circleId),

@@ -1,4 +1,5 @@
 import type { ParsedAssertion, ParsedProvider } from './types.js'
+import { PUBLISHER_TAGS } from './tags.js'
 
 /** Tags that carry structural metadata rather than assertion metrics */
 const META_TAGS = new Set(['d', 'p', 'e', 'a', 'k'])
@@ -12,6 +13,9 @@ interface RawEvent {
 /**
  * Extracts the subject (d-tag value) and metric tags from a NIP-85 assertion event.
  * Skips known meta tags (`d`, `p`, `e`, `a`, `k`) and any tag whose name starts with `veil-`.
+ * On a veil event (one with a `veil-ring` tag) it also skips the publisher tags
+ * `expiration` and `alt`, which the circle does not sign, so `metrics` holds
+ * only circle-signed values.
  *
  * @param event - A raw Nostr event with `kind`, `tags`, and `content` fields
  * @returns A {@link ParsedAssertion} with the event kind, subject identifier, and metric key-value pairs
@@ -25,10 +29,12 @@ export function parseAssertion(event: RawEvent): ParsedAssertion {
   const dTag = event.tags.find(t => t[0] === 'd')
   const subject = dTag?.[1] ?? ''
 
+  const isVeilEvent = event.tags.some(t => t[0] === 'veil-ring')
   const metrics: Record<string, string | number> = {}
   for (const tag of event.tags) {
     const name = tag[0]
     if (META_TAGS.has(name) || name.startsWith('veil-')) continue
+    if (isVeilEvent && PUBLISHER_TAGS.has(name)) continue
     if (tag[1] !== undefined) {
       metrics[name] = tag[1]
     }

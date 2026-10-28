@@ -2,6 +2,7 @@ import { validateAssertionStrict } from '../nip85/validators.js'
 import { computeCircleId } from '../proof/circle.js'
 import { verifyFederation } from '../proof/federate.js'
 import { verifyProof } from '../proof/verify.js'
+import { isUnixSecondsTagValue } from '../nip85/tags.js'
 import { subjectMatchesAnyFormat } from './canonical.js'
 import { issuesFromErrors } from './issues.js'
 import type { EventTemplate } from '../nip85/types.js'
@@ -105,6 +106,14 @@ function verifyEvent(
     } else if (event.created_at < (options.now ?? nowSeconds()) - maxAgeSeconds) {
       errors.push(`${prefix} assertion is outside the accepted freshness window`)
     }
+  }
+
+  // NIP-40: the publisher declared the assertion dead from this time. Many
+  // relays and caches still serve expired events, so check it here too.
+  const expiration = event.tags.find(tag => tag[0] === 'expiration')?.[1]
+  if (expiration !== undefined && isUnixSecondsTagValue(expiration)
+    && Number(expiration) <= (options.now ?? nowSeconds())) {
+    errors.push(`${prefix} assertion has expired (NIP-40 expiration ${expiration})`)
   }
 
   const eventCircleId = circleId(event, errors, prefix)

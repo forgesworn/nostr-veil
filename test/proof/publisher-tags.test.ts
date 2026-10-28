@@ -16,6 +16,7 @@ import {
 } from '../../src/proof/aggregate.js'
 import { verifyProof } from '../../src/proof/verify.js'
 import { validateAssertionStrict } from '../../src/nip85/validators.js'
+import { parseAssertion } from '../../src/nip85/parsers.js'
 import type { EventTemplate } from '../../src/nip85/types.js'
 
 // The publisher of a veil event may set a NIP-40 expiration and a NIP-31 alt.
@@ -41,9 +42,21 @@ function withTags(event: EventTemplate, extra: string[][]): EventTemplate {
 }
 
 describe('publisher-set expiration and alt on veil events', () => {
-  it('emits nothing new when the options are absent', () => {
-    const event = userEvent()
-    expect(event.tags.some(t => t[0] === 'expiration' || t[0] === 'alt')).toBe(false)
+  it('emits the same tag layout as 0.30.4 when the options are absent', () => {
+    // LSAG signatures are randomised, so pin the tag names and non-signature values
+    const layout = (event: EventTemplate) => event.tags.map(t => (t[0] === 'veil-sig' ? ['veil-sig'] : t))
+    const expected = [
+      ['d', subject],
+      ['p', subject],
+      ['rank', '41'],
+      ['veil-ring', ...circle.members],
+      ['veil-threshold', '3', '3'],
+      ['veil-agg', 'median'],
+      ['veil-sig'], ['veil-sig'], ['veil-sig'],
+    ]
+    expect(layout(userEvent())).toEqual(expected)
+    expect(layout(userEvent({}))).toEqual(expected)
+    expect(layout(userEvent({ aggregate: 'median' }))).toEqual(expected)
   })
 
   it('emits expiration and alt when supplied, and the proof verifies', () => {
@@ -93,18 +106,36 @@ describe('publisher-set expiration and alt on veil events', () => {
   })
 
   it.each([
-    [['expiration']],
-    [['expiration', 'soon']],
-    [['expiration', '1.5']],
-    [['expiration', '-1']],
-    [['expiration', '01900000000']],
-    [['expiration', '']],
-    [['expiration', '99999999999999999999']],
-    [['alt']],
-  ])('rejects the malformed publisher tag %j', tag => {
+    [['expiration'], 'Invalid expiration tag'],
+    [['expiration', 'soon'], 'Invalid expiration tag'],
+    [['expiration', '1.5'], 'Invalid expiration tag'],
+    [['expiration', '-1'], 'Invalid expiration tag'],
+    [['expiration', '01900000000'], 'Invalid expiration tag'],
+    [['expiration', ''], 'Invalid expiration tag'],
+    [['expiration', '99999999999999999999'], 'Invalid expiration tag'],
+    [['alt'], 'Invalid alt tag'],
+    [['alt', ''], 'Invalid alt tag'],
+  ])('rejects the malformed publisher tag %j', (tag, message) => {
     const result = verifyProof(withTags(userEvent(), [tag]))
     expect(result.valid).toBe(false)
-    expect(result.errors.some(e => e.includes(tag[0]))).toBe(true)
+    expect(result.errors.some(e => e.includes(message))).toBe(true)
+    // the tag is checked as a publisher tag, never as an unsigned metric
+    expect(result.errors.some(e => e.includes('not signed') || e.includes('missing a value'))).toBe(false)
+  })
+
+  it('verifies the publisher tags without reading them as unsigned metrics', () => {
+    const result = verifyProof(withTags(userEvent(), [['expiration', String(EXPIRY)], ['alt', 'score']]))
+    expect(result.errors).toEqual([])
+  })
+
+  it('parseAssertion leaves publisher tags out of a veil event\'s metrics', () => {
+    const parsed = parseAssertion(userEvent({ expiration: EXPIRY, alt: 'Vouched for by 50 maintainers' }))
+    expect(parsed.metrics).toEqual({ rank: '41' })
+  })
+
+  it('parseAssertion still reports expiration on a plain NIP-85 event, as before', () => {
+    const parsed = parseAssertion({ kind: 30382, tags: [['d', subject], ['rank', '5'], ['expiration', '7']], content: '' })
+    expect(parsed.metrics).toEqual({ rank: '5', expiration: '7' })
   })
 
   it('rejects a non-string expiration value', () => {

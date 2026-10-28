@@ -10,8 +10,8 @@ import {
 } from './circle.js'
 import type { AggregateFn, ProofContext, ProofVerification, ProofVersion, SubjectTag } from './types.js'
 import { AGGREGATES, isAggregateName } from './aggregate.js'
-import { PUBLISHER_TAGS, reservedMetricNameReason } from './metric-names.js'
-import { isUnixSecondsTagValue } from '../nip85/tags.js'
+import { reservedMetricNameReason } from './metric-names.js'
+import { isUnixSecondsTagValue, PUBLISHER_TAGS } from '../nip85/tags.js'
 
 /**
  * Verify all LSAG ring signatures in a Veil-enhanced NIP-85 event.
@@ -571,8 +571,8 @@ export function verifyProof(event: {
   const alts = event.tags.filter(t => t[0] === 'alt')
   if (alts.length > 1) {
     errors.push('Multiple alt tags')
-  } else if (alts.length === 1 && typeof alts[0][1] !== 'string') {
-    errors.push('Invalid alt tag: missing a value')
+  } else if (alts.length === 1 && (typeof alts[0][1] !== 'string' || alts[0][1] === '')) {
+    errors.push('Invalid alt tag: must be a non-empty string')
   }
 
   const ringTag = event.tags.find(t => t[0] === 'veil-ring')
