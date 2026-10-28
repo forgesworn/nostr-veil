@@ -208,8 +208,9 @@ corroboration, onboarding vouches, and pubkey-backed trade reputation. Use
 `aggregateAddressableContributions` for long-form review, research, proposals,
 lists, and labeler profiles. Use `aggregateIdentifierContributions` for relays,
 services, packages, releases, maintainers, NIP-05 identifiers, domains, vendors,
-credential verifiers, and other external identifiers; the kind 30385 `k`
-namespace is chosen by the application profile, not standardised by nostr-veil.
+credential verifiers, and other external identifiers; the kind 30385 `k` tag is
+the NIP-73 identifier type (`web`, `isbn`, `podcast:guid` and so on), and the
+built-in profiles use decimal `k` namespaces for subjects NIP-73 has no type for.
 Verifier and issuer legitimacy profiles answer "who verifies the verifier?" by
 scoring a method-scoped subject such as
 `verifier:proof-of-person:in-person:<pubkey>` before a community accepts

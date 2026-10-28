@@ -89,8 +89,9 @@ The shipped primitives cover these concrete shapes:
   grant applications, community lists, labeler profiles, and moderation lists.
 - Kind 30385 identifier assertions: relays, services, vendors, marketplaces,
   packages, releases, maintainers, NIP-05 identifiers, domains, method-scoped
-  credential verifiers, and other external identifiers. The `k` namespace is
-  chosen by the application profile, not standardised by nostr-veil.
+  credential verifiers, and other external identifiers. The `k` tag is the
+  NIP-73 identifier type (`web`, `isbn`, `podcast:guid` and so on); the built-in
+  profiles use decimal `k` namespaces for subjects NIP-73 has no type for.
 - Scoped federations: cross-circle moderation or review where overlapping
   members should count once across several circles.
 

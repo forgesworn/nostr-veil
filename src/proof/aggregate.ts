@@ -129,8 +129,8 @@ function assertAddress(value: string): void {
 }
 
 function assertKTag(value: string): void {
-  if (!/^(0|[1-9]\d*)$/.test(value)) {
-    throw new Error('kTag must be a decimal kind number')
+  if (typeof value !== 'string' || value === '') {
+    throw new Error('kTag must be a non-empty NIP-73 type, such as web or isbn')
   }
 }
 
@@ -330,7 +330,8 @@ export function aggregateAddressableContributions(
 /**
  * Aggregate anonymous contributions into a kind 30385 identifier assertion.
  *
- * Emits `d` for the identifier and `k` for the identifier kind. The proof
+ * Emits `d` for the identifier and `k` for its NIP-73 type (`web`, `isbn`,
+ * `podcast:guid`, `<blockchain>:tx` and so on). The proof
  * format is still the backwards-compatible v1 format, so `verifyProof` works
  * unchanged.
  */

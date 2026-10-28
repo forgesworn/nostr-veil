@@ -16,9 +16,11 @@ algorithm provider, or other service endpoint rather than a Nostr account.
 - Proof version: v2 recommended.
 - Useful metrics: `rank`, `comment_cnt`, `reaction_cnt`.
 
-The `k` value is an application profile namespace. The example below uses
-`10002` because the profile is scoring relay-selection context; choose a
-different decimal namespace if your application needs one.
+The `k` value here is a nostr-veil profile namespace, not a NIP-73 type: NIP-73
+has no type for relays or service endpoints. The built-in profile uses `10002`
+because it scores relay-selection context, and profile definitions require a
+decimal value. For subjects NIP-73 does cover, such as a website (`web`), use
+`aggregateIdentifierContributions` directly with the NIP-73 type.
 
 ## Subject design
 

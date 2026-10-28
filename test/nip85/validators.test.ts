@@ -5,6 +5,7 @@ import {
   validateProviderDeclarationStrict,
 } from '../../src/nip85/validators.js'
 import { NIP85_KINDS, describeNip85Kind } from '../../src/nip85/types.js'
+import { buildIdentifierAssertion } from '../../src/nip85/builders.js'
 
 const pubkey = 'a'.repeat(64)
 const servicePubkey = 'c'.repeat(64)
@@ -264,6 +265,117 @@ describe('validateAssertion', () => {
     const result = validateAssertionStrict(event)
     expect(result.valid).toBe(false)
     expect(result.errors.some(e => /duplicate metric/i.test(e))).toBe(true)
+  })
+
+  describe('kind 30385 NIP-73 k-tag (issue #40)', () => {
+    it('strictly accepts the identifier assertion buildIdentifierAssertion produces with a NIP-73 type', () => {
+      const event = buildIdentifierAssertion('wss://relay.example.org', 'web', { rank: 25 })
+      expect(validateAssertion(event)).toEqual({ valid: true, errors: [] })
+      expect(validateAssertionStrict(event)).toEqual({ valid: true, errors: [] })
+    })
+
+    it.each(['web', 'isbn', 'geo', 'iso3166', 'doi', '#', 'podcast:guid', 'podcast:item:guid', 'bitcoin:tx', 'ethereum:address'])(
+      'strictly accepts NIP-73 k type %s',
+      kType => {
+        const event = {
+          kind: NIP85_KINDS.IDENTIFIER,
+          tags: [['d', 'subject'], ['k', kType], ['rank', '50']],
+          content: '',
+        }
+        expect(validateAssertionStrict(event).valid).toBe(true)
+      },
+    )
+
+    it('strictly rejects an empty k-tag', () => {
+      const event = {
+        kind: NIP85_KINDS.IDENTIFIER,
+        tags: [['d', 'subject'], ['k', ''], ['rank', '50']],
+        content: '',
+      }
+      const result = validateAssertionStrict(event)
+      expect(result.valid).toBe(false)
+      expect(result.errors.some(e => e.includes('k-tag'))).toBe(true)
+    })
+
+    it('strictly rejects a missing or duplicated k-tag', () => {
+      const missing = { kind: NIP85_KINDS.IDENTIFIER, tags: [['d', 'subject'], ['rank', '50']], content: '' }
+      const duplicated = {
+        kind: NIP85_KINDS.IDENTIFIER,
+        tags: [['d', 'subject'], ['k', 'web'], ['k', 'isbn'], ['rank', '50']],
+        content: '',
+      }
+      expect(validateAssertionStrict(missing).errors).toContain('Missing required k-tag.')
+      expect(validateAssertionStrict(duplicated).errors).toContain('Duplicate k-tag.')
+    })
+  })
+
+  describe('general-purpose tags in strict mode (issue #40)', () => {
+    it('does not read a NIP-40 expiration tag as a metric', () => {
+      const event = buildIdentifierAssertion('wss://relay.example.org', 'web', { rank: 25 })
+      event.tags.push(['expiration', '1787186400'])
+      expect(validateAssertionStrict(event)).toEqual({ valid: true, errors: [] })
+    })
+
+    it('accepts alt, client, NIP-32 labels, a NIP-73 i-tag, NIP-70 and NIP-13 tags on every assertion kind', () => {
+      const general = [
+        ['alt', 'Trust score'],
+        ['client', 'nostr-veil'],
+        ['L', 'ugc'],
+        ['l', 'reviewed', 'ugc'],
+        ['l', 'second', 'ugc'],
+        ['-'],
+        ['nonce', '1', '8'],
+      ]
+      const events = [
+        { kind: NIP85_KINDS.USER, tags: [['d', pubkey], ['rank', '80'], ...general], content: '' },
+        { kind: NIP85_KINDS.EVENT, tags: [['d', eventId], ['rank', '80'], ...general], content: '' },
+        { kind: NIP85_KINDS.ADDRESSABLE, tags: [['d', address], ['rank', '80'], ...general], content: '' },
+        {
+          kind: NIP85_KINDS.IDENTIFIER,
+          tags: [['d', 'isbn:9780765382030'], ['k', 'isbn'], ['i', 'isbn:9780765382030'], ['rank', '80'], ...general],
+          content: '',
+        },
+      ]
+      for (const event of events) {
+        expect(validateAssertionStrict(event)).toEqual({ valid: true, errors: [] })
+      }
+    })
+
+    it('strictly rejects a malformed or duplicated expiration tag', () => {
+      const malformed = {
+        kind: NIP85_KINDS.USER,
+        tags: [['d', pubkey], ['rank', '80'], ['expiration', 'soon']],
+        content: '',
+      }
+      const duplicated = {
+        kind: NIP85_KINDS.USER,
+        tags: [['d', pubkey], ['rank', '80'], ['expiration', '1787186400'], ['expiration', '1787186401']],
+        content: '',
+      }
+      expect(validateAssertionStrict(malformed).valid).toBe(false)
+      expect(validateAssertionStrict(malformed).errors.some(e => e.includes('expiration'))).toBe(true)
+      expect(validateAssertionStrict(duplicated).errors).toContain('Duplicate expiration-tag.')
+    })
+
+    it('still rejects unknown metric tags', () => {
+      const event = {
+        kind: NIP85_KINDS.IDENTIFIER,
+        tags: [['d', 'subject'], ['k', 'web'], ['rank', '50'], ['followers', '10']],
+        content: '',
+      }
+      const result = validateAssertionStrict(event)
+      expect(result.valid).toBe(false)
+      expect(result.errors).toContain('Unknown metric tag "followers" for kind 30385.')
+    })
+
+    it('still validates the t metric on kind 30382', () => {
+      const event = {
+        kind: NIP85_KINDS.USER,
+        tags: [['d', pubkey], ['t']],
+        content: '',
+      }
+      expect(validateAssertionStrict(event).errors).toContain('Metric "t" is missing a value.')
+    })
   })
 })
 

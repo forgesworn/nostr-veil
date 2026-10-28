@@ -1,5 +1,6 @@
 import type { ValidationResult } from './types.js'
 import { NIP85_KINDS } from './types.js'
+import { GENERAL_TAGS } from './tags.js'
 
 const ASSERTION_KINDS = new Set<number>([
   NIP85_KINDS.USER,
@@ -151,9 +152,12 @@ function validateStrictSubjectTags(event: RawEvent, errors: string[]): void {
       if (subject === '') {
         errors.push('Identifier assertion d-tag must be non-empty.')
       }
+      // NIP-73 `k` is the identifier type (`web`, `isbn`, `podcast:guid`,
+      // `<blockchain>:tx` and so on), not a kind number. NIP-73 grows new
+      // types, so any non-empty value is accepted.
       const kTag = requireSingletonTag(event, 'k', errors)
-      if (kTag !== undefined && !DECIMAL_INTEGER_RE.test(kTag)) {
-        errors.push('Identifier assertion k-tag must be a decimal kind number.')
+      if (kTag === '') {
+        errors.push('Identifier assertion k-tag must be a non-empty NIP-73 type, such as web or isbn.')
       }
       break
     }
@@ -174,6 +178,18 @@ function strictMetricSets(kind: number): { numeric: Set<string>; string: Set<str
   }
 }
 
+function validateStrictGeneralTags(event: RawEvent, errors: string[]): void {
+  const expirations = event.tags.filter(t => t[0] === 'expiration')
+  if (expirations.length === 0) return
+  if (expirations.length > 1) {
+    errors.push('Duplicate expiration-tag.')
+  }
+  const value = expirations[0][1]
+  if (value === undefined || !DECIMAL_INTEGER_RE.test(value)) {
+    errors.push(`Invalid expiration-tag: "${value}". Must be a unix timestamp in seconds.`)
+  }
+}
+
 function validateStrictMetrics(event: RawEvent, errors: string[]): void {
   const allowed = strictMetricSets(event.kind)
   if (allowed === undefined) return
@@ -181,7 +197,7 @@ function validateStrictMetrics(event: RawEvent, errors: string[]): void {
   const seen = new Set<string>()
   for (const tag of event.tags) {
     const name = tag[0]
-    if (META_TAGS.has(name) || name.startsWith('veil-')) continue
+    if (META_TAGS.has(name) || GENERAL_TAGS.has(name) || name.startsWith('veil-')) continue
     if (seen.has(name)) {
       errors.push(`Duplicate metric tag "${name}".`)
       continue
@@ -211,8 +227,11 @@ function validateStrictMetrics(event: RawEvent, errors: string[]): void {
  * - `kind` is one of the four NIP-85 assertion kinds (30382–30385)
  * - A `d` tag is present
  * - `rank`, if present, is a number in the range 0–100
- * - when `{ strict: true }` is passed, kind-specific metric names are checked
- *   and optional subject hint tags (`p`, `e`, `a`) are validated if present
+ * - when `{ strict: true }` is passed, kind-specific metric names are checked,
+ *   optional subject hint tags (`p`, `e`, `a`) are validated if present, kind
+ *   30385 needs one non-empty NIP-73 `k` type, and general-purpose tags
+ *   (`expiration`, `alt`, `client`, `L`, `l`, `i`, `-`, `nonce`) are not read
+ *   as metrics; `expiration`, if present, must be one unix timestamp
  *
  * @param event - A raw Nostr event with `kind`, `tags`, and `content` fields
  * @param options - Optional validation mode. Strict mode is additive and opt-in.
@@ -253,6 +272,7 @@ export function validateAssertion(event: RawEvent, options: ValidationOptions = 
 
   if (options.strict) {
     validateStrictSubjectTags(event, errors)
+    validateStrictGeneralTags(event, errors)
     validateStrictMetrics(event, errors)
   }
 

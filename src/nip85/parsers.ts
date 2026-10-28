@@ -1,4 +1,5 @@
 import type { ParsedAssertion, ParsedProvider } from './types.js'
+import { GENERAL_TAGS } from './tags.js'
 
 /** Tags that carry structural metadata rather than assertion metrics */
 const META_TAGS = new Set(['d', 'p', 'e', 'a', 'k'])
@@ -11,7 +12,8 @@ interface RawEvent {
 
 /**
  * Extracts the subject (d-tag value) and metric tags from a NIP-85 assertion event.
- * Skips known meta tags (`d`, `p`, `e`, `a`, `k`) and any tag whose name starts with `veil-`.
+ * Skips known meta tags (`d`, `p`, `e`, `a`, `k`), general-purpose tags any event may carry
+ * (`expiration`, `alt`, `client`, `L`, `l`, `i`, `-`, `nonce`) and any tag whose name starts with `veil-`.
  *
  * @param event - A raw Nostr event with `kind`, `tags`, and `content` fields
  * @returns A {@link ParsedAssertion} with the event kind, subject identifier, and metric key-value pairs
@@ -28,7 +30,7 @@ export function parseAssertion(event: RawEvent): ParsedAssertion {
   const metrics: Record<string, string | number> = {}
   for (const tag of event.tags) {
     const name = tag[0]
-    if (META_TAGS.has(name) || name.startsWith('veil-')) continue
+    if (META_TAGS.has(name) || GENERAL_TAGS.has(name) || name.startsWith('veil-')) continue
     if (tag[1] !== undefined) {
       metrics[name] = tag[1]
     }

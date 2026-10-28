@@ -226,6 +226,27 @@
       }
     },
     {
+      "id": "identifier-nip73-web",
+      "description": "Kind 30385 assertion about a URL with the NIP-73 k type web",
+      "input": {
+        "builder": "buildIdentifierAssertion",
+        "identifier": "https://example.com/article",
+        "kTag": "web",
+        "metrics": {
+          "rank": 25
+        }
+      },
+      "expected": {
+        "kind": 30385,
+        "tags": [
+          ["d", "https://example.com/article"],
+          ["k", "web"],
+          ["rank", "25"]
+        ],
+        "content": ""
+      }
+    },
+    {
       "id": "provider-plaintext",
       "description": "Kind 10040 provider declaration with 3 assertion entries (plaintext)",
       "input": {
