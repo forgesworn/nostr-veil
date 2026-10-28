@@ -130,8 +130,8 @@ function assertAddress(value: string): void {
 }
 
 function assertKTag(value: string): void {
-  if (typeof value !== 'string' || !/^\S+$/.test(value)) {
-    throw new Error('kTag must be a non-empty NIP-73 type without whitespace, such as web or isbn')
+  if (typeof value !== 'string' || !/^[\x21-\x7e]{1,64}$/.test(value)) {
+    throw new Error('kTag must be a NIP-73 type of 1 to 64 printable ASCII characters without spaces, such as web or isbn')
   }
 }
 

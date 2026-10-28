@@ -165,8 +165,8 @@ or provider profile.
 
 For kind 30385, NIP-85 asks for a NIP-73 `k` tag: the identifier type, such as
 `web`, `isbn`, `geo`, `doi`, `podcast:guid` or `<blockchain>:tx`. The
-strict validation and `aggregateIdentifierContributions` accept any non-empty `k`
-without whitespace (`buildIdentifierAssertion` does not validate it), and proof
+strict validation and `aggregateIdentifierContributions` accept any `k` of 1 to
+64 printable ASCII characters without spaces (`buildIdentifierAssertion` does not validate it), and proof
 v2 binds it. The built-in profiles in `nostr-veil/profiles` use decimal values instead
 (`k = 0` for application-private identifiers, `k = 10002` for relays and
 services). That is a nostr-veil profile convention for subjects NIP-73 has no

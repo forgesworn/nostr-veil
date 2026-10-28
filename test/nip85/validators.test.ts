@@ -318,6 +318,60 @@ describe('validateAssertion', () => {
     })
   })
 
+  describe('subject tags on every kind', () => {
+    it('strictly rejects a p, e or a tag that does not match d on any kind', () => {
+      const cases = [
+        { kind: NIP85_KINDS.IDENTIFIER, tags: [['d', 'https://a.example'], ['k', 'web'], ['p', pubkey]] },
+        { kind: NIP85_KINDS.EVENT, tags: [['d', eventId], ['p', pubkey]] },
+        { kind: NIP85_KINDS.USER, tags: [['d', pubkey], ['e', eventId]] },
+        { kind: NIP85_KINDS.USER, tags: [['d', pubkey], ['a', address]] },
+      ]
+      for (const c of cases) {
+        expect(validateAssertionStrict({ ...c, content: '' }).valid, JSON.stringify(c.tags)).toBe(false)
+      }
+    })
+
+    it('strictly rejects an i tag that does not match d, and accepts one that does', () => {
+      const bad = { kind: NIP85_KINDS.USER, tags: [['d', pubkey], ['rank', '5'], ['i', 'https://victim.example']], content: '' }
+      const good = { kind: NIP85_KINDS.IDENTIFIER, tags: [['d', 'isbn:9780765382030'], ['k', 'isbn'], ['i', 'isbn:9780765382030']], content: '' }
+      expect(validateAssertionStrict(bad).valid).toBe(false)
+      expect(validateAssertionStrict(good).valid).toBe(true)
+    })
+
+    it('strictly rejects valueless or non-string subject tags', () => {
+      for (const tags of [[['p']], [['p', pubkey], ['p']], [['p', pubkey], ['p', 42]]]) {
+        const event = { kind: NIP85_KINDS.USER, tags: [['d', pubkey], ...tags], content: '' } as unknown as Parameters<typeof validateAssertion>[0]
+        expect(validateAssertionStrict(event).valid, JSON.stringify(tags)).toBe(false)
+      }
+    })
+
+    it('reads kind and content from an event whose fields are inherited', () => {
+      const proto = { kind: NIP85_KINDS.USER, content: '' }
+      const event = Object.assign(Object.create(proto), { tags: [['d', pubkey], ['rank', '5']] })
+      expect(validateAssertionStrict(event).valid).toBe(true)
+    })
+
+    it('strictly accepts p, e or a tags equal to d as relay hints', () => {
+      const event = { kind: NIP85_KINDS.EVENT, tags: [['d', eventId], ['e', eventId, 'wss://r.example']], content: '' }
+      expect(validateAssertionStrict(event).valid).toBe(true)
+    })
+
+    it('fails closed rather than throwing on null tags or a null tag list', () => {
+      const nullTag = { kind: NIP85_KINDS.USER, tags: [['d', pubkey], null], content: '' } as unknown as Parameters<typeof validateAssertion>[0]
+      const nullTags = { kind: NIP85_KINDS.USER, tags: null, content: '' } as unknown as Parameters<typeof validateAssertion>[0]
+      for (const event of [nullTag, nullTags]) {
+        expect(() => validateAssertion(event)).not.toThrow()
+        expect(validateAssertion(event).valid).toBe(false)
+        expect(validateAssertionStrict(event).valid).toBe(false)
+      }
+    })
+
+    it.each(['web\u200b', 'web\u0000', 'w'.repeat(65), 'wéb'])('strictly rejects the k-tag %j', kTag => {
+      const event = { kind: NIP85_KINDS.IDENTIFIER, tags: [['d', 'x'], ['k', kTag]], content: '' }
+      expect(validateAssertionStrict(event).valid).toBe(false)
+    })
+  })
+
   describe('general-purpose tags in strict mode (issue #40)', () => {
     it('does not read a NIP-40 expiration tag as a metric', () => {
       const event = buildIdentifierAssertion('wss://relay.example.org', 'web', { rank: 25 })

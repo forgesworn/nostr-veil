@@ -165,6 +165,51 @@ describe('verifyProof subject binding and malformed tags', () => {
     expect(verifyProof(event).errors).toContain('Multiple k tags: the subject tag must appear at most once')
   })
 
+  it('rejects a single kind 30382 p tag that names someone else, with the subject-tag error', () => {
+    const event = honest()
+    const at = event.tags.findIndex(t => t[0] === 'p')
+    event.tags[at] = ['p', 'ee'.repeat(32)]
+    const result = verifyProof(event)
+    expect(result.valid).toBe(false)
+    expect(result.errors).toContain('Subject tag p does not match d tag')
+  })
+
+  it.each([
+    ['p', 'ee'.repeat(32)],
+    ['e', 'e2'.repeat(32)],
+    ['a', `30023:${'ee'.repeat(32)}:x`],
+  ])('rejects a %s tag naming someone other than the subject on kind 30385', (name, value) => {
+    const id = 'https://a.example'
+    const event = aggregateIdentifierContributions(
+      circle,
+      id,
+      'web',
+      privKeys.map((k, i) => contributeIdentifierAssertion(circle, id, 'web', { rank: 50 }, k, indexOf(i))),
+    )
+    event.tags.push([name, value])
+    const result = verifyProof(event)
+    expect(result.valid).toBe(false)
+    expect(result.errors).toContain(`Subject tag ${name} does not match d tag`)
+  })
+
+  it('rejects e, a and k tags added to a kind 30382 proof', () => {
+    for (const extra of [['e', 'e2'.repeat(32)], ['a', `30023:${'ee'.repeat(32)}:x`]]) {
+      const event = honest()
+      event.tags.push(extra)
+      expect(verifyProof(event).valid, extra[0]).toBe(false)
+    }
+    const event = honest()
+    event.tags.push(['k', '1'], ['k', '2'])
+    expect(verifyProof(event).valid).toBe(false)
+  })
+
+  it('still accepts a p tag equal to d with a relay hint', () => {
+    const event = honest()
+    const at = event.tags.findIndex(t => t[0] === 'p')
+    event.tags[at] = ['p', subject, 'wss://relay.example.com']
+    expect(verifyProof(event).valid).toBe(true)
+  })
+
   it('rejects a published __proto__ tag', () => {
     const event = honest()
     event.tags.push(['__proto__', '1'])

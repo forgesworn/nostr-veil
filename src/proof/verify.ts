@@ -10,7 +10,6 @@ import {
 } from './circle.js'
 import type { AggregateFn, ProofContext, ProofVerification, ProofVersion, SubjectTag } from './types.js'
 import { AGGREGATES, isAggregateName } from './aggregate.js'
-import { NIP85_KINDS } from '../nip85/types.js'
 import { reservedMetricNameReason } from './metric-names.js'
 
 /**
@@ -49,11 +48,7 @@ const HEX64_RE = /^[0-9a-f]{64}$/
 const KEY_IMAGE_RE = /^[0-9a-f]{66}$/
 const DECIMAL_INTEGER_RE = /^(0|[1-9]\d*)$/
 const META_TAGS = new Set(['d', 'p', 'e', 'a', 'k'])
-const SUBJECT_HINT_TAG_BY_KIND = new Map<number, string>([
-  [NIP85_KINDS.USER, 'p'],
-  [NIP85_KINDS.EVENT, 'e'],
-  [NIP85_KINDS.ADDRESSABLE, 'a'],
-])
+const SUBJECT_HINT_TAGS = ['p', 'e', 'a'] as const
 
 export type VerifyOptions = AggregateFn | {
   aggregateFn?: AggregateFn
@@ -331,7 +326,7 @@ function comparePublishedMetrics(
   errors: string[],
 ): void {
   for (const [key, value] of Object.entries(signedMetrics)) {
-    const published = publishedMetrics[key]
+    const published = Object.hasOwn(publishedMetrics, key) ? publishedMetrics[key] : undefined
     if (published === undefined) {
       errors.push(`Missing metric "${key}" derived from signed contributions`)
       continue
@@ -549,9 +544,10 @@ export function verifyProof(event: {
   }
   const subject = dTag[1]
 
-  // The kind's subject hint tag, when present, must be single and name the same subject
-  const hintTag = SUBJECT_HINT_TAG_BY_KIND.get(event.kind)
-  if (hintTag !== undefined) {
+  // NIP-85: p, e and a tags MAY repeat the d value as a relay hint. On every kind
+  // each may appear at most once and must name the subject, so a proof cannot
+  // be indexed under someone else (#p queries, notifications).
+  for (const hintTag of SUBJECT_HINT_TAGS) {
     const hints = event.tags.filter(t => t[0] === hintTag)
     if (hints.length > 1) {
       errors.push(`Multiple ${hintTag} tags: the subject tag must appear at most once`)
@@ -559,7 +555,7 @@ export function verifyProof(event: {
       errors.push(`Subject tag ${hintTag} does not match d tag`)
     }
   }
-  if (event.kind === NIP85_KINDS.IDENTIFIER && event.tags.filter(t => t[0] === 'k').length > 1) {
+  if (event.tags.filter(t => t[0] === 'k').length > 1) {
     errors.push('Multiple k tags: the subject tag must appear at most once')
   }
 
