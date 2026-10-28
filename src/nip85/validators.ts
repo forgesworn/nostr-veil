@@ -1,6 +1,6 @@
 import type { ValidationResult } from './types.js'
 import { NIP85_KINDS } from './types.js'
-import { GENERAL_TAGS } from './tags.js'
+import { GENERAL_TAGS, isUnixSecondsTagValue } from './tags.js'
 
 const ASSERTION_KINDS = new Set<number>([
   NIP85_KINDS.USER,
@@ -24,7 +24,6 @@ export interface ValidationOptions {
 }
 
 const HEX64_RE = /^[0-9a-f]{64}$/
-const DECIMAL_INTEGER_RE = /^(0|[1-9]\d*)$/
 // NIP-73 types are short printable ASCII: web, isbn, podcast:guid, <chain>:tx
 const NIP73_K_RE = /^[\x21-\x7e]{1,64}$/
 const ADDRESS_RE = /^(0|[1-9]\d*):[0-9a-f]{64}:.*$/
@@ -192,7 +191,7 @@ function validateStrictGeneralTags(event: RawEvent, errors: string[]): void {
     errors.push('Duplicate expiration-tag.')
   }
   const value: unknown = expirations[0][1]
-  if (typeof value !== 'string' || !DECIMAL_INTEGER_RE.test(value) || !Number.isSafeInteger(Number(value))) {
+  if (!isUnixSecondsTagValue(value)) {
     errors.push(`Invalid expiration-tag: "${value}". Must be a unix timestamp in seconds.`)
   }
 }

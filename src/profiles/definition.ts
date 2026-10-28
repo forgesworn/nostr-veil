@@ -1,4 +1,5 @@
 import { NIP85_KINDS } from '../nip85/types.js'
+import { PUBLISHER_TAGS } from '../nip85/tags.js'
 import type { SubjectFormat, UseCaseProfile, UseCaseProfileDefinitionValidation } from './types.js'
 
 const SLUG_RE = /^[a-z0-9]+(?:[._-][a-z0-9]+)*$/
@@ -239,6 +240,9 @@ function validateMetrics(profile: UseCaseProfile, errors: string[]): void {
       }
       if (META_TAGS.has(metric.name) || metric.name.startsWith('veil-')) {
         errors.push(`${prefix}.name must not be a subject or nostr-veil metadata tag`)
+      }
+      if (PUBLISHER_TAGS.has(metric.name)) {
+        errors.push(`${prefix}.name must not be a publisher tag (expiration or alt)`)
       }
       if (allowedMetrics !== undefined && !allowedMetrics.has(metric.name)) {
         errors.push(`${prefix}.name "${metric.name}" is not valid for kind ${profile.kind}`)

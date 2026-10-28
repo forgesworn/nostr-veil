@@ -240,6 +240,57 @@ describe('deployment policies', () => {
     expect(result.errors.join('; ')).toContain('reaction_cnt')
   })
 
+  it('does not read publisher-set expiration or alt as unknown metrics', () => {
+    const policy = createDeploymentPolicy(RELEASE_PACKAGE_MAINTAINER_REPUTATION_PROFILE, {
+      acceptedCircleIds: [circleId(packageAssertion)],
+      expectedSubject: tagValue(packageAssertion, 'd'),
+      metricPolicies: {
+        rank: { required: true, min: 80, max: 100, integer: true },
+      },
+      rejectUnknownMetrics: true,
+    })
+    const event = cloneEvent(packageAssertion)
+    event.tags.splice(1, 0, ['expiration', '1900000000'], ['alt', 'Package maintainer reputation'])
+
+    const result = verifyDeploymentPolicy(event, policy, { now: packageAssertion.created_at })
+
+    expect(result.valid, result.errors.join('; ')).toBe(true)
+    expect(Object.keys(result.metrics)).toEqual(['rank'])
+  })
+
+  it('rejects an assertion the publisher has marked expired', () => {
+    const policy = createDeploymentPolicy(RELEASE_PACKAGE_MAINTAINER_REPUTATION_PROFILE, {
+      acceptedCircleIds: [circleId(packageAssertion)],
+      expectedSubject: tagValue(packageAssertion, 'd'),
+      metricPolicies: { rank: { required: true } },
+      rejectUnknownMetrics: true,
+    })
+    const now = packageAssertion.created_at ?? 0
+    const event = cloneEvent(packageAssertion)
+    event.tags.splice(1, 0, ['expiration', String(now)])
+
+    const expired = verifyDeploymentPolicy(event, policy, { now })
+    expect(expired.valid).toBe(false)
+    expect(expired.errors.join('; ')).toContain('assertion has expired')
+
+    const live = verifyDeploymentPolicy(event, policy, { now: now - 1 })
+    expect(live.valid, live.errors.join('; ')).toBe(true)
+  })
+
+  it('rejects a federation when one of its events has expired', () => {
+    const policy = createDeploymentPolicy(FEDERATED_MODERATION_PROFILE, {
+      acceptedCircleIds: moderationEvents.map(circleId),
+      expectedSubject: tagValue(moderationEvents[0], 'd'),
+    })
+    const now = Math.max(...moderationEvents.map(event => event.created_at ?? 0))
+    const events = moderationEvents.map(cloneEvent)
+    events[1].tags.splice(1, 0, ['expiration', String(now)])
+
+    const result = verifyDeploymentPolicy(events, policy, { now })
+    expect(result.valid).toBe(false)
+    expect(result.errors.join('; ')).toContain('event[1] assertion has expired')
+  })
+
   it('verifies federated moderation policy across accepted scoped circles', () => {
     const policy = createDeploymentPolicy(FEDERATED_MODERATION_PROFILE, {
       acceptedCircleIds: moderationEvents.map(circleId),

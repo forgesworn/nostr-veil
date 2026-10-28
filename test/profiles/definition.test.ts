@@ -24,6 +24,15 @@ describe('validateUseCaseProfileDefinition', () => {
     }
   })
 
+  it.each(['expiration', 'alt'])('rejects a metric named after the publisher tag %s', name => {
+    const result = validateUseCaseProfileDefinition(packageProfile({
+      kind: 39000,
+      metrics: [{ name, meaning: 'Publisher tag, not a metric.', direction: 'count' }],
+    }))
+
+    expect(result.errors).toContain('profile.metrics[0].name must not be a publisher tag (expiration or alt)')
+  })
+
   it('rejects profile definitions that cannot verify the claimed NIP-85 route', () => {
     const result = validateUseCaseProfileDefinition(packageProfile({
       kind: NIP85_KINDS.IDENTIFIER,
