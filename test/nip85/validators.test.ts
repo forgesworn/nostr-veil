@@ -297,6 +297,15 @@ describe('validateAssertion', () => {
       expect(result.errors.some(e => e.includes('k-tag'))).toBe(true)
     })
 
+    it.each([' ', ' web ', 'web\n', 'podcast guid'])('strictly rejects the k-tag %j', kTag => {
+      const event = {
+        kind: NIP85_KINDS.IDENTIFIER,
+        tags: [['d', 'subject'], ['k', kTag], ['rank', '50']],
+        content: '',
+      }
+      expect(validateAssertionStrict(event).valid).toBe(false)
+    })
+
     it('strictly rejects a missing or duplicated k-tag', () => {
       const missing = { kind: NIP85_KINDS.IDENTIFIER, tags: [['d', 'subject'], ['rank', '50']], content: '' }
       const duplicated = {
@@ -353,6 +362,12 @@ describe('validateAssertion', () => {
         content: '',
       }
       expect(validateAssertionStrict(malformed).valid).toBe(false)
+      for (const bad of [1787186400 as unknown as string, '99999999999999999999999', '-1', '1.5', '']) {
+        const event = { kind: NIP85_KINDS.USER, tags: [['d', pubkey], ['rank', '80'], ['expiration', bad]], content: '' }
+        expect(validateAssertionStrict(event).valid, String(bad)).toBe(false)
+      }
+      const noValue = { kind: NIP85_KINDS.USER, tags: [['d', pubkey], ['rank', '80'], ['expiration']], content: '' }
+      expect(validateAssertionStrict(noValue).valid).toBe(false)
       expect(validateAssertionStrict(malformed).errors.some(e => e.includes('expiration'))).toBe(true)
       expect(validateAssertionStrict(duplicated).errors).toContain('Duplicate expiration-tag.')
     })

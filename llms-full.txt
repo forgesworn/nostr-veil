@@ -390,13 +390,13 @@ const tmpl = buildAddressableAssertion('30023:abc123:my-article', { rank: 70 })
 
 Build a kind 30385 identifier assertion.
 
-- **`identifier`** `string` — Opaque identifier string (used as `d`-tag value)
-- **`kTag`** `string` — Kind number as string (e.g. `'0'`)
+- **`identifier`** `string` — NIP-73 identifier (used as `d`-tag value), such as a normalised URL or `isbn:<id>`
+- **`kTag`** `string` — NIP-73 identifier type, such as `'web'`, `'isbn'` or `'podcast:guid'`
 - **`metrics`** `IdentifierMetrics` — Metrics to embed
 - **Returns** `EventTemplate` with `d` and `k` tags
 
 ```ts
-const tmpl = buildIdentifierAssertion('npub1abc…', '0', { rank: 60, reaction_cnt: 15 })
+const tmpl = buildIdentifierAssertion('https://example.com/article', 'web', { rank: 60, reaction_cnt: 15 })
 ```
 
 ---
@@ -554,7 +554,7 @@ Produce an anonymous ring-signed contribution to a trust circle assertion.
 - **`memberIndex`** `number` -- 0-based index in `circle.members` (sorted order); always use `circle.members.indexOf(memberPubkey)`
 - **`options`** `ProofContext | undefined` — Omit for v1; pass `{ proofVersion: 'v2', kind, subjectTag, subjectTagValue }` for semantic binding
 - **Returns** `Contribution` with ring signature, duplicate-detection token, and metrics
-- **Throws** if `memberIndex` is out of range (`Signer index out of range`) or the private key doesn't match the pubkey at that index (`Private key does not match ring member at signerIndex`)
+- **Throws** if `memberIndex` is out of range (`Signer index out of range`), the private key doesn't match the pubkey at that index (`Private key does not match ring member at signerIndex`), or a metric name is reserved (`Metric name "<name>" is reserved: ...`: a single character, `veil-*`, or a Nostr tag with its own meaning such as `expiration`, `alt`, `client`, `nonce` or `content-warning`)
 
 ```ts
 const contrib = contributeAssertion(circle, subjectPubkey, { rank: 85 }, alicePrivkey, circle.members.indexOf(alicePubkey))
@@ -579,7 +579,7 @@ Validates all ring signatures and checks for duplicate contributors before aggre
 - **`contributions`** `Contribution[]` — Array of contributions from circle members
 - **`options`** `AggregateFn | { aggregateFn?: AggregateFn; aggregate?: AggregateName; kind?: number; proofVersion?: ProofVersion }` -- Pass a function for custom aggregation (default: median), or an options object with a built-in aggregate name (`'median' | 'mean' | 'sum' | 'min' | 'max'`; `aggregate` wins over `aggregateFn`). A built-in name is recorded in the `veil-agg` tag and `verifyProof` reads it from there; a custom function is recorded as `veil-agg: custom` and must also be passed to `verifyProof`. `median` and `mean` round to integers; `sum`, `min` and `max` do not. The legacy `kind` option is kept for compatibility and still emits a user-style `p` subject tag. `proofVersion: 'v2'` requires matching v2 contributions.
 - **Returns** `EventTemplate` with `veil-ring`, `veil-threshold`, and `veil-sig` tags
-- **Throws** if any ring signature is invalid or duplicate contributors are detected
+- **Throws** if any ring signature is invalid, duplicate contributors are detected, or a contribution uses a reserved metric name (the error names the contribution index)
 
 ```ts
 const tmpl = aggregateContributions(circle, subjectPubkey, [aliceContrib, bobContrib])
@@ -607,6 +607,7 @@ Verify all ring signatures in a veil-enhanced NIP-85 event.
 - **`event`** `{ kind, tags, content }` — A Nostr event containing proof tags
 - **`options`** `AggregateFn | { aggregateFn?: AggregateFn; expectedKind?: number; requireProofVersion?: ProofVersion; limits?: Partial<VerifyLimits> }` -- `aggregateFn` is needed only when `veil-agg` is `custom` (built-in names are read from the tag); `expectedKind` rejects events of any other NIP-85 kind and is recommended for v1 proofs, which are not kind-bound; `requireProofVersion` rejects the other proof version; `limits` overrides `DEFAULT_VERIFY_LIMITS` (`maxRingSize` 1000, `maxSigPayloadBytes` 128000, `maxSignedMessageBytes` 16384, `maxMetricCount` 128, `maxMetricNameLength` 64)
 - **Returns** `ProofVerification` with `valid`, `circleSize`, `threshold`, `distinctSigners`, `errors`
+- An event whose signed contributions use a reserved metric name is invalid (`signed metric rejected: Metric name "<name>" is reserved: ...`), so one circle member cannot inject a tag such as `expiration` or `-` into the published event
 
 ```ts
 const result = verifyProof(event)
@@ -641,7 +642,7 @@ All keys are sorted; metric values must be finite numbers.
 - **`subject`** `string` — The d-tag value
 - **`metrics`** `Record<string, number>` — Finite numeric values only
 - **Returns** Deterministic JSON string
-- **Throws** if any metric value is NaN or non-finite
+- **Throws** if any metric value is NaN or non-finite, or a metric name is reserved
 
 ```ts
 const msg = canonicalMessage(circle.circleId, subjectPubkey, { rank: 85 })

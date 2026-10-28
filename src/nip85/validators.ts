@@ -25,6 +25,7 @@ export interface ValidationOptions {
 
 const HEX64_RE = /^[0-9a-f]{64}$/
 const DECIMAL_INTEGER_RE = /^(0|[1-9]\d*)$/
+const NIP73_K_RE = /^\S+$/
 const ADDRESS_RE = /^(0|[1-9]\d*):[0-9a-f]{64}:.*$/
 const PROVIDER_TAG_RE = /^(0|[1-9]\d*):[A-Za-z0-9_.-]+$/
 const RELAY_HINT_RE = /^wss?:\/\/.+$/i
@@ -154,10 +155,10 @@ function validateStrictSubjectTags(event: RawEvent, errors: string[]): void {
       }
       // NIP-73 `k` is the identifier type (`web`, `isbn`, `podcast:guid`,
       // `<blockchain>:tx` and so on), not a kind number. NIP-73 grows new
-      // types, so any non-empty value is accepted.
+      // types, so any non-empty value without whitespace is accepted.
       const kTag = requireSingletonTag(event, 'k', errors)
-      if (kTag === '') {
-        errors.push('Identifier assertion k-tag must be a non-empty NIP-73 type, such as web or isbn.')
+      if (kTag !== undefined && !NIP73_K_RE.test(kTag)) {
+        errors.push('Identifier assertion k-tag must be a non-empty NIP-73 type without whitespace, such as web or isbn.')
       }
       break
     }
@@ -184,8 +185,8 @@ function validateStrictGeneralTags(event: RawEvent, errors: string[]): void {
   if (expirations.length > 1) {
     errors.push('Duplicate expiration-tag.')
   }
-  const value = expirations[0][1]
-  if (value === undefined || !DECIMAL_INTEGER_RE.test(value)) {
+  const value: unknown = expirations[0][1]
+  if (typeof value !== 'string' || !DECIMAL_INTEGER_RE.test(value) || !Number.isSafeInteger(Number(value))) {
     errors.push(`Invalid expiration-tag: "${value}". Must be a unix timestamp in seconds.`)
   }
 }

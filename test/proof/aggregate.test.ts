@@ -301,6 +301,8 @@ describe('aggregateContributions', () => {
     const contributions = privKeys.map((pk, i) =>
       contributeAssertion(circle, identifier, { rank: 80 }, pk, circle.members.indexOf(pubKeys[i])),
     )
-    expect(() => aggregateIdentifierContributions(circle, identifier, '', contributions)).toThrow(/kTag/)
+    for (const bad of ['', ' ', ' web ']) {
+      expect(() => aggregateIdentifierContributions(circle, identifier, bad, contributions)).toThrow(/kTag/)
+    }
   })
 })

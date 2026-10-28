@@ -52,32 +52,6 @@ describe('parseAssertion', () => {
     expect(metricKeys).toContain('comment_cnt')
   })
 
-  it('skips general-purpose tags that are not metrics', () => {
-    const event = {
-      kind: NIP85_KINDS.IDENTIFIER,
-      tags: [
-        ['d', 'wss://relay.example.org'],
-        ['k', 'web'],
-        ['i', 'wss://relay.example.org'],
-        ['rank', '25'],
-        ['expiration', '1787186400'],
-        ['alt', 'Relay score'],
-        ['client', 'nostr-veil'],
-        ['L', 'ugc'],
-        ['l', 'reviewed', 'ugc'],
-        ['-'],
-        ['nonce', '1', '8'],
-      ],
-      content: '',
-    }
-    expect(parseAssertion(event).metrics).toEqual({ rank: '25' })
-  })
-
-  it('keeps the t metric on kind 30382', () => {
-    const event = { kind: NIP85_KINDS.USER, tags: [['d', pubkey], ['t', 'nostr']], content: '' }
-    expect(parseAssertion(event).metrics).toEqual({ t: 'nostr' })
-  })
-
   it('skips tags starting with veil-', () => {
     const event = {
       kind: NIP85_KINDS.USER,

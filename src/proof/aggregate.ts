@@ -11,6 +11,7 @@ import type {
   TrustCircle,
 } from './types.js'
 import { canonicalMessage, canonicalMessageV2, computeCircleId, electionId, electionIdV2 } from './circle.js'
+import { reservedMetricNameReason } from './metric-names.js'
 
 export type AggregateOptions = AggregateFn | {
   aggregateFn?: AggregateFn
@@ -129,8 +130,8 @@ function assertAddress(value: string): void {
 }
 
 function assertKTag(value: string): void {
-  if (typeof value !== 'string' || value === '') {
-    throw new Error('kTag must be a non-empty NIP-73 type, such as web or isbn')
+  if (typeof value !== 'string' || !/^\S+$/.test(value)) {
+    throw new Error('kTag must be a non-empty NIP-73 type without whitespace, such as web or isbn')
   }
 }
 
@@ -191,6 +192,10 @@ function aggregateContributionsWithSubjectTags(
     }
     if (contribution.signature.electionId !== expectedElectionId) {
       throw new Error(`Signature electionId does not match trust circle subject at contribution index ${i}`)
+    }
+    for (const name of Object.keys(contribution.metrics)) {
+      const reason = reservedMetricNameReason(name)
+      if (reason !== undefined) throw new Error(`${reason} (contribution index ${i})`)
     }
     const expectedMessage = proofContext === undefined
       ? canonicalMessage(circle.circleId, subject, contribution.metrics)
@@ -331,9 +336,8 @@ export function aggregateAddressableContributions(
  * Aggregate anonymous contributions into a kind 30385 identifier assertion.
  *
  * Emits `d` for the identifier and `k` for its NIP-73 type (`web`, `isbn`,
- * `podcast:guid`, `<blockchain>:tx` and so on). The proof
- * format is still the backwards-compatible v1 format, so `verifyProof` works
- * unchanged.
+ * `podcast:guid`, `<blockchain>:tx` and so on). Pass `{ proofVersion: 'v2' }`
+ * to bind the kind and `k` value into the signed messages.
  */
 export function aggregateIdentifierContributions(
   circle: TrustCircle,

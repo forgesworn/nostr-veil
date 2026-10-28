@@ -10,6 +10,7 @@ import {
 } from './circle.js'
 import type { AggregateFn, ProofContext, ProofVerification, ProofVersion, SubjectTag } from './types.js'
 import { AGGREGATES, isAggregateName } from './aggregate.js'
+import { reservedMetricNameReason } from './metric-names.js'
 
 /**
  * Verify all LSAG ring signatures in a Veil-enhanced NIP-85 event.
@@ -190,6 +191,10 @@ function parseMetrics(rawMetrics: Record<string, unknown>, limits: VerifyLimits)
   for (const [key, value] of entries) {
     if (key.length === 0 || key.length > limits.maxMetricNameLength) {
       throw new Error(`signed metric name exceeds maximum length (${limits.maxMetricNameLength})`)
+    }
+    const reason = reservedMetricNameReason(key)
+    if (reason !== undefined) {
+      throw new Error(`signed metric rejected: ${reason}`)
     }
     if (typeof value !== 'number' || !Number.isFinite(value)) {
       throw new Error(`signed metric "${key}" is not a finite number`)
