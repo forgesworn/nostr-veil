@@ -459,6 +459,12 @@ subject hint tags (`p`, `e`, `a`) when present, or use
 `validateAssertionStrict(event)` as a shortcut.
 
 Checks: kind is valid, `d` tag is present, `rank` (if present) is 0–100.
+Strict mode also requires kind 30385 to carry one `k` tag holding a NIP-73
+type without whitespace (`web`, `isbn`, `podcast:guid`, `<blockchain>:tx`; the
+built-in profiles' decimal values also pass), does not read `expiration`,
+`alt`, `client`, `L`, `l`, `i`, `-` or `nonce` as metrics, requires a present
+`expiration` to be one unix timestamp string, and reports malformed tags
+instead of throwing.
 
 - **`event`** `{ kind, tags, content }` — Raw Nostr event
 - **Returns** `ValidationResult` with `valid` and `errors`
@@ -607,6 +613,7 @@ Verify all ring signatures in a veil-enhanced NIP-85 event.
 - **`event`** `{ kind, tags, content }` — A Nostr event containing proof tags
 - **`options`** `AggregateFn | { aggregateFn?: AggregateFn; expectedKind?: number; requireProofVersion?: ProofVersion; limits?: Partial<VerifyLimits> }` -- `aggregateFn` is needed only when `veil-agg` is `custom` (built-in names are read from the tag); `expectedKind` rejects events of any other NIP-85 kind and is recommended for v1 proofs, which are not kind-bound; `requireProofVersion` rejects the other proof version; `limits` overrides `DEFAULT_VERIFY_LIMITS` (`maxRingSize` 1000, `maxSigPayloadBytes` 128000, `maxSignedMessageBytes` 16384, `maxMetricCount` 128, `maxMetricNameLength` 64)
 - **Returns** `ProofVerification` with `valid`, `circleSize`, `threshold`, `distinctSigners`, `errors`
+- An event with more than one `d` tag, a kind 30382/30383/30384 subject tag (`p`/`e`/`a`) that is repeated or differs from `d`, more than one `k` on kind 30385, a `__proto__` tag or a malformed tag is invalid
 - An event whose signed contributions use a reserved metric name is invalid (`signed metric rejected: Metric name "<name>" is reserved: ...`), so one circle member cannot inject a tag such as `expiration` or `-` into the published event
 
 ```ts

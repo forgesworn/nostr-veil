@@ -224,7 +224,9 @@ function aggregateContributionsWithSubjectTags(
   }
   const aggregatedMetrics: Record<string, number> = {}
   for (const key of allMetricKeys) {
-    const values = contributions.map(c => c.metrics[key]).filter((v): v is number => v !== undefined)
+    const values = contributions
+      .map(c => (Object.hasOwn(c.metrics, key) ? c.metrics[key] : undefined))
+      .filter((v): v is number => v !== undefined)
     const aggregated = aggregateFn(values)
     if (!Number.isFinite(aggregated)) {
       throw new Error(`aggregateFn returned non-finite value for metric "${key}": ${aggregated}`)

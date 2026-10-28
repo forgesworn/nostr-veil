@@ -10,6 +10,7 @@ import {
 } from './circle.js'
 import type { AggregateFn, ProofContext, ProofVerification, ProofVersion, SubjectTag } from './types.js'
 import { AGGREGATES, isAggregateName } from './aggregate.js'
+import { NIP85_KINDS } from '../nip85/types.js'
 import { reservedMetricNameReason } from './metric-names.js'
 
 /**
@@ -48,6 +49,11 @@ const HEX64_RE = /^[0-9a-f]{64}$/
 const KEY_IMAGE_RE = /^[0-9a-f]{66}$/
 const DECIMAL_INTEGER_RE = /^(0|[1-9]\d*)$/
 const META_TAGS = new Set(['d', 'p', 'e', 'a', 'k'])
+const SUBJECT_HINT_TAG_BY_KIND = new Map<number, string>([
+  [NIP85_KINDS.USER, 'p'],
+  [NIP85_KINDS.EVENT, 'e'],
+  [NIP85_KINDS.ADDRESSABLE, 'a'],
+])
 
 export type VerifyOptions = AggregateFn | {
   aggregateFn?: AggregateFn
@@ -276,6 +282,10 @@ function extractPublishedMetrics(tags: string[][]): { metrics: Record<string, st
   for (const tag of tags) {
     const name = tag[0]
     if (META_TAGS.has(name) || name.startsWith('veil-')) continue
+    if (name === '__proto__') {
+      errors.push('Tag name "__proto__" is not allowed')
+      continue
+    }
     if (tag[1] === undefined) {
       errors.push(`Metric "${name}" is missing a value`)
       continue
@@ -302,7 +312,9 @@ function aggregateSignedMetrics(
 
   const aggregatedMetrics: Record<string, number> = {}
   for (const key of allMetricKeys) {
-    const values = messages.map(message => message.metrics[key]).filter((v): v is number => v !== undefined)
+    const values = messages
+      .map(message => (Object.hasOwn(message.metrics, key) ? message.metrics[key] : undefined))
+      .filter((v): v is number => v !== undefined)
     const aggregated = aggregateFn(values)
     if (!Number.isFinite(aggregated)) {
       errors.push(`aggregateFn returned non-finite value for metric "${key}": ${aggregated}`)
@@ -517,15 +529,39 @@ export function verifyProof(event: {
     return { valid: false, circleSize: 0, threshold: 0, distinctSigners: 0, errors }
   }
 
+  // Every tag name must be a string, or later checks would throw instead of failing closed
+  if (!Array.isArray(event.tags) || event.tags.some(t => !Array.isArray(t) || typeof t[0] !== 'string')) {
+    return { valid: false, circleSize: 0, threshold: 0, distinctSigners: 0, errors: ['Malformed tag: every tag must be an array whose name is a string'] }
+  }
+
   // Require d tag -- without it the electionId check cannot bind signatures to a subject
-  const dTag = event.tags.find(t => t[0] === 'd')
+  const dTags = event.tags.filter(t => t[0] === 'd')
+  const dTag = dTags[0]
   if (!dTag) {
     return { valid: false, circleSize: 0, threshold: 0, distinctSigners: 0, errors: ['Missing d tag'] }
+  }
+  // A second d tag would let relays index the proof under a subject it was not made for
+  if (dTags.length > 1) {
+    return { valid: false, circleSize: 0, threshold: 0, distinctSigners: 0, errors: ['Multiple d tags'] }
   }
   if (typeof dTag[1] !== 'string' || dTag[1] === '') {
     return { valid: false, circleSize: 0, threshold: 0, distinctSigners: 0, errors: ['Invalid d tag'] }
   }
   const subject = dTag[1]
+
+  // The kind's subject hint tag, when present, must be single and name the same subject
+  const hintTag = SUBJECT_HINT_TAG_BY_KIND.get(event.kind)
+  if (hintTag !== undefined) {
+    const hints = event.tags.filter(t => t[0] === hintTag)
+    if (hints.length > 1) {
+      errors.push(`Multiple ${hintTag} tags: the subject tag must appear at most once`)
+    } else if (hints.length === 1 && hints[0][1] !== subject) {
+      errors.push(`Subject tag ${hintTag} does not match d tag`)
+    }
+  }
+  if (event.kind === NIP85_KINDS.IDENTIFIER && event.tags.filter(t => t[0] === 'k').length > 1) {
+    errors.push('Multiple k tags: the subject tag must appear at most once')
+  }
 
   const ringTag = event.tags.find(t => t[0] === 'veil-ring')
   if (!ringTag) {

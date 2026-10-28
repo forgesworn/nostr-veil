@@ -198,6 +198,10 @@ function validateStrictMetrics(event: RawEvent, errors: string[]): void {
   const seen = new Set<string>()
   for (const tag of event.tags) {
     const name = tag[0]
+    if (typeof name !== 'string') {
+      errors.push('Malformed tag: tag name must be a string.')
+      continue
+    }
     if (META_TAGS.has(name) || GENERAL_TAGS.has(name) || name.startsWith('veil-')) continue
     if (seen.has(name)) {
       errors.push(`Duplicate metric tag "${name}".`)
