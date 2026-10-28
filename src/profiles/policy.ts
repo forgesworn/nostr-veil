@@ -2,6 +2,7 @@ import { verifySignedEvent } from '../signing.js'
 import { issuesFromErrors } from './issues.js'
 import { resolveCircleManifests } from './manifest.js'
 import { verifyUseCaseProfile } from './verify.js'
+import { PUBLISHER_TAGS } from '../proof/metric-names.js'
 import type { EventTemplate } from '../nip85/types.js'
 import type { AggregateFn } from '../proof/types.js'
 import type { SignedEvent } from '../signing.js'
@@ -399,7 +400,7 @@ function metricTags(event: EventTemplate): Map<string, string> {
   const metrics = new Map<string, string>()
   for (const tag of event.tags) {
     const name = tag[0]
-    if (META_TAGS.has(name) || name.startsWith('veil-')) continue
+    if (META_TAGS.has(name) || PUBLISHER_TAGS.has(name) || name.startsWith('veil-')) continue
     if (tag[1] !== undefined) metrics.set(name, tag[1])
   }
   return metrics

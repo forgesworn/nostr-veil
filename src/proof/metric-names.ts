@@ -40,3 +40,13 @@ export function assertMetricNamesAllowed(metrics: Record<string, unknown>): void
     if (reason !== undefined) throw new Error(reason)
   }
 }
+
+/**
+ * Tags the publisher of a veil event may set: NIP-40 `expiration` and NIP-31
+ * `alt`. The circle does not sign them; the publisher's Nostr signature covers
+ * them, as it covers `content`. Both names are also reserved above, so a tag
+ * with one of these names can never be a signed metric.
+ *
+ * Internal: not re-exported from `nostr-veil/proof`.
+ */
+export const PUBLISHER_TAGS: ReadonlySet<string> = new Set(['expiration', 'alt'])

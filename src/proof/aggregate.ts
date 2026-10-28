@@ -13,17 +13,28 @@ import type {
 import { canonicalMessage, canonicalMessageV2, computeCircleId, electionId, electionIdV2 } from './circle.js'
 import { reservedMetricNameReason } from './metric-names.js'
 
-export type AggregateOptions = AggregateFn | {
+/**
+ * Tags the publisher may set on a veil event. The circle does not sign them:
+ * the publisher's own Nostr signature covers them, as it covers `content`.
+ */
+export interface PublisherTagOptions {
+  /** NIP-40 expiration: unix time in seconds, emitted as an `expiration` tag. */
+  expiration?: number
+  /** NIP-31 alt: a short human-readable summary, emitted as an `alt` tag. */
+  alt?: string
+}
+
+export type AggregateOptions = AggregateFn | ({
   aggregateFn?: AggregateFn
   aggregate?: AggregateName
   kind?: number
   proofVersion?: ProofVersion
-}
-export type TypedAggregateOptions = AggregateFn | {
+} & PublisherTagOptions)
+export type TypedAggregateOptions = AggregateFn | ({
   aggregateFn?: AggregateFn
   aggregate?: AggregateName
   proofVersion?: ProofVersion
-}
+} & PublisherTagOptions)
 
 function median(values: number[]): number {
   const sorted = [...values].sort((a, b) => a - b)
@@ -73,6 +84,25 @@ function serialiseSig(sig: Contribution['signature']): string {
     }
     return sorted
   })
+}
+
+function publisherTags(options: AggregateOptions | undefined): string[][] {
+  if (typeof options !== 'object' || options === null) return []
+  const tags: string[][] = []
+  const { expiration, alt } = options as PublisherTagOptions & Record<string, unknown>
+  if (expiration !== undefined) {
+    if (typeof expiration !== 'number' || !Number.isSafeInteger(expiration) || expiration < 0) {
+      throw new Error('expiration must be a unix time in seconds: a non-negative safe integer')
+    }
+    tags.push(['expiration', String(expiration)])
+  }
+  if (alt !== undefined) {
+    if (typeof alt !== 'string' || alt === '') {
+      throw new Error('alt must be a non-empty string')
+    }
+    tags.push(['alt', alt])
+  }
+  return tags
 }
 
 function sameStringArray(a: string[], b: string[]): boolean {
@@ -166,6 +196,7 @@ function aggregateContributionsWithSubjectTags(
   subjectTags: string[][],
 ): EventTemplate {
   const { aggregateFn, aggName, kind, proofVersion } = resolveAggregate(options)
+  const publisherTagList = publisherTags(options)
   if (circle.size !== circle.members.length) {
     throw new Error(`Trust circle size mismatch: size=${circle.size}, members=${circle.members.length}`)
   }
@@ -240,6 +271,7 @@ function aggregateContributionsWithSubjectTags(
   const tags: string[][] = [
     ['d', subject],
     ...subjectTags,
+    ...publisherTagList,
     ...metricTags,
     ['veil-ring', ...circle.members],
     ['veil-threshold', String(contributions.length), String(circle.size)],
@@ -277,8 +309,13 @@ function aggregateContributionsWithSubjectTags(
  *   `p` subject tag. Prefer `aggregateEventContributions`,
  *   `aggregateAddressableContributions`, or `aggregateIdentifierContributions`
  *   for non-user assertion kinds.
+ * @param options.expiration - Optional NIP-40 expiration, unix time in seconds.
+ *   Emitted as an `expiration` tag. The circle does not sign it; the
+ *   publisher's Nostr signature covers it. The typed helpers accept it too.
+ * @param options.alt - Optional NIP-31 alt text, emitted as an `alt` tag on the
+ *   same terms as `expiration`.
  * @returns An unsigned {@link EventTemplate} with proof tags — sign and publish as a standard Nostr event
- * @throws If any LSAG signature is invalid, duplicate key images are detected, or an unknown aggregate name is supplied
+ * @throws If any LSAG signature is invalid, duplicate key images are detected, an unknown aggregate name is supplied, or `expiration` or `alt` is malformed
  */
 export function aggregateContributions(
   circle: TrustCircle,

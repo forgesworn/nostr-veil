@@ -252,7 +252,7 @@ The root entry point re-exports all of `nostr-veil/nip85`, `nostr-veil/proof` an
 
 ### Options and types
 
-**Metrics.** Contributions take `Record<string, number>`. Values must be finite (`NaN` and `Infinity` throw `Metric "<key>" must be a finite number`); integers are not required, and the published tag is `String(value)`. Metric names must not be a single character, start with `veil-`, be a Nostr tag with its own meaning (`expiration`, `alt`, `client`, `nonce`, `content-warning`), or be `__proto__`: contributing throws `Metric name "<name>" is reserved: ...`, aggregation rejects such a contribution, and `verifyProof` rejects an event whose signed metrics use one. This stops a single circle member from injecting a tag such as `expiration` into the published event. By default `verifyProof` accepts at most 128 metrics per signed message and names up to 64 characters. The `nostr-veil/nip85` builders take typed metrics instead (all fields optional): `UserMetrics` (kind 30382: `followers`, `rank`, `first_created_at`, `post_cnt`, `reply_cnt`, `reactions_cnt`, `zap_amt_recd`, `zap_amt_sent`, `zap_cnt_recd`, `zap_cnt_sent`, `zap_avg_amt_day_recd`, `zap_avg_amt_day_sent`, `reports_cnt_recd`, `reports_cnt_sent`, `t` (string), `active_hours_start`, `active_hours_end`), `EventMetrics` (kinds 30383 and 30384: `rank`, `comment_cnt`, `quote_cnt`, `repost_cnt`, `reaction_cnt`, `zap_cnt`, `zap_amount`) and `IdentifierMetrics` (kind 30385: `rank`, `comment_cnt`, `reaction_cnt`).
+**Metrics.** Contributions take `Record<string, number>`. Values must be finite (`NaN` and `Infinity` throw `Metric "<key>" must be a finite number`); integers are not required, and the published tag is `String(value)`. Metric names must not be a single character, start with `veil-`, be a Nostr tag with its own meaning (`expiration`, `alt`, `client`, `nonce`, `content-warning`), or be `__proto__`: contributing throws `Metric name "<name>" is reserved: ...`, aggregation rejects such a contribution, and `verifyProof` rejects an event whose signed metrics use one. This stops a single circle member from injecting a tag such as `expiration` into the published event. The publisher can still set a NIP-40 expiration or a NIP-31 alt on the event it signs: pass `{ expiration, alt }` to the aggregator. The circle does not sign these two tags; the publisher's own Nostr signature covers them, as it covers `content`. By default `verifyProof` accepts at most 128 metrics per signed message and names up to 64 characters. The `nostr-veil/nip85` builders take typed metrics instead (all fields optional): `UserMetrics` (kind 30382: `followers`, `rank`, `first_created_at`, `post_cnt`, `reply_cnt`, `reactions_cnt`, `zap_amt_recd`, `zap_amt_sent`, `zap_cnt_recd`, `zap_cnt_sent`, `zap_avg_amt_day_recd`, `zap_avg_amt_day_sent`, `reports_cnt_recd`, `reports_cnt_sent`, `t` (string), `active_hours_start`, `active_hours_end`), `EventMetrics` (kinds 30383 and 30384: `rank`, `comment_cnt`, `quote_cnt`, `repost_cnt`, `reaction_cnt`, `zap_cnt`, `zap_amount`) and `IdentifierMetrics` (kind 30385: `rank`, `comment_cnt`, `reaction_cnt`).
 
 **Aggregation options.** The `options` argument of `aggregateContributions` and the typed `aggregate*Contributions` helpers is either a bare function `(values: number[]) => number` or an object:
 
@@ -262,10 +262,14 @@ The root entry point re-exports all of `nostr-veil/nip85`, `nostr-veil/proof` an
   aggregateFn?: (values: number[]) => number              // custom; ignored if `aggregate` is set
   proofVersion?: 'v1' | 'v2'                              // default 'v1'
   kind?: number                                           // aggregateContributions only; legacy, default 30382
+  expiration?: number                                     // NIP-40 expiration tag, unix seconds
+  alt?: string                                            // NIP-31 alt tag, non-empty
 }
 ```
 
 `median` and `mean` round to an integer; `sum`, `min` and `max` do not. A non-finite result throws, and an unknown `aggregate` name throws `Unknown aggregate function: <name>`. A built-in name is written to the `veil-agg` tag and `verifyProof` reads it from there, so verifying a summed tally needs no option: `aggregateContributions(circle, subject, contributions, { aggregate: 'sum' })` verifies with a bare `verifyProof(event)`. A custom function is written as `veil-agg: custom` and must be passed to the verifier too (`verifyProof(event, { aggregateFn })` or a bare function), otherwise it fails with `veil-agg is "custom": pass the aggregate function via options to verify the metric tags`.
+
+`expiration` and `alt` are publisher tags: the circle does not sign them, and `verifyProof` does not read them as metrics. `expiration` must be a non-negative safe integer and `alt` a non-empty string, or aggregation throws. `verifyProof` accepts at most one of each, rejects an `expiration` that is not a unix time in seconds, and does not compare it with the clock: relays and clients act on NIP-40 expiry, and a past expiration still verifies, so archived events can be re-checked. Other general tags (`client`, `nonce`, `-`, `L`, `l`, `i`, `content-warning`) are not accepted on veil events, and `verifyProof` reads them as unsigned metrics.
 
 **`verifyProof(event, options?)`.** `options` is a bare aggregate function or an object `{ aggregateFn?, expectedKind?, requireProofVersion?, limits? }`:
 
@@ -378,6 +382,8 @@ The published event carries extra tags on top of the standard NIP-85 format:
 - `veil-sig` (one per contributor) -- the ring signature and a duplicate-detection token
 - `veil-version` -- present only for opt-in proof v2 events
 - `veil-scope` -- present only for a federated circle; see [Cross-circle deduplication](#cross-circle-deduplication)
+
+The publisher may also add a NIP-40 `expiration` or a NIP-31 `alt` tag. The circle does not sign these; they carry only the publisher's own Nostr signature.
 
 A verifier calls `verifyProof`, which:
 

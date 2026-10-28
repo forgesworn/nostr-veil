@@ -240,6 +240,24 @@ describe('deployment policies', () => {
     expect(result.errors.join('; ')).toContain('reaction_cnt')
   })
 
+  it('does not read publisher-set expiration or alt as unknown metrics', () => {
+    const policy = createDeploymentPolicy(RELEASE_PACKAGE_MAINTAINER_REPUTATION_PROFILE, {
+      acceptedCircleIds: [circleId(packageAssertion)],
+      expectedSubject: tagValue(packageAssertion, 'd'),
+      metricPolicies: {
+        rank: { required: true, min: 80, max: 100, integer: true },
+      },
+      rejectUnknownMetrics: true,
+    })
+    const event = cloneEvent(packageAssertion)
+    event.tags.splice(1, 0, ['expiration', '1900000000'], ['alt', 'Package maintainer reputation'])
+
+    const result = verifyDeploymentPolicy(event, policy, { now: packageAssertion.created_at })
+
+    expect(result.valid, result.errors.join('; ')).toBe(true)
+    expect(Object.keys(result.metrics)).toEqual(['rank'])
+  })
+
   it('verifies federated moderation policy across accepted scoped circles', () => {
     const policy = createDeploymentPolicy(FEDERATED_MODERATION_PROFILE, {
       acceptedCircleIds: moderationEvents.map(circleId),

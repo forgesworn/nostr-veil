@@ -10,7 +10,8 @@ import {
 } from './circle.js'
 import type { AggregateFn, ProofContext, ProofVerification, ProofVersion, SubjectTag } from './types.js'
 import { AGGREGATES, isAggregateName } from './aggregate.js'
-import { reservedMetricNameReason } from './metric-names.js'
+import { PUBLISHER_TAGS, reservedMetricNameReason } from './metric-names.js'
+import { isUnixSecondsTagValue } from '../nip85/tags.js'
 
 /**
  * Verify all LSAG ring signatures in a Veil-enhanced NIP-85 event.
@@ -276,7 +277,7 @@ function extractPublishedMetrics(tags: string[][]): { metrics: Record<string, st
 
   for (const tag of tags) {
     const name = tag[0]
-    if (META_TAGS.has(name) || name.startsWith('veil-')) continue
+    if (META_TAGS.has(name) || PUBLISHER_TAGS.has(name) || name.startsWith('veil-')) continue
     if (name === '__proto__') {
       errors.push('Tag name "__proto__" is not allowed')
       continue
@@ -557,6 +558,21 @@ export function verifyProof(event: {
   }
   if (event.tags.filter(t => t[0] === 'k').length > 1) {
     errors.push('Multiple k tags: the subject tag must appear at most once')
+  }
+
+  // The publisher may set expiration and alt; the circle does not sign them.
+  // Each may appear at most once and must be well formed.
+  const expirations = event.tags.filter(t => t[0] === 'expiration')
+  if (expirations.length > 1) {
+    errors.push('Multiple expiration tags')
+  } else if (expirations.length === 1 && !isUnixSecondsTagValue(expirations[0][1])) {
+    errors.push('Invalid expiration tag: must be a unix time in seconds')
+  }
+  const alts = event.tags.filter(t => t[0] === 'alt')
+  if (alts.length > 1) {
+    errors.push('Multiple alt tags')
+  } else if (alts.length === 1 && typeof alts[0][1] !== 'string') {
+    errors.push('Invalid alt tag: missing a value')
   }
 
   const ringTag = event.tags.find(t => t[0] === 'veil-ring')
