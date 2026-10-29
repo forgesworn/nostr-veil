@@ -133,9 +133,9 @@ describe('publisher-set expiration and alt on veil events', () => {
     expect(parsed.metrics).toEqual({ rank: '41' })
   })
 
-  it('parseAssertion still reports expiration on a plain NIP-85 event, as before', () => {
+  it('parseAssertion skips expiration on a plain NIP-85 event too', () => {
     const parsed = parseAssertion({ kind: 30382, tags: [['d', subject], ['rank', '5'], ['expiration', '7']], content: '' })
-    expect(parsed.metrics).toEqual({ rank: '5', expiration: '7' })
+    expect(parsed.metrics).toEqual({ rank: '5' })
   })
 
   it('rejects a non-string expiration value', () => {
@@ -179,5 +179,19 @@ describe('publisher-set expiration and alt on veil events', () => {
     const event = userEvent({ aggregate: 'mean', expiration: EXPIRY })
     expect(event.tags).toContainEqual(['veil-agg', 'mean'])
     expect(verifyProof(event).valid).toBe(true)
+  })
+
+  it('rejects a metric tag carrying elements the circle did not sign', () => {
+    const event = userEvent()
+    const tags = event.tags.map(t => (t[0] === 'rank' ? [...t, 'unsigned extra'] : t))
+    const result = verifyProof({ ...event, tags })
+    expect(result.valid).toBe(false)
+    expect(result.errors).toContain('Metric "rank" has extra elements the circle did not sign')
+  })
+
+  it('rejects a k tag on any kind but 30385', () => {
+    const result = verifyProof(withTags(userEvent(), [['k', 'isbn']]))
+    expect(result.valid).toBe(false)
+    expect(result.errors).toContain('k tag is only allowed on kind 30385')
   })
 })

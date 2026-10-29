@@ -12,6 +12,7 @@ import type { AggregateFn, ProofContext, ProofVerification, ProofVersion, Subjec
 import { AGGREGATES, isAggregateName } from './aggregate.js'
 import { reservedMetricNameReason } from './metric-names.js'
 import { isUnixSecondsTagValue, PUBLISHER_TAGS } from '../nip85/tags.js'
+import { NIP85_KINDS } from '../nip85/types.js'
 
 /**
  * Verify all LSAG ring signatures in a Veil-enhanced NIP-85 event.
@@ -286,6 +287,12 @@ function extractPublishedMetrics(tags: string[][]): { metrics: Record<string, st
       errors.push(`Metric "${name}" is missing a value`)
       continue
     }
+    // The circle signs only the name and value, so anything after them would
+    // be publisher-controlled text riding on a circle-signed tag.
+    if (tag.length > 2) {
+      errors.push(`Metric "${name}" has extra elements the circle did not sign`)
+      continue
+    }
     if (Object.prototype.hasOwnProperty.call(metrics, name)) {
       errors.push(`Duplicate metric tag "${name}"`)
       continue
@@ -556,8 +563,14 @@ export function verifyProof(event: {
       errors.push(`Subject tag ${hintTag} does not match d tag`)
     }
   }
-  if (event.tags.filter(t => t[0] === 'k').length > 1) {
+  const kTags = event.tags.filter(t => t[0] === 'k')
+  if (kTags.length > 1) {
     errors.push('Multiple k tags: the subject tag must appear at most once')
+  }
+  // k names the NIP-73 identifier type and belongs only on kind 30385; on any
+  // other kind nothing signs it, so it would only mis-index the proof (#k).
+  if (kTags.length > 0 && event.kind !== NIP85_KINDS.IDENTIFIER) {
+    errors.push('k tag is only allowed on kind 30385')
   }
 
   // The publisher may set expiration and alt; the circle does not sign them.

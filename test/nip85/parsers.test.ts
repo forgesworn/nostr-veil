@@ -152,3 +152,14 @@ describe('parseProviderDeclaration', () => {
     expect(result).toEqual([])
   })
 })
+
+describe('parseAssertion publisher tags', () => {
+  it('does not read expiration or alt as metrics on a plain NIP-85 event', () => {
+    const event = {
+      kind: NIP85_KINDS.USER,
+      tags: [['d', pubkey], ['rank', '85'], ['expiration', '1900000000'], ['alt', 'Trust score']],
+      content: '',
+    }
+    expect(parseAssertion(event).metrics).toEqual({ rank: '85' })
+  })
+})

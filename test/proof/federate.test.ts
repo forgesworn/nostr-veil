@@ -130,4 +130,22 @@ describe('verifyFederation', () => {
     expect(verifyFederation([a, b]).valid).toBe(false) // veil-agg: custom, no function supplied
     expect(verifyFederation([a, b], max).valid).toBe(true) // function forwarded to each verifyProof
   })
+
+  it('rejects a federation whose events are of different kinds', () => {
+    // v1 proofs are not kind-bound, so each relabelled event still verifies alone
+    const a = scopedEvent([signers[0], signers[1]], 'fed-1')
+    const b = { ...scopedEvent([signers[0], signers[2]], 'fed-1'), kind: 30383 }
+    const result = verifyFederation([a, b])
+    expect(result.valid).toBe(false)
+    expect(result.errors).toContain('Federation events are of different kinds')
+  })
+
+  it('forwards expectedKind to every event', () => {
+    const a = scopedEvent([signers[0], signers[1]], 'fed-1')
+    const b = scopedEvent([signers[0], signers[2]], 'fed-1')
+    expect(verifyFederation([a, b], { expectedKind: 30382 }).valid).toBe(true)
+    const wrong = verifyFederation([a, b], { expectedKind: 30383 })
+    expect(wrong.valid).toBe(false)
+    expect(wrong.errors[0]).toMatch(/^event\[0\]: Event kind 30382 does not match expected kind 30383/)
+  })
 })

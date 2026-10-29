@@ -421,8 +421,8 @@ const event = signEvent(tmpl, providerPrivkey)
 #### `parseAssertion(event) → ParsedAssertion`
 
 Extract subject and metrics from a NIP-85 assertion event. Skips `d`, `p`, `e`,
-`a`, `k`, and any `veil-*` tag. On a veil event (one with a `veil-ring` tag) it
-also skips the publisher tags `expiration` and `alt`, which the circle does not sign.
+`a`, `k`, the publisher tags `expiration` and `alt` (which a veil circle does not
+sign), and any `veil-*` tag.
 
 - **`event`** `{ kind, tags, content }` — Raw Nostr event
 - **Returns** `ParsedAssertion` with `kind`, `subject` (d-tag value), and `metrics`
