@@ -1,3 +1,11 @@
+## 0.32.0 (2026-10-29)
+
+### Features
+
+- typed contribute helpers sign proof v2 by default (#56)
+
+
+
 ## 0.31.2 (2026-10-29)
 
 ### Bug Fixes
