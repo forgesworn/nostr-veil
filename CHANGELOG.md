@@ -1,3 +1,11 @@
+## 0.31.1 (2026-10-29)
+
+### Bug Fixes
+
+- close six verification gaps left after 0.30.4 (#54)
+
+
+
 ## 0.31.0 (2026-10-28)
 
 ### Features
