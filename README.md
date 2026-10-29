@@ -184,7 +184,7 @@ Passing `expectedKind` matters because v1 proofs are not bound to the event kind
 | `verifyProof(event, options?)` | Verify ring signatures, threshold metadata, signed metric aggregation, and optional proof-version (`requireProofVersion`) and kind (`expectedKind`) requirements |
 | `verifyFederation(events, options?)` | Verify several scoped events together and count distinct contributors across circles ([cross-circle deduplication](#cross-circle-deduplication)) |
 | `canonicalMessage(circleId, subject, metrics)` | Compute the canonical message signed by contributors |
-| `canonicalMessageV2(circleId, subject, metrics, context)` | Compute the opt-in v2 canonical message that binds kind and subject hint tag |
+| `canonicalMessageV2(circleId, subject, metrics, context)` | Compute the v2 canonical message that binds kind and subject hint tag |
 | `computeCircleId(sortedPubkeys)` | Compute the deterministic circle ID (SHA-256 of colon-joined pubkeys) |
 
 ### `nostr-veil/profiles` -- safer deployment profiles
@@ -260,7 +260,7 @@ The root entry point re-exports all of `nostr-veil/nip85`, `nostr-veil/proof` an
 {
   aggregate?: 'median' | 'mean' | 'sum' | 'min' | 'max'  // built-in, default 'median'
   aggregateFn?: (values: number[]) => number              // custom; ignored if `aggregate` is set
-  proofVersion?: 'v1' | 'v2'                              // default 'v1'
+  proofVersion?: 'v1' | 'v2'                              // default: the version the contributions were signed with
   kind?: number                                           // aggregateContributions only; legacy, default 30382
   expiration?: number                                     // NIP-40 expiration tag, unix seconds
   alt?: string                                            // NIP-31 alt tag, non-empty
@@ -282,7 +282,7 @@ The root entry point re-exports all of `nostr-veil/nip85`, `nostr-veil/proof` an
 
 It returns `{ valid, circleSize, threshold, distinctSigners, errors }`.
 
-**`contributeAssertion` options and `canonicalMessageV2`.** `contributeAssertion(..., options?)` takes `{ proofVersion?: 'v1' | 'v2', kind?: number, subjectTag?: 'p' | 'e' | 'a' | 'k', subjectTagValue?: string }`; for v2 the defaults are kind 30382, tag `p` and the subject itself. The typed helpers (`contributeEventAssertion`, `contributeAddressableAssertion`, `contributeIdentifierAssertion`) take only `{ proofVersion?: 'v1' | 'v2' }` and fill in the kind and tag. `canonicalMessageV2(circleId, subject, metrics, context)` takes `context` as `{ kind, subjectTag, subjectTagValue }`, all required: `kind` a non-negative safe integer, `subjectTag` one of `p`, `e`, `a`, `k`, and `subjectTagValue` a non-empty string.
+**`contributeAssertion` options and `canonicalMessageV2`.** `contributeAssertion(..., options?)` takes `{ proofVersion?: 'v1' | 'v2', kind?: number, subjectTag?: 'p' | 'e' | 'a' | 'k', subjectTagValue?: string }`; for v2 the defaults are kind 30382, tag `p` and the subject itself. The typed helpers (`contributeEventAssertion`, `contributeAddressableAssertion`, `contributeIdentifierAssertion`) take only `{ proofVersion?: 'v1' | 'v2' }`, fill in the kind and tag, and sign v2 unless given `{ proofVersion: 'v1' }`. `contributeAssertion` stays v1 by default, because it cannot know which kind the contribution will be published under. Aggregators follow the version the contributions were signed with, so an aggregator on this release still combines v1 contributions from members on an older one; contributions that mix versions throw, as does an explicit `proofVersion` that differs from theirs. `canonicalMessageV2(circleId, subject, metrics, context)` takes `context` as `{ kind, subjectTag, subjectTagValue }`, all required: `kind` a non-negative safe integer, `subjectTag` one of `p`, `e`, `a`, `k`, and `subjectTagValue` a non-empty string.
 
 **NIP-85 parse results.** `parseAssertion(event)` returns `{ kind: number, subject: string, metrics: Record<string, string | number> }`: `subject` is the `d` tag value (empty string if absent) and `metrics` holds every tag except `d`, `p`, `e`, `a`, `k`, `expiration`, `alt` and `veil-*`; the values are the raw tag strings. On an event that passes `verifyProof`, `metrics` therefore holds only circle-signed values. `parseProviderDeclaration(event)` returns `ParsedProvider[]`, each `{ kind: number, metric: string, servicePubkey: string, relayHint: string }` (the same shape as the `ProviderEntry` passed to `buildProviderDeclaration`). With a `decryptFn: (ciphertext: string) => Promise<string>` it returns a `Promise<ParsedProvider[]>`.
 
@@ -380,7 +380,7 @@ The published event carries extra tags on top of the standard NIP-85 format:
 - `veil-threshold` -- how many members actually contributed vs. total circle size
 - `veil-agg` -- which aggregate function produced the metric tags: `median` (default), `mean`, `sum`, `min`, `max`, or `custom`
 - `veil-sig` (one per contributor) -- the ring signature and a duplicate-detection token
-- `veil-version` -- present only for opt-in proof v2 events
+- `veil-version` -- present only on proof v2 events
 - `veil-scope` -- present only for a federated circle; see [Cross-circle deduplication](#cross-circle-deduplication)
 
 The publisher may also add a NIP-40 `expiration` or a NIP-31 `alt` tag. The circle does not sign these; they carry only the publisher's own Nostr signature.
@@ -398,9 +398,9 @@ Aggregation is median by default. Pass `{ aggregate: 'mean' | 'sum' | 'min' | 'm
 
 ### Proof v2
 
-The original proof format remains the default. It signs the circle ID, the `d`-tag subject, and numeric metrics, and it uses `veil:v1:<scope-or-circleId>:<subject>` as the LSAG election ID.
+Proof v1 signs the circle ID, the `d`-tag subject, and numeric metrics, and it uses `veil:v1:<scope-or-circleId>:<subject>` as the LSAG election ID. It is still the default for `contributeAssertion`.
 
-Proof v2 is additive and opt-in. It signs the same data plus the NIP-85 assertion kind and the subject hint tag/value (`p`, `e`, `a`, or `k`), and derives the key image from that semantic context. That prevents a valid contribution for one assertion class being replayed as another when a subject string is reused.
+Proof v2 signs the same data plus the NIP-85 assertion kind and the subject hint tag/value (`p`, `e`, `a`, or `k`), and derives the key image from that semantic context. That prevents a valid contribution for one assertion class being replayed as another when a subject string is reused, and on kind 30385 it is what signs the `k` tag. Since 0.32.0 the typed helpers sign v2 by default; verifiers have accepted v2 since 0.14.0. When a circle upgrades, upgrade the aggregator first: an aggregator on 0.32.0 combines v1 contributions from older members, but an aggregator before 0.32.0 assumes v1 and rejects the v2 contributions that 0.32.0 members now send, unless they pass `{ proofVersion: 'v1' }`.
 
 This continues from the [Quick start](#quick-start): `alice` and `circle` are defined there. `eventId` is the 64-char lowercase hex id of the Nostr event being assessed; the typed helpers throw if it is not.
 

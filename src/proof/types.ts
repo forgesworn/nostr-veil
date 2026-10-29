@@ -36,7 +36,7 @@ export interface Contribution {
 /** Aggregation function type */
 export type AggregateFn = (values: number[]) => number
 
-/** Supported proof wire formats. v1 is the historical default; v2 is opt-in. */
+/** Supported proof wire formats. The typed contribute helpers sign v2 by default; contributeAssertion signs v1 unless asked. */
 export type ProofVersion = 'v1' | 'v2'
 
 /** Subject hint tags that can be bound into a v2 proof. */

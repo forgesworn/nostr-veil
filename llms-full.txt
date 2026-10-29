@@ -71,7 +71,7 @@ event:
 | `veil-agg` | `['veil-agg', 'median']` | Aggregate function used for metric tags |
 | `veil-sig` | `['veil-sig', serialisedSigJSON, keyImageHex]` | One ring signature per anonymous contributor |
 | `veil-scope` | `['veil-scope', scope]` | Optional federation scope for cross-circle deduplication |
-| `veil-version` | `['veil-version', '2']` | Present only for opt-in proof v2 events |
+| `veil-version` | `['veil-version', '2']` | Present only on proof v2 events |
 
 The `veil-sig` JSON excludes `ring` and `keyImage` (which live in the other
 tags). It contains `c0`, `electionId`, `message`, `responses`, and optionally
@@ -335,7 +335,7 @@ interface ProofContext {
 }
 ```
 
-v1 is the backwards-compatible default. Opt-in v2 signs assertion kind plus subject hint tag/value and uses those fields in the election ID.
+v2 signs assertion kind plus subject hint tag/value and uses those fields in the election ID. The typed helpers (`contributeEventAssertion`, `contributeAddressableAssertion`, `contributeIdentifierAssertion`) sign v2 by default; `contributeAssertion` stays v1 by default, since it cannot know the kind. Aggregators follow the contributions' version unless `proofVersion` is given, and throw on a mix.
 
 ## API Reference
 
@@ -601,7 +601,7 @@ await relay.publish(event)
 #### Typed Aggregation Helpers
 
 Use these helpers for non-user NIP-85 assertion kinds. They emit the correct
-kind-specific subject tags and can opt into proof v2:
+kind-specific subject tags; the typed contribute helpers sign proof v2 by default:
 
 - `aggregateEventContributions(circle, eventId, contributions, options?)` — kind 30383 with `d`/`e` tags
 - `aggregateAddressableContributions(circle, address, contributions, options?)` — kind 30384 with `d`/`a` tags

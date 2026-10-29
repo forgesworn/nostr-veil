@@ -113,7 +113,7 @@ function resolveAggregate(options?: AggregateOptions): {
   aggregateFn: AggregateFn
   aggName: AggregateName | 'custom'
   kind: number
-  proofVersion: ProofVersion
+  proofVersion: ProofVersion | undefined
 } {
   let aggregateFn: AggregateFn
   let aggName: AggregateName | 'custom'
@@ -136,9 +136,7 @@ function resolveAggregate(options?: AggregateOptions): {
   const kind = typeof options === 'object' && options !== null && 'kind' in options
     ? options.kind ?? NIP85_KINDS.USER
     : NIP85_KINDS.USER
-  const proofVersion = typeof options === 'object' && options !== null && options.proofVersion === 'v2'
-    ? 'v2'
-    : 'v1'
+  const proofVersion = typeof options === 'object' && options !== null ? options.proofVersion : undefined
   return { aggregateFn, aggName, kind, proofVersion }
 }
 
@@ -188,6 +186,58 @@ function resolveV2Context(
   }
 }
 
+/** The proof version a contribution was signed with, read from its signed message. */
+function contributionVersion(contribution: Contribution): ProofVersion {
+  try {
+    const parsed: unknown = JSON.parse(contribution.signature.message)
+    return typeof parsed === 'object' && parsed !== null && (parsed as { proofVersion?: unknown }).proofVersion === 'v2' ? 'v2' : 'v1'
+  } catch {
+    return 'v1'
+  }
+}
+
+/**
+ * An explicit proofVersion wins. Otherwise follow the contributions, so an
+ * aggregator on this release still combines v1 contributions from members on
+ * an older one; contributions that mix versions cannot be combined.
+ */
+function resolveProofVersion(requested: ProofVersion | undefined, contributions: Contribution[]): ProofVersion {
+  const versions = new Set(contributions.map(contributionVersion))
+  if (versions.size > 1) {
+    throw new Error('Contributions mix proof versions v1 and v2; every member must sign with the same version')
+  }
+  const signed = versions.values().next().value as ProofVersion | undefined
+  if (requested !== undefined && signed !== undefined && requested !== signed) {
+    throw new Error(`Contributions were signed as proof ${signed}, but proofVersion ${requested} was requested`)
+  }
+  return requested ?? signed ?? 'v2'
+}
+
+/** Name the mismatch when a v2 contribution was signed for another kind or subject tag. */
+function assertV2ContextMatches(
+  contributions: Contribution[],
+  context: Required<Pick<ProofContext, 'kind' | 'subjectTag' | 'subjectTagValue'>>,
+): void {
+  for (let i = 0; i < contributions.length; i++) {
+    let signed: { kind?: unknown; subjectTag?: unknown; subjectTagValue?: unknown }
+    try {
+      signed = JSON.parse(contributions[i].signature.message) as typeof signed
+    } catch {
+      continue
+    }
+    if (typeof signed.kind !== 'number' || typeof signed.subjectTag !== 'string' || typeof signed.subjectTagValue !== 'string') {
+      continue // malformed: the signed-message check below rejects it
+    }
+    if (signed.kind !== context.kind || signed.subjectTag !== context.subjectTag || signed.subjectTagValue !== context.subjectTagValue) {
+      throw new Error(
+        `Contribution index ${i} was signed for kind ${signed.kind} with ${signed.subjectTag} = ${signed.subjectTagValue}, ` +
+        `but this event is kind ${context.kind} with ${context.subjectTag} = ${context.subjectTagValue}. ` +
+        'Use the matching typed helpers (contributeEventAssertion with aggregateEventContributions, and so on) with the same subject, or proofVersion v1 throughout.',
+      )
+    }
+  }
+}
+
 function aggregateContributionsWithSubjectTags(
   circle: TrustCircle,
   subject: string,
@@ -195,7 +245,8 @@ function aggregateContributionsWithSubjectTags(
   options: AggregateOptions | undefined,
   subjectTags: string[][],
 ): EventTemplate {
-  const { aggregateFn, aggName, kind, proofVersion } = resolveAggregate(options)
+  const { aggregateFn, aggName, kind, proofVersion: requested } = resolveAggregate(options)
+  const proofVersion = resolveProofVersion(requested, contributions)
   const publisherTagList = publisherTags(options)
   if (circle.size !== circle.members.length) {
     throw new Error(`Trust circle size mismatch: size=${circle.size}, members=${circle.members.length}`)
@@ -207,6 +258,7 @@ function aggregateContributionsWithSubjectTags(
   const proofContext = proofVersion === 'v2'
     ? resolveV2Context(subject, kind, subjectTags)
     : undefined
+  if (proofContext !== undefined) assertV2ContextMatches(contributions, proofContext)
   const scope = circle.scope ?? circle.circleId
   const expectedElectionId = proofContext === undefined
     ? electionId(scope, subject)
@@ -329,8 +381,9 @@ export function aggregateContributions(
 /**
  * Aggregate anonymous contributions into a kind 30383 event assertion.
  *
- * Emits `d` and `e` tags that both point at the event id. The proof format is
- * still the backwards-compatible v1 format, so `verifyProof` works unchanged.
+ * Emits `d` and `e` tags that both point at the event id.
+ * The proof version follows the contributions (the typed contribute helpers
+ * sign v2 by default), unless `proofVersion` is given.
  */
 export function aggregateEventContributions(
   circle: TrustCircle,
@@ -351,9 +404,9 @@ export function aggregateEventContributions(
 /**
  * Aggregate anonymous contributions into a kind 30384 addressable event assertion.
  *
- * Emits `d` and `a` tags that both point at the NIP-33 address. The proof
- * format is still the backwards-compatible v1 format, so `verifyProof` works
- * unchanged.
+ * Emits `d` and `a` tags that both point at the NIP-33 address.
+ * The proof version follows the contributions (the typed contribute helpers
+ * sign v2 by default), unless `proofVersion` is given.
  */
 export function aggregateAddressableContributions(
   circle: TrustCircle,
@@ -375,8 +428,9 @@ export function aggregateAddressableContributions(
  * Aggregate anonymous contributions into a kind 30385 identifier assertion.
  *
  * Emits `d` for the identifier and `k` for its NIP-73 type (`web`, `isbn`,
- * `podcast:guid`, `<blockchain>:tx` and so on). Pass `{ proofVersion: 'v2' }`
- * to bind the kind and `k` value into the signed messages.
+ * `podcast:guid`, `<blockchain>:tx` and so on). With v2 contributions (the
+ * default from `contributeIdentifierAssertion`) the kind and `k` value are
+ * bound into the signed messages; v1 leaves the `k` value unsigned.
  */
 export function aggregateIdentifierContributions(
   circle: TrustCircle,
