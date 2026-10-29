@@ -305,4 +305,44 @@ describe('aggregateContributions', () => {
       expect(() => aggregateIdentifierContributions(circle, identifier, bad, contributions)).toThrow(/kTag/)
     }
   })
+
+  describe('proof version defaults', () => {
+    const eventId = 'e1'.repeat(32)
+
+    it('the typed helpers sign v2 by default, and the aggregate follows', () => {
+      const contributions = privKeys.map((pk, i) =>
+        contributeEventAssertion(circle, eventId, { rank: 70 + i }, pk, circle.members.indexOf(pubKeys[i])),
+      )
+      expect(contributions[0].signature.electionId).toMatch(/^veil:v2:/)
+      const event = aggregateEventContributions(circle, eventId, contributions)
+      expect(event.tags).toContainEqual(['veil-version', '2'])
+      expect(verifyProof(event, { requireProofVersion: 'v2' }).valid).toBe(true)
+    })
+
+    it('still aggregates v1 contributions from members on an older release', () => {
+      const contributions = privKeys.map((pk, i) =>
+        contributeEventAssertion(circle, eventId, { rank: 70 + i }, pk, circle.members.indexOf(pubKeys[i]), { proofVersion: 'v1' }),
+      )
+      const event = aggregateEventContributions(circle, eventId, contributions)
+      expect(event.tags.find(t => t[0] === 'veil-version')).toBeUndefined()
+      expect(verifyProof(event, { requireProofVersion: 'v1' }).valid).toBe(true)
+    })
+
+    it('contributeAssertion stays v1 by default', () => {
+      const contribution = contributeAssertion(circle, subject, { rank: 1 }, privKeys[0], circle.members.indexOf(pubKeys[0]))
+      expect(contribution.signature.electionId).toMatch(/^veil:v1:/)
+    })
+
+    it('throws on a mix of versions, or an explicit version the contributions do not match', () => {
+      const v2 = contributeEventAssertion(circle, eventId, { rank: 1 }, privKeys[0], circle.members.indexOf(pubKeys[0]))
+      const v1 = contributeEventAssertion(circle, eventId, { rank: 2 }, privKeys[1], circle.members.indexOf(pubKeys[1]), { proofVersion: 'v1' })
+      expect(() => aggregateEventContributions(circle, eventId, [v2, v1])).toThrow(/mix proof versions/)
+      expect(() => aggregateEventContributions(circle, eventId, [v1], { proofVersion: 'v2' })).toThrow(/signed as proof v1, but proofVersion v2/)
+    })
+
+    it('names the mismatch when v2 contributions were signed for another kind', () => {
+      const contributions = [contributeIdentifierAssertion(circle, eventId, 'isbn', { rank: 1 }, privKeys[0], circle.members.indexOf(pubKeys[0]))]
+      expect(() => aggregateEventContributions(circle, eventId, contributions)).toThrow(/signed for kind 30385 with subject tag k, but this event is kind 30383 with subject tag e/)
+    })
+  })
 })

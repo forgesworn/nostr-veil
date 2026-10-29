@@ -23,7 +23,7 @@ function typedOptions(
   subjectTag: Required<ProofContext>['subjectTag'],
   subjectTagValue: string,
 ): ContributionOptions | undefined {
-  if (options?.proofVersion !== 'v2') return options
+  if (options?.proofVersion === 'v1') return options
   return {
     proofVersion: 'v2',
     kind,
