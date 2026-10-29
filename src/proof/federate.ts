@@ -1,18 +1,18 @@
 import { computeCircleId } from './circle.js'
 import { verifyProof } from './verify.js'
-import type { AggregateFn, FederationVerification } from './types.js'
+import type { VerifyOptions } from './verify.js'
+import type { FederationVerification } from './types.js'
 
 /** A Nostr event, or unsigned template, carrying Veil proof tags. */
 type ProofEvent = { kind: number; tags: string[][]; content: string }
 
-/** Optional aggregate function, forwarded to {@link verifyProof}. */
-type VerifyOptions = AggregateFn | { aggregateFn?: AggregateFn }
-
 /** One verified, federation-scoped event reduced to what deduplication needs. */
 interface ScopedEvent {
+  kind: number
   subject: string
   scope: string
   circleId: string
+  electionIds: string[]
   keyImages: string[]
 }
 
@@ -28,7 +28,9 @@ interface ScopedEvent {
  * circle.
  *
  * The federation is valid only when every event verifies, every event carries a
- * `veil-scope` tag, and all events agree on both subject and scope. An event
+ * `veil-scope` tag, and all events agree on kind, subject and scope and were
+ * signed under one electionId (the same proof version and, for v2, the same
+ * bound subject tag and value), so their key images are comparable. An event
  * with no `veil-scope` tag is circle-scoped: its key images are not comparable
  * across circles, so it cannot take part in a federation.
  *
@@ -37,7 +39,7 @@ interface ScopedEvent {
  * best verified in batches rather than in a single call.
  *
  * @param events - Aggregated Veil events ({@link aggregateContributions} output), signed or not
- * @param options - Optional aggregate function forwarded to every {@link verifyProof} call; needed only for events whose `veil-agg` tag is `custom`
+ * @param options - Forwarded to every {@link verifyProof} call: an aggregate function (needed only for events whose `veil-agg` tag is `custom`), or options such as `expectedKind`, which v1 proofs need since their signatures are not bound to the kind
  * @returns A {@link FederationVerification}; its counts are meaningful only when `valid` is true
  *
  * @example
@@ -87,17 +89,28 @@ export function verifyFederation(
     }
 
     scopedEvents.push({
+      kind: event.kind,
       subject,
       scope,
       circleId: computeCircleId(ringTag.slice(1)),
+      // verifyProof has parsed every payload, so this cannot throw
+      electionIds: event.tags.filter(t => t[0] === 'veil-sig').map(t => (JSON.parse(t[1]) as { electionId: string }).electionId),
       keyImages: event.tags.filter(t => t[0] === 'veil-sig').map(t => t[2]),
     })
   }
 
   const subjects = new Set(scopedEvents.map(e => e.subject))
   const scopes = new Set(scopedEvents.map(e => e.scope))
+  if (new Set(scopedEvents.map(e => e.kind)).size > 1) errors.push('Federation events are of different kinds')
   if (subjects.size > 1) errors.push('Federation events are about different subjects')
   if (scopes.size > 1) errors.push('Federation events use different scopes')
+  // A key image depends on the signer and the electionId. v2 folds the kind,
+  // the bound subject tag and its value into the electionId, so events that
+  // agree on subject and scope can still yield different key images for one
+  // signer. Only events signed under a single electionId can be deduplicated.
+  if (new Set(scopedEvents.flatMap(e => e.electionIds)).size > 1) {
+    errors.push('Federation events are signed under different election ids (proof version, bound subject tag or k value differ), so their key images cannot be compared')
+  }
 
   const circleIds = new Set<string>()
   const distinctKeyImages = new Set<string>()
