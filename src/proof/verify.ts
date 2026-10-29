@@ -51,6 +51,15 @@ const KEY_IMAGE_RE = /^[0-9a-f]{66}$/
 const DECIMAL_INTEGER_RE = /^(0|[1-9]\d*)$/
 const META_TAGS = new Set(['d', 'p', 'e', 'a', 'k'])
 const SUBJECT_HINT_TAGS = ['p', 'e', 'a'] as const
+/** Longest allowed length of each fixed-shape proof tag (veil-ring is name plus members). */
+const VEIL_TAG_LENGTHS: ReadonlyArray<readonly [string, number]> = [
+  ['veil-ring', Infinity],
+  ['veil-threshold', 3],
+  ['veil-agg', 2],
+  ['veil-version', 2],
+  ['veil-scope', 2],
+  ['veil-sig', 3],
+]
 
 export type VerifyOptions = AggregateFn | {
   aggregateFn?: AggregateFn
@@ -592,6 +601,25 @@ export function verifyProof(event: {
     errors.push('Multiple alt tags')
   } else if (alts.length === 1 && (typeof alts[0][1] !== 'string' || alts[0][1] === '')) {
     errors.push('Invalid alt tag: must be a non-empty string')
+  }
+
+  // The proof tags have a fixed shape. A second copy, or anything after the
+  // expected elements, is not covered by the proof and could be read
+  // differently by another implementation, so it is rejected.
+  // (Duplicate veil-agg, veil-version and veil-scope tags are rejected where
+  // those tags are read.)
+  const shapeErrors: string[] = []
+  for (const [name, length] of VEIL_TAG_LENGTHS) {
+    const found = event.tags.filter(t => t[0] === name)
+    if ((name === 'veil-ring' || name === 'veil-threshold') && found.length > 1) {
+      shapeErrors.push(`Multiple ${name} tags`)
+    }
+    if (found.some(t => t.length > length)) {
+      shapeErrors.push(`${name} tag has extra elements`)
+    }
+  }
+  if (shapeErrors.length > 0) {
+    return { valid: false, circleSize: 0, threshold: 0, distinctSigners: 0, errors: [...errors, ...shapeErrors] }
   }
 
   const ringTag = event.tags.find(t => t[0] === 'veil-ring')
