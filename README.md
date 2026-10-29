@@ -184,7 +184,7 @@ Passing `expectedKind` matters because v1 proofs are not bound to the event kind
 | `verifyProof(event, options?)` | Verify ring signatures, threshold metadata, signed metric aggregation, and optional proof-version (`requireProofVersion`) and kind (`expectedKind`) requirements |
 | `verifyFederation(events, options?)` | Verify several scoped events together and count distinct contributors across circles ([cross-circle deduplication](#cross-circle-deduplication)) |
 | `canonicalMessage(circleId, subject, metrics)` | Compute the canonical message signed by contributors |
-| `canonicalMessageV2(circleId, subject, metrics, context)` | Compute the opt-in v2 canonical message that binds kind and subject hint tag |
+| `canonicalMessageV2(circleId, subject, metrics, context)` | Compute the v2 canonical message that binds kind and subject hint tag |
 | `computeCircleId(sortedPubkeys)` | Compute the deterministic circle ID (SHA-256 of colon-joined pubkeys) |
 
 ### `nostr-veil/profiles` -- safer deployment profiles
@@ -400,7 +400,7 @@ Aggregation is median by default. Pass `{ aggregate: 'mean' | 'sum' | 'min' | 'm
 
 Proof v1 signs the circle ID, the `d`-tag subject, and numeric metrics, and it uses `veil:v1:<scope-or-circleId>:<subject>` as the LSAG election ID. It is still the default for `contributeAssertion`.
 
-Proof v2 signs the same data plus the NIP-85 assertion kind and the subject hint tag/value (`p`, `e`, `a`, or `k`), and derives the key image from that semantic context. That prevents a valid contribution for one assertion class being replayed as another when a subject string is reused, and on kind 30385 it is what signs the `k` tag. Since 0.32.0 the typed helpers sign v2 by default; verifiers have accepted v2 since 0.14.0.
+Proof v2 signs the same data plus the NIP-85 assertion kind and the subject hint tag/value (`p`, `e`, `a`, or `k`), and derives the key image from that semantic context. That prevents a valid contribution for one assertion class being replayed as another when a subject string is reused, and on kind 30385 it is what signs the `k` tag. Since 0.32.0 the typed helpers sign v2 by default; verifiers have accepted v2 since 0.14.0. When a circle upgrades, upgrade the aggregator first: an aggregator on 0.32.0 combines v1 contributions from older members, but an aggregator before 0.32.0 assumes v1 and rejects the v2 contributions that 0.32.0 members now send, unless they pass `{ proofVersion: 'v1' }`.
 
 This continues from the [Quick start](#quick-start): `alice` and `circle` are defined there. `eventId` is the 64-char lowercase hex id of the Nostr event being assessed; the typed helpers throw if it is not.
 

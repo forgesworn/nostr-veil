@@ -130,7 +130,7 @@ export function canonicalMessage(
 }
 
 /**
- * Produce the canonical JSON message for opt-in proof v2.
+ * Produce the canonical JSON message for proof v2.
  *
  * v2 adds semantic context to the signed message: the NIP-85 kind and the
  * subject hint tag/value (`p`, `e`, `a`, or `k`). That makes the contribution

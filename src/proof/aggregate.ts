@@ -219,17 +219,20 @@ function assertV2ContextMatches(
   context: Required<Pick<ProofContext, 'kind' | 'subjectTag' | 'subjectTagValue'>>,
 ): void {
   for (let i = 0; i < contributions.length; i++) {
-    let signed: { kind?: unknown; subjectTag?: unknown }
+    let signed: { kind?: unknown; subjectTag?: unknown; subjectTagValue?: unknown }
     try {
-      signed = JSON.parse(contributions[i].signature.message) as { kind?: unknown; subjectTag?: unknown }
+      signed = JSON.parse(contributions[i].signature.message) as typeof signed
     } catch {
       continue
     }
-    if (signed.kind !== context.kind || signed.subjectTag !== context.subjectTag) {
+    if (typeof signed.kind !== 'number' || typeof signed.subjectTag !== 'string' || typeof signed.subjectTagValue !== 'string') {
+      continue // malformed: the signed-message check below rejects it
+    }
+    if (signed.kind !== context.kind || signed.subjectTag !== context.subjectTag || signed.subjectTagValue !== context.subjectTagValue) {
       throw new Error(
-        `Contribution index ${i} was signed for kind ${String(signed.kind)} with subject tag ${String(signed.subjectTag)}, ` +
-        `but this event is kind ${context.kind} with subject tag ${context.subjectTag}. ` +
-        'Use the matching typed helpers (contributeEventAssertion with aggregateEventContributions, and so on), or proofVersion v1 throughout.',
+        `Contribution index ${i} was signed for kind ${signed.kind} with ${signed.subjectTag} = ${signed.subjectTagValue}, ` +
+        `but this event is kind ${context.kind} with ${context.subjectTag} = ${context.subjectTagValue}. ` +
+        'Use the matching typed helpers (contributeEventAssertion with aggregateEventContributions, and so on) with the same subject, or proofVersion v1 throughout.',
       )
     }
   }
@@ -378,8 +381,9 @@ export function aggregateContributions(
 /**
  * Aggregate anonymous contributions into a kind 30383 event assertion.
  *
- * Emits `d` and `e` tags that both point at the event id. The proof format is
- * still the backwards-compatible v1 format, so `verifyProof` works unchanged.
+ * Emits `d` and `e` tags that both point at the event id.
+ * The proof version follows the contributions (the typed contribute helpers
+ * sign v2 by default), unless `proofVersion` is given.
  */
 export function aggregateEventContributions(
   circle: TrustCircle,
@@ -400,9 +404,9 @@ export function aggregateEventContributions(
 /**
  * Aggregate anonymous contributions into a kind 30384 addressable event assertion.
  *
- * Emits `d` and `a` tags that both point at the NIP-33 address. The proof
- * format is still the backwards-compatible v1 format, so `verifyProof` works
- * unchanged.
+ * Emits `d` and `a` tags that both point at the NIP-33 address.
+ * The proof version follows the contributions (the typed contribute helpers
+ * sign v2 by default), unless `proofVersion` is given.
  */
 export function aggregateAddressableContributions(
   circle: TrustCircle,
@@ -424,8 +428,9 @@ export function aggregateAddressableContributions(
  * Aggregate anonymous contributions into a kind 30385 identifier assertion.
  *
  * Emits `d` for the identifier and `k` for its NIP-73 type (`web`, `isbn`,
- * `podcast:guid`, `<blockchain>:tx` and so on). Pass `{ proofVersion: 'v2' }`
- * to bind the kind and `k` value into the signed messages.
+ * `podcast:guid`, `<blockchain>:tx` and so on). With v2 contributions (the
+ * default from `contributeIdentifierAssertion`) the kind and `k` value are
+ * bound into the signed messages; v1 leaves the `k` value unsigned.
  */
 export function aggregateIdentifierContributions(
   circle: TrustCircle,

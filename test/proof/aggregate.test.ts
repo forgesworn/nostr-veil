@@ -342,7 +342,12 @@ describe('aggregateContributions', () => {
 
     it('names the mismatch when v2 contributions were signed for another kind', () => {
       const contributions = [contributeIdentifierAssertion(circle, eventId, 'isbn', { rank: 1 }, privKeys[0], circle.members.indexOf(pubKeys[0]))]
-      expect(() => aggregateEventContributions(circle, eventId, contributions)).toThrow(/signed for kind 30385 with subject tag k, but this event is kind 30383 with subject tag e/)
+      expect(() => aggregateEventContributions(circle, eventId, contributions)).toThrow(/signed for kind 30385 with k = isbn, but this event is kind 30383 with e = /)
+    })
+
+    it('names the mismatch when v2 contributions were signed for another k value', () => {
+      const contributions = [contributeIdentifierAssertion(circle, 'id-1', 'isbn', { rank: 1 }, privKeys[0], circle.members.indexOf(pubKeys[0]))]
+      expect(() => aggregateIdentifierContributions(circle, 'id-1', 'web', contributions)).toThrow(/with k = isbn, but this event is kind 30385 with k = web/)
     })
   })
 })
