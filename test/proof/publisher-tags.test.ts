@@ -194,4 +194,22 @@ describe('publisher-set expiration and alt on veil events', () => {
     expect(result.valid).toBe(false)
     expect(result.errors).toContain('k tag is only allowed on kind 30385')
   })
+
+  it('rejects a d tag carrying elements the circle did not sign', () => {
+    const event = userEvent()
+    const tags = event.tags.map(t => (t[0] === 'd' ? [...t, 'unsigned extra'] : t))
+    const result = verifyProof({ ...event, tags })
+    expect(result.valid).toBe(false)
+    expect(result.errors).toContain('d tag has extra elements the circle did not sign')
+  })
+
+  it('rejects a k tag carrying elements the circle did not sign, on kind 30385', () => {
+    const contributions = privKeys.map((k, i) => contributeIdentifierAssertion(circle, 'id-1', 'isbn', { rank: 40 + i }, k, indexOf(i), { proofVersion: 'v2' }))
+    const event = aggregateIdentifierContributions(circle, 'id-1', 'isbn', contributions, { proofVersion: 'v2' })
+    expect(verifyProof(event).valid).toBe(true)
+    const tags = event.tags.map(t => (t[0] === 'k' ? [...t, 'unsigned extra'] : t))
+    const result = verifyProof({ ...event, tags })
+    expect(result.valid).toBe(false)
+    expect(result.errors).toContain('k tag has extra elements the circle did not sign')
+  })
 })

@@ -2,8 +2,8 @@ import { describe, it, expect } from 'vitest'
 import { schnorr } from '@noble/curves/secp256k1.js'
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js'
 import { createTrustCircle } from '../../src/proof/circle.js'
-import { contributeAssertion } from '../../src/proof/contribute.js'
-import { aggregateContributions } from '../../src/proof/aggregate.js'
+import { contributeAssertion, contributeIdentifierAssertion } from '../../src/proof/contribute.js'
+import { aggregateContributions, aggregateIdentifierContributions } from '../../src/proof/aggregate.js'
 import { verifyFederation } from '../../src/proof/federate.js'
 
 describe('verifyFederation', () => {
@@ -147,5 +147,35 @@ describe('verifyFederation', () => {
     const wrong = verifyFederation([a, b], { expectedKind: 30383 })
     expect(wrong.valid).toBe(false)
     expect(wrong.errors[0]).toMatch(/^event\[0\]: Event kind 30382 does not match expected kind 30383/)
+  })
+
+  it('rejects v2 events bound to different k values, which give one signer two key images', () => {
+    const identifierEvent = (members: typeof signers, kTag: string) => {
+      const circle = createTrustCircle(members.map(m => m.pub), { scope: 'fed-1' })
+      const contributions = members.map(m =>
+        contributeIdentifierAssertion(circle, 'id-1', kTag, { rank: 80 }, m.priv, circle.members.indexOf(m.pub), { proofVersion: 'v2' }),
+      )
+      return aggregateIdentifierContributions(circle, 'id-1', kTag, contributions, { proofVersion: 'v2' })
+    }
+    const same = verifyFederation([identifierEvent([signers[0], signers[1]], 'isbn'), identifierEvent([signers[0], signers[2]], 'isbn')])
+    expect(same.valid).toBe(true)
+    expect(same.distinctSigners).toBe(3)
+
+    const mixed = verifyFederation([identifierEvent([signers[0], signers[1]], 'isbn'), identifierEvent([signers[0], signers[2]], 'web')])
+    expect(mixed.valid).toBe(false)
+    expect(mixed.errors.some(e => e.includes('different election ids'))).toBe(true)
+  })
+
+  it('rejects a mix of v1 and v2 events', () => {
+    const v2 = (members: typeof signers) => {
+      const circle = createTrustCircle(members.map(m => m.pub), { scope: 'fed-1' })
+      const contributions = members.map(m =>
+        contributeAssertion(circle, subject, { rank: 80 }, m.priv, circle.members.indexOf(m.pub), { proofVersion: 'v2', kind: 30382, subjectTag: 'p', subjectTagValue: subject }),
+      )
+      return aggregateContributions(circle, subject, contributions, { proofVersion: 'v2' })
+    }
+    const result = verifyFederation([scopedEvent([signers[0], signers[1]], 'fed-1'), v2([signers[0], signers[2]])])
+    expect(result.valid).toBe(false)
+    expect(result.errors.some(e => e.includes('different election ids'))).toBe(true)
   })
 })

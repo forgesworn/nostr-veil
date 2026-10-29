@@ -550,6 +550,9 @@ export function verifyProof(event: {
   if (typeof dTag[1] !== 'string' || dTag[1] === '') {
     return { valid: false, circleSize: 0, threshold: 0, distinctSigners: 0, errors: ['Invalid d tag'] }
   }
+  if (dTag.length > 2) {
+    return { valid: false, circleSize: 0, threshold: 0, distinctSigners: 0, errors: ['d tag has extra elements the circle did not sign'] }
+  }
   const subject = dTag[1]
 
   // NIP-85: p, e and a tags MAY repeat the d value as a relay hint. On every kind
@@ -571,6 +574,9 @@ export function verifyProof(event: {
   // other kind nothing signs it, so it would only mis-index the proof (#k).
   if (kTags.length > 0 && event.kind !== NIP85_KINDS.IDENTIFIER) {
     errors.push('k tag is only allowed on kind 30385')
+  }
+  if (kTags.some(t => t.length > 2)) {
+    errors.push('k tag has extra elements the circle did not sign')
   }
 
   // The publisher may set expiration and alt; the circle does not sign them.
