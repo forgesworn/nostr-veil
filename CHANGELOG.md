@@ -1,3 +1,11 @@
+## 0.31.2 (2026-10-29)
+
+### Bug Fixes
+
+- reject duplicate and over-long proof tags (#55)
+
+
+
 ## 0.31.1 (2026-10-29)
 
 ### Bug Fixes
