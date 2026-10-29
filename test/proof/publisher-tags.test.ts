@@ -212,4 +212,39 @@ describe('publisher-set expiration and alt on veil events', () => {
     expect(result.valid).toBe(false)
     expect(result.errors).toContain('k tag has extra elements the circle did not sign')
   })
+
+  it.each(['veil-ring', 'veil-threshold'])('rejects a second %s tag', name => {
+    const event = userEvent()
+    const original = event.tags.find(t => t[0] === name)!
+    const result = verifyProof({ ...event, tags: [...event.tags, [...original]] })
+    expect(result.valid).toBe(false)
+    expect(result.errors).toContain(`Multiple ${name} tags`)
+  })
+
+  it.each(['veil-threshold', 'veil-agg', 'veil-sig'])('rejects extra elements on %s', name => {
+    const event = userEvent()
+    const tags = event.tags.map(t => (t[0] === name ? [...t, 'extra'] : t))
+    const result = verifyProof({ ...event, tags })
+    expect(result.valid).toBe(false)
+    expect(result.errors).toContain(`${name} tag has extra elements`)
+  })
+
+  it('rejects extra elements on veil-version and veil-scope', () => {
+    const circleScoped = createTrustCircle(pubKeys, { scope: 'fed-1' })
+    const contributions = privKeys.map((k, i) => contributeAssertion(circleScoped, subject, { rank: 40 + i }, k, circleScoped.members.indexOf(pubKeys[i]), { proofVersion: 'v2', kind: 30382, subjectTag: 'p', subjectTagValue: subject }))
+    const event = aggregateContributions(circleScoped, subject, contributions, { proofVersion: 'v2' })
+    expect(verifyProof(event).valid).toBe(true)
+    for (const name of ['veil-version', 'veil-scope']) {
+      const tags = event.tags.map(t => (t[0] === name ? [...t, 'extra'] : t))
+      const result = verifyProof({ ...event, tags })
+      expect(result.valid).toBe(false)
+      expect(result.errors).toContain(`${name} tag has extra elements`)
+    }
+  })
+
+  it('still accepts an unknown veil- tag, so a newer tag does not break this verifier', () => {
+    const result = verifyProof(withTags(userEvent(), [['veil-future', 'x', 'y']]))
+    expect(result.errors).toEqual([])
+    expect(result.valid).toBe(true)
+  })
 })
