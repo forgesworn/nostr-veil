@@ -1,3 +1,11 @@
+## 0.34.0 (2026-10-30)
+
+### Features
+
+- report a subject inside its own ring (#58) (proof)
+
+
+
 ## 0.33.0 (2026-10-30)
 
 ### Features
