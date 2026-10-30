@@ -1,15 +1,15 @@
 {
   "version": 1,
-  "relay": "wss://relay.trotters.cc",
-  "checkedAt": "2026-05-18T08:55:39.000Z",
-  "runId": "tf864r-5e509653d4",
+  "relay": "wss://relay.primal.net",
+  "checkedAt": "2026-10-30T05:31:36.000Z",
+  "runId": "tnpgoo-79fdf4f383",
   "mode": "live-relay-admission-gate",
   "command": "npm run test:admission-gate:relay -- --write docs/admission-gate-relay-check.json",
   "status": "pass",
   "events": {
-    "bundleEventId": "131b014e498281c3aa892a4d79a0d6c293cfe5daab3b0770d57b1a7a32bc0634",
+    "bundleEventId": "5fd1d1301388409ad33c7b6b5893488b686cffbb6a1472db1432aac32d2c333f",
     "bundleEventKind": 30078,
-    "vouchEventId": "4a288c5fceca7f0189ce59dfd01e4d6b335dce7f48c911b698b9405f5dfd0d5b",
+    "vouchEventId": "c3586f2c1f6fb870248bcf9fb876a677080fffc53e328544ece11805d608448f",
     "vouchKind": 30382
   },
   "checks": {
@@ -29,7 +29,7 @@
   },
   "result": {
     "applicantPubkey": "2c0b7cf95324a07d05398b240174dc0c2be444d96b159aa6c7f7b1e668680991",
-    "audience": "relay:wss://relay.trotters.cc",
+    "audience": "relay:wss://relay.primal.net",
     "decision": "admit",
     "errors": [],
     "rank": 92,
