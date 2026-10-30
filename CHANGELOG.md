@@ -1,3 +1,11 @@
+## 0.33.0 (2026-10-30)
+
+### Features
+
+- AI agent trust use case (#57)
+
+
+
 ## 0.32.0 (2026-10-29)
 
 ### Features
