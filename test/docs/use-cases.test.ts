@@ -38,7 +38,7 @@ const requiredImplementationSections = [
 
 describe('public use-case pages', () => {
   it('publishes a generated detail page for every use-case source', () => {
-    expect(slugs).toHaveLength(16)
+    expect(slugs).toHaveLength(17)
 
     for (const pagePath of detailPagePaths) {
       expect(existsSync(pagePath), pagePath).toBe(true)
@@ -135,7 +135,7 @@ describe('public use-case pages', () => {
       useCases: Array<{ slug: string, status: string, eventIds: string[], checks: { profile: boolean } }>
     }
 
-    expect(report.relay).toBe('wss://relay.trotters.cc')
+    expect(report.relay).toBe('wss://relay.primal.net')
     expect(report.summary.useCases).toBe(slugs.length)
     expect(report.summary.passed).toBe(slugs.length)
     expect(Number.isNaN(Date.parse(report.checkedAt))).toBe(false)
@@ -149,7 +149,7 @@ describe('public use-case pages', () => {
       expect(check?.checks.profile, slug).toBe(true)
       expect(check?.eventIds.every(id => /^[0-9a-f]{64}$/.test(id)), slug).toBe(true)
       expect(page, slug).toContain('<h2>Live relay test</h2>')
-      expect(page, slug).toContain('wss://relay.trotters.cc')
+      expect(page, slug).toContain('wss://relay.primal.net')
       expect(page, slug).toContain('Deployment profile verifier passes')
       expect(page, slug).toContain(check!.eventIds[0].slice(0, 12))
     }

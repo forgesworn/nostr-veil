@@ -196,6 +196,7 @@ security boundary, and policy choices for one use case:
 | Community list, labeler, and moderation-list reputation | Supported today | [list, labeler, and moderation-list reputation](./use-case-pages/list-labeler-moderation-list-reputation.md) |
 | Federated moderation | Supported today | [federated moderation](./use-case-pages/federated-moderation.md) |
 | Privacy-preserving onboarding | Supported today | [privacy-preserving onboarding](./use-case-pages/privacy-preserving-onboarding.md) |
+| AI agent trust and vouching | Supported today | [AI agent trust and vouching](./use-case-pages/ai-agent-trust.md) |
 | Grant, funding, and proposal review | Supported today | [grant, funding, and proposal review](./use-case-pages/grant-funding-proposal-review.md) |
 | Anonymous credential or attestation co-signing | Future profile | [anonymous credential co-signing](./use-case-pages/anonymous-credential-attestation-cosigning.md) |
 | Relay or community admission | Supported admission gate; full anonymous profile future | [relay or community admission](./use-case-pages/relay-community-admission.md) |
@@ -424,6 +425,28 @@ communities at that assertion.
 This is not anonymous gated access by itself. Use it as a portable admission
 signal today; add a separate challenge/response access handshake, expiry, and
 revocation before calling it anonymous gated access.
+
+### AI agent trust and vouching
+
+- Use: kind 30382 user assertion for the agent's pubkey.
+- Subject: the agent pubkey, in both `d` and `p`.
+- Metrics: `rank` as confidence that the key is a legitimately operated agent
+  of the named operator, or acceptable for the circle's purpose.
+- Proof: proof v2 supported.
+
+A human-curated circle, such as an operator's maintainers, a community's
+reviewers, or a marketplace's verified users, can vouch for an agent key without
+naming which humans vouched. An agent host, MCP server, bot, or relay policy
+checks the proof before reading a DM, accepting a task, paying an invoice, or
+admitting a key.
+
+Agent keys are free, so a circle made only of agent keys is a Sybil farm and
+nostr-veil adds nothing there. A verifier should accept a proof only when the
+circle ID is on its accepted list, the publisher is trusted, or every ring
+member is already trusted. The vouch does not show the agent is safe, unique, or
+still controlled by its operator. One signature per agent per scope and
+anonymous review of agents are building blocks, not profiles; see
+[AI agent trust and vouching](./use-case-pages/ai-agent-trust.md).
 
 ### Grant, funding, and proposal review
 

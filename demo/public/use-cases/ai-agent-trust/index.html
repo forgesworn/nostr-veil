@@ -1,0 +1,932 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI agent trust and vouching | nostr-veil use cases</title>
+  <meta name="description" content="Use this when an agent host, MCP server, bot, or relay policy needs to decide whether to trust an AI agent's Nostr key, and a human-curated circle is willing to vouch for that key without naming which humans did." />
+  <meta property="og:type" content="article" />
+  <meta property="og:title" content="AI agent trust and vouching" />
+  <meta property="og:description" content="Use this when an agent host, MCP server, bot, or relay policy needs to decide whether to trust an AI agent's Nostr key, and a human-curated circle is willing to vouch for that key without naming which humans did." />
+  <meta property="og:image" content="https://raw.githubusercontent.com/forgesworn/nostr-veil/main/social-preview.png" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='9' fill='none' stroke='%2340c7aa' stroke-width='3'/></svg>" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --ink: #111820;
+      --ink-2: #2b3844;
+      --muted: #627180;
+      --paper: #f7f8f5;
+      --paper-2: #eef2ed;
+      --white: #ffffff;
+      --line: #d9e0db;
+      --line-strong: #b7c4bc;
+      --dark: #07100f;
+      --dark-line: #213238;
+      --mint: #40c7aa;
+      --mint-dark: #0e7462;
+      --blue: #3d6fd9;
+      --shadow: 0 24px 70px rgba(17, 24, 32, 0.14);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      min-height: 100vh;
+      background:
+        linear-gradient(rgba(17, 24, 32, 0.035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(17, 24, 32, 0.035) 1px, transparent 1px),
+        var(--paper);
+      background-size: 36px 36px, 36px 36px, auto;
+      color: var(--ink);
+      font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.62;
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
+    }
+    a { color: inherit; text-decoration: none; }
+    a:hover { text-decoration: underline; text-underline-offset: 3px; }
+    code, pre, .mono { font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .wrap { width: min(1180px, calc(100% - 40px)); margin: 0 auto; }
+    .eyebrow {
+      color: var(--mint-dark);
+      font-family: "JetBrains Mono", ui-monospace, monospace;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      background: rgba(247, 248, 245, 0.9);
+      border-bottom: 1px solid var(--line);
+      backdrop-filter: blur(18px);
+    }
+    .nav-shell {
+      height: 66px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 24px;
+    }
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      font-family: "JetBrains Mono", ui-monospace, monospace;
+      font-size: 14px;
+      font-weight: 800;
+    }
+    .brand-mark {
+      width: 24px;
+      height: 24px;
+      border: 1px solid var(--ink);
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      background: var(--dark);
+    }
+    .brand-mark::before {
+      content: "";
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--mint);
+      box-shadow: 0 0 18px rgba(64, 199, 170, 0.7);
+    }
+    .nav {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      color: var(--ink-2);
+      font-family: "JetBrains Mono", ui-monospace, monospace;
+      font-size: 12px;
+      font-weight: 800;
+    }
+    .nav a:hover { color: var(--mint-dark); text-decoration: none; }
+    .nav .install {
+      min-height: 34px;
+      display: inline-flex;
+      align-items: center;
+      border-radius: 999px;
+      padding: 0 13px;
+      color: var(--white);
+      background: var(--ink);
+    }
+    .hero {
+      color: var(--white);
+      background: linear-gradient(135deg, var(--dark), #0b1319 58%, #12161c);
+      border-bottom: 1px solid var(--dark-line);
+    }
+    .hero-inner {
+      min-height: 430px;
+      display: grid;
+      grid-template-columns: minmax(0, 0.72fr) minmax(280px, 0.34fr);
+      gap: 54px;
+      align-items: end;
+      padding: 64px 0 58px;
+    }
+    .hero h1 {
+      max-width: 12ch;
+      margin-top: 16px;
+      font-size: clamp(42px, 6.4vw, 82px);
+      line-height: 0.96;
+      letter-spacing: 0;
+    }
+    .hero p {
+      max-width: 66ch;
+      margin-top: 22px;
+      color: #c7d2d9;
+      font-size: clamp(17px, 1.8vw, 20px);
+    }
+    .button-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 30px;
+    }
+    .button {
+      min-height: 42px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid var(--dark-line);
+      border-radius: 999px;
+      padding: 0 15px;
+      background: rgba(255,255,255,0.06);
+      color: var(--white);
+      font-family: "JetBrains Mono", ui-monospace, monospace;
+      font-size: 12px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+    .button:hover { border-color: var(--mint); color: var(--mint); text-decoration: none; }
+    .button.primary { background: var(--mint); border-color: var(--mint); color: #031412; }
+    .button.primary:hover { color: #031412; background: #6be0c9; }
+    .status-panel {
+      border: 1px solid var(--dark-line);
+      border-radius: 8px;
+      background: rgba(255,255,255,0.04);
+      padding: 20px;
+    }
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      min-height: 28px;
+      border-radius: 999px;
+      padding: 0 10px;
+      border: 1px solid rgba(255,255,255,0.16);
+      color: var(--white);
+      font-family: "JetBrains Mono", ui-monospace, monospace;
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    .status-pill.today { background: rgba(64, 199, 170, 0.18); color: #a7f1e0; }
+    .status-pill.future { background: rgba(243, 178, 75, 0.18); color: #ffd58b; }
+    .status-panel dl {
+      display: grid;
+      gap: 14px;
+      margin-top: 20px;
+      font-family: "JetBrains Mono", ui-monospace, monospace;
+      font-size: 12px;
+    }
+    .status-panel dt { color: #879ca6; text-transform: uppercase; letter-spacing: 0.08em; }
+    .status-panel dd { margin-top: 3px; color: #e6eef2; }
+    .layout {
+      display: grid;
+      grid-template-columns: 250px minmax(0, 1fr);
+      gap: 42px;
+      align-items: start;
+      padding: 74px 0;
+    }
+    .hero-inner > *,
+    .layout > *,
+    .next-grid > * {
+      min-width: 0;
+    }
+    .side-nav {
+      position: sticky;
+      top: 88px;
+      display: grid;
+      gap: 6px;
+      border-left: 3px solid var(--ink);
+      padding-left: 14px;
+      font-family: "JetBrains Mono", ui-monospace, monospace;
+      font-size: 12px;
+      font-weight: 800;
+    }
+    .side-nav a {
+      min-height: 30px;
+      display: flex;
+      align-items: center;
+      color: var(--muted);
+    }
+    .side-nav a[aria-current="page"] { color: var(--ink); }
+    .side-nav a:hover { color: var(--mint-dark); text-decoration: none; }
+    article {
+      max-width: 880px;
+      min-width: 0;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--white);
+      box-shadow: var(--shadow);
+      padding: clamp(24px, 4vw, 46px);
+    }
+    article h2 {
+      scroll-margin-top: 88px;
+      margin-top: 42px;
+      padding-top: 34px;
+      border-top: 1px solid var(--line);
+      font-size: clamp(26px, 3vw, 36px);
+      line-height: 1.08;
+      letter-spacing: 0;
+    }
+    article h2:first-child {
+      margin-top: 0;
+      padding-top: 0;
+      border-top: 0;
+    }
+    article h3 {
+      margin-top: 26px;
+      font-size: 21px;
+      line-height: 1.2;
+    }
+    article p,
+    article li {
+      color: var(--ink-2);
+      font-size: 16px;
+    }
+    article p { margin-top: 16px; }
+    article ul,
+    article ol {
+      display: grid;
+      gap: 10px;
+      margin: 16px 0 0 1.25rem;
+    }
+    article code {
+      border: 1px solid var(--line);
+      border-radius: 5px;
+      background: var(--paper-2);
+      padding: 0.08rem 0.28rem;
+      color: var(--mint-dark);
+      font-size: 0.92em;
+      overflow-wrap: anywhere;
+    }
+    pre {
+      max-width: 100%;
+      margin-top: 18px;
+      overflow-x: auto;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #07100f;
+      padding: 20px;
+      color: #e8f4f1;
+      font-size: 13px;
+      line-height: 1.62;
+    }
+    pre code {
+      border: 0;
+      background: transparent;
+      padding: 0;
+      color: inherit;
+      font-size: inherit;
+    }
+    .code-sample {
+      max-width: 100%;
+      margin-top: 18px;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #07100f;
+    }
+    .code-sample pre {
+      margin-top: 0;
+      border: 0;
+      border-radius: 0;
+    }
+    .code-sample-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      border-bottom: 1px solid var(--dark-line);
+      background: #0b1716;
+      padding: 10px 12px;
+      color: #b7c5cc;
+      font-family: "JetBrains Mono", ui-monospace, monospace;
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .code-sample-path {
+      min-width: 0;
+      overflow-wrap: anywhere;
+    }
+    .code-sample-actions {
+      display: flex;
+      flex-wrap: wrap;
+      flex: 0 0 auto;
+      gap: 8px;
+    }
+    .code-sample-actions a,
+    .code-copy {
+      min-height: 30px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid #31464b;
+      border-radius: 6px;
+      background: rgba(255,255,255,0.04);
+      color: #e6eef2;
+      padding: 0 10px;
+      font: inherit;
+      font-size: 11px;
+      line-height: 1;
+      white-space: nowrap;
+    }
+    .code-sample-actions a:hover,
+    .code-copy:hover {
+      border-color: var(--mint);
+      color: var(--mint);
+      text-decoration: none;
+    }
+    .code-copy {
+      cursor: pointer;
+    }
+    .code-copy[hidden] { display: none; }
+    .tok-comment { color: #7f9993; font-style: italic; }
+    .tok-keyword { color: #7dd3fc; font-weight: 700; }
+    .tok-string { color: #a7f3d0; }
+    .tok-number,
+    .tok-literal { color: #f9d36d; }
+    .tok-type { color: #d8b4fe; }
+    .tok-fn { color: #f7c873; }
+    .table-wrap {
+      max-width: 100%;
+      margin-top: 18px;
+      overflow-x: auto;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+    }
+    .relay-evidence {
+      margin-top: 18px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--paper);
+      overflow: hidden;
+    }
+    .relay-evidence.pass { border-color: rgba(14, 116, 98, 0.34); }
+    .relay-evidence.fail { border-color: rgba(190, 18, 60, 0.34); }
+    .relay-evidence-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      border-bottom: 1px solid var(--line);
+      background: var(--white);
+      padding: 14px 16px;
+      font-family: "JetBrains Mono", ui-monospace, monospace;
+      font-size: 12px;
+      font-weight: 800;
+    }
+    .relay-evidence-head span {
+      color: var(--mint-dark);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+    .relay-evidence-head strong {
+      color: var(--ink-2);
+      overflow-wrap: anywhere;
+    }
+    .relay-evidence dl {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 1px;
+      background: var(--line);
+    }
+    .relay-evidence dl div {
+      min-width: 0;
+      background: var(--paper);
+      padding: 14px 16px;
+    }
+    .relay-evidence dt {
+      color: var(--muted);
+      font-family: "JetBrains Mono", ui-monospace, monospace;
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+    .relay-evidence dd {
+      margin-top: 5px;
+      color: var(--ink-2);
+      font-size: 14px;
+      line-height: 1.45;
+      overflow-wrap: anywhere;
+    }
+    .relay-checks {
+      margin: 0;
+      padding: 16px;
+      list-style: none;
+      border-top: 1px solid var(--line);
+    }
+    .relay-checks li {
+      display: flex;
+      align-items: flex-start;
+      gap: 9px;
+      color: var(--ink-2);
+      font-size: 14px;
+    }
+    .relay-checks li span {
+      width: 9px;
+      height: 9px;
+      flex: 0 0 auto;
+      margin-top: 8px;
+      border-radius: 50%;
+      background: #be123c;
+    }
+    .relay-checks li.pass span { background: var(--mint-dark); }
+    .relay-event-ids {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      border-top: 1px solid var(--line);
+      padding: 14px 16px;
+    }
+    .relay-event-ids code,
+    .relay-command code {
+      overflow-wrap: anywhere;
+    }
+    .relay-command {
+      margin: 0;
+      border-top: 1px solid var(--line);
+      padding: 14px 16px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+    .safety-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 18px;
+    }
+    .safety-item {
+      min-width: 0;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--paper);
+      padding: 14px;
+    }
+    .safety-item span {
+      display: block;
+      color: var(--ink);
+      font-family: "JetBrains Mono", ui-monospace, monospace;
+      font-size: 12px;
+      font-weight: 800;
+    }
+    .safety-item p {
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.45;
+    }
+    .kind-reference {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 18px;
+    }
+    .kind-reference-item {
+      min-width: 0;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--paper);
+      padding: 14px;
+    }
+    .kind-reference-item span {
+      color: var(--accent);
+      display: block;
+      font-family: "JetBrains Mono", ui-monospace, monospace;
+      font-size: 17px;
+      font-weight: 900;
+      margin-bottom: 8px;
+    }
+    .kind-reference-item strong {
+      color: var(--ink);
+      display: block;
+      font-size: 13px;
+      line-height: 1.35;
+    }
+    .kind-reference-item p {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+      margin-top: 8px;
+    }
+    table {
+      width: 100%;
+      min-width: 640px;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+    th,
+    td {
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--line);
+      vertical-align: top;
+      text-align: left;
+    }
+    th {
+      background: var(--paper-2);
+      color: var(--ink);
+      font-family: "JetBrains Mono", ui-monospace, monospace;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    tr:last-child td { border-bottom: 0; }
+    td { color: var(--ink-2); }
+    .next-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+      margin-top: 28px;
+    }
+    .next-card {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--paper);
+      padding: 18px;
+    }
+    .next-card span {
+      color: var(--muted);
+      font-family: "JetBrains Mono", ui-monospace, monospace;
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+    .next-card strong {
+      display: block;
+      margin-top: 8px;
+      line-height: 1.25;
+    }
+    footer {
+      color: var(--white);
+      background: var(--dark);
+      border-top: 1px solid var(--dark-line);
+      padding: 42px 0;
+    }
+    footer p { color: #b7c5cc; }
+    @media (max-width: 980px) {
+      .hero-inner,
+      .layout { grid-template-columns: 1fr; }
+      .side-nav {
+        position: static;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        border-left: 0;
+        border-top: 3px solid var(--ink);
+        padding: 14px 0 0;
+      }
+    }
+    @media (max-width: 680px) {
+      html, body { overflow-x: hidden; }
+      .wrap { width: calc(100vw - 28px); }
+      h1, h2, h3, p, li, a, span, code { overflow-wrap: anywhere; }
+      .nav a:not(.install) { display: none; }
+      .hero-inner { min-height: auto; gap: 24px; padding: 34px 0 30px; }
+      .button { width: 100%; }
+      .layout { padding: 52px 0; gap: 28px; }
+      article { order: 1; padding: 22px; }
+      .side-nav { order: 2; }
+      .side-nav,
+      .next-grid,
+      .relay-evidence dl,
+      .safety-grid,
+      .kind-reference { grid-template-columns: 1fr; }
+      .code-sample-toolbar {
+        align-items: stretch;
+        flex-direction: column;
+      }
+      .code-sample-actions {
+        width: 100%;
+      }
+      .code-sample-actions a,
+      .code-copy {
+        flex: 1 1 140px;
+      }
+      table { min-width: 560px; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap nav-shell">
+      <a class="brand" href="../../" aria-label="nostr-veil demo">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <span>nostr-veil</span>
+      </a>
+      <nav class="nav" aria-label="Primary">
+        <a href="../">Use cases</a>
+        <a href="https://github.com/forgesworn/nostr-veil">GitHub</a>
+        <a class="install" href="https://www.npmjs.com/package/nostr-veil">npm</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="wrap hero-inner">
+        <div>
+          <span class="eyebrow">Agents</span>
+          <h1>AI agent trust and vouching</h1>
+          <p>Use this when an agent host, MCP server, bot, or relay policy needs to decide whether to trust an AI agent's Nostr key, and a human-curated circle is willing to vouch for that key without naming which humans did.</p>
+          <div class="button-row">
+            <a class="button primary" href="#worked-example">Jump to worked example</a>
+            <a class="button" href="../">Back to atlas</a>
+          </div>
+        </div>
+        <aside class="status-panel" aria-label="Use-case status">
+          <span class="status-pill today">Supported today</span>
+          <dl>
+            <div>
+              <dt>Includes</dt>
+              <dd>Fit, recipe, proof checks, and controls</dd>
+            </div>
+            <div>
+              <dt>Profile</dt>
+              <dd>Agents</dd>
+            </div>
+            <div>
+              <dt>Pages</dt>
+              <dd>17 worked examples</dd>
+            </div>
+          </dl>
+        </aside>
+      </div>
+    </section>
+
+    <div class="wrap layout">
+      <nav class="side-nav" aria-label="All use cases">
+        <a href="../user-reputation-abuse-reporting/">User reputation and abuse reporting</a>
+<a href="../privacy-preserving-onboarding/">Privacy-preserving onboarding</a>
+<a href="../ai-agent-trust/" aria-current="page">AI agent trust and vouching</a>
+<a href="../source-corroboration/">Source corroboration</a>
+<a href="../event-claim-verification/">Event and claim verification</a>
+<a href="../article-research-review/">Article, research, and long-form review</a>
+<a href="../relay-service-reputation/">Relay and service reputation</a>
+<a href="../nip05-domain-service-provider-trust/">NIP-05, domain, and service-provider trust</a>
+<a href="../verifier-issuer-legitimacy/">Verifier and issuer legitimacy</a>
+<a href="../list-labeler-moderation-list-reputation/">Community list, labeler, and moderation-list reputation</a>
+<a href="../release-package-maintainer-reputation/">Release, package, and maintainer reputation</a>
+<a href="../vendor-marketplace-signals/">Vendor and marketplace signals</a>
+<a href="../federated-moderation/">Federated moderation</a>
+<a href="../grant-funding-proposal-review/">Grant, funding, and proposal review</a>
+<a href="../anonymous-credential-attestation-cosigning/">Anonymous credential or attestation co-signing</a>
+<a href="../relay-community-admission/">Relay or community admission</a>
+<a href="../anonymous-group-decisions/">Anonymous group decisions, voting, and petitions</a>
+      </nav>
+      <article>
+        <p>Use this when an agent host, MCP server, bot, or relay policy needs to decide whether to trust an AI agent's Nostr key, and a human-curated circle is willing to vouch for that key without naming which humans did.</p>
+<h2>Fit</h2>
+<ul><li>Status: supported today as a vouch assertion. The patterns listed under *Building blocks* are not profiles.</li><li>NIP-85 kind: 30382 user assertion.</li><li>Subject: the agent's pubkey.</li><li>Helpers: <code>contributeAssertion</code>, <code>aggregateContributions</code>.</li><li>Proof version: v2 recommended.</li><li>Useful metrics: <code>rank</code> as confidence that the key is a legitimately operated agent of the named operator, or is acceptable for the circle's purpose.</li></ul>
+<p>An agent has a pubkey like anyone else, but agent keys are free. A circle made only of agent keys is a Sybil farm by construction, so nostr-veil adds nothing there. It helps only when a human-curated circle stands behind the key: an operator's maintainers, a community's reviewers, or a marketplace's verified users. The verifier is usually another agent or an agent host that checks the proof before acting, for example before reading a DM, accepting a task, paying an invoice, or admitting a key.</p>
+<h2>Subject design</h2>
+<ul><li>Use the agent's pubkey as the subject, in both <code>d</code> and <code>p</code>. Proof v2 binds the vouch to that key, not to a session, a model version, or a deployment.</li><li>Name the operator in the circle's public policy, not in the proof. The proof says a threshold of the circle vouched for the key, not who the operator is.</li><li>Keep one assertion per agent key. When the key rotates, vouch for the new key afresh instead of editing the old assertion.</li><li>The agent pubkey is public. This profile hides the vouching humans, not the agent.</li></ul>
+<h2>What to publish</h2>
+<ul><li>A kind 30382 assertion created with <code>aggregateContributions</code>, about the agent pubkey.</li><li>A <code>rank</code> value with a stated meaning, such as operator-verified confidence.</li><li>Proof v2 tags, plus a public policy for the circle's curators, the threshold, expiry, revocation, and re-review.</li><li>A short <code>expiration</code> so a leaked or retired key stops carrying a vouch.</li><li>No operator contact details or review notes in the assertion content.</li></ul>
+<h2>Implementation recipe</h2>
+<ol><li>The circle's curators agree what a vouch means and who may sign.</li><li>Members vouch for the agent key with <code>contributeAssertion</code>, and the assertion is aggregated and published with proof v2.</li><li>The verifier checks the circle before it checks the score. Accept a proof only when one of these holds: - the <code>veil-ring</code> circle ID is on the verifier's accepted list; - the publisher is trusted; - every ring member is already trusted.</li><li>A fraction of trusted members is not enough: one untrusted member could be the signer and the proof cannot say otherwise.</li><li>If the subject appears in its own ring, discount one signature per scope.</li><li>Report proofs from unknown circles as unverified-origin rather than scoring them. For example, the [bray MCP server](https://github.com/forgesworn/bray) applies this rule when it reads veil proofs.</li><li>Treat the result as one input to the action policy: read, accept, pay, or admit.</li></ol>
+<h2 id="worked-example">Worked example</h2>
+<div class="code-sample" data-example-slug="ai-agent-trust">
+  <div class="code-sample-toolbar">
+    <span class="code-sample-path">examples/use-cases/ai-agent-trust.ts</span>
+    <div class="code-sample-actions">
+      <a href="https://github.com/forgesworn/nostr-veil/blob/main/examples/use-cases/ai-agent-trust.ts" target="_blank" rel="noreferrer">Runnable source</a>
+      <a href="https://github.com/forgesworn/nostr-veil/blob/main/examples/use-cases/_shared.ts" target="_blank" rel="noreferrer">Shared harness</a>
+      <button class="code-copy" type="button" data-copy-code aria-label="Copy example source">Copy</button>
+    </div>
+  </div>
+  <pre><code class="language-ts"><span class="tok-keyword">import</span> {
+  NIP85_KINDS,
+  aggregateContributions,
+  contributeAssertion,
+  createTrustCircle,
+} <span class="tok-keyword">from</span> <span class="tok-string">'nostr-veil'</span>
+<span class="tok-keyword">import</span> {
+  defaultMembers,
+  memberIndex,
+  proofVersion,
+  subjectPubkey,
+  verifyUseCaseAssertion,
+  withCreatedAt,
+} <span class="tok-keyword">from</span> <span class="tok-string">'./_shared.js'</span>
+
+<span class="tok-keyword">const</span> slug = <span class="tok-string">'ai-agent-trust'</span>
+<span class="tok-comment">// The circle is human-curated: an operator's maintainers vouch for the agent key.</span>
+<span class="tok-keyword">const</span> agentPubkey = subjectPubkey
+<span class="tok-keyword">const</span> circle = <span class="tok-fn">createTrustCircle</span>(defaultMembers.<span class="tok-fn">map</span>(member =&gt; member.pub))
+
+<span class="tok-keyword">const</span> contributions = defaultMembers.<span class="tok-fn">map</span>((member, index) =&gt;
+  <span class="tok-fn">contributeAssertion</span>(
+    circle,
+    agentPubkey,
+    { rank: <span class="tok-number">85</span> + index },
+    member.priv,
+    <span class="tok-fn">memberIndex</span>(circle, member.pub),
+    { proofVersion },
+  ),
+)
+
+<span class="tok-keyword">export</span> <span class="tok-keyword">const</span> assertion = <span class="tok-fn">withCreatedAt</span>(<span class="tok-fn">aggregateContributions</span>(
+  circle,
+  agentPubkey,
+  contributions,
+  { proofVersion },
+))
+
+<span class="tok-keyword">export</span> <span class="tok-keyword">const</span> result = <span class="tok-fn">verifyUseCaseAssertion</span>(slug, assertion, {
+  kind: NIP85_KINDS.USER,
+  subject: agentPubkey,
+  subjectTag: <span class="tok-string">'p'</span>,
+  circleId: circle.circleId,
+  minDistinctSigners: <span class="tok-number">3</span>,
+  freshAfter: assertion.created_at - <span class="tok-number">300</span>,
+})</code></pre>
+</div>
+<h2>Building blocks</h2>
+<p>These are not profiles. They use the same primitives, and in each case the circle's trust still comes from who curates its member list.</p>
+<ul><li>One signature per agent per scope. An operator's fleet forms a circle, and any instance signs a report, vote, or moderation decision. The key image stops one instance signing twice per scope, and nobody can fingerprint which instance acted. This works today with <code>contributeEventAssertion</code> and <code>aggregateEventContributions</code>, or the identifier variants.</li><li>Anonymous rate-limited access for agents. One admission per member per scope is the gate building block described in <a href="../relay-community-admission/">relay or community admission</a>. Full anonymous access for agents remains a future profile.</li><li>Anonymous review of agents and the services they front. A circle of verified users publishes a kind 30385 identifier assertion, as in <a href="../vendor-marketplace-signals/">vendor and marketplace signals</a> and <a href="../relay-service-reputation/">relay and service reputation</a>.</li></ul>
+<h2>What to verify</h2>
+<ul><li>Strict NIP-85 syntax and a valid proof v2.</li><li>Kind 30382, with <code>d</code> and <code>p</code> equal to the agent pubkey being considered.</li><li>The circle is accepted under the rules in the recipe, and <code>proof.distinctSigners</code> meets the verifier's threshold.</li><li>The signer is not the subject: if the agent pubkey is in the ring, one signature per scope is discounted.</li><li>The <code>rank</code> meaning matches the circle's published policy.</li><li>The assertion is fresh, and no later revocation or re-review replaces it.</li></ul>
+<h2>What this proves</h2>
+<ul><li>Enough distinct members of the circle vouched for this agent key.</li><li>The agent key is bound to the proof.</li><li>No individual vouching member is identified.</li></ul>
+<h2>What not to claim</h2>
+<ul><li>Do not claim the agent is safe, aligned, non-malicious, or still controlled by its operator. A vouch is a point-in-time admission signal.</li><li>Do not claim uniqueness. One operator can run many vouched agents.</li><li>Do not claim the agent is anonymous. Its pubkey is public.</li><li>Do not treat agent-to-agent vouching as evidence. Without a human-curated publisher it proves nothing about Sybil resistance, and a verifier should ignore it.</li><li>Do not claim a trusted fraction of a ring is enough. See the recipe.</li></ul>
+<h2>Failure handling</h2>
+<ul><li>Reject proofs from unknown circles, below-threshold circles, expired assertions, or assertions about a different key. Report unknown circles as unverified-origin.</li><li>Fall back to manual approval, or to a low-privilege mode, when the proof is missing or unverifiable.</li><li>Publish a revocation or a replacement assertion when the circle withdraws its vouch, and expire vouches by default.</li><li>Fall back to manual review when independent circles disagree.</li></ul>
+<h2>Operational requirements</h2>
+<div class="table-wrap"><table><thead><tr><th>Risk to handle</th><th>Required control</th></tr></thead><tbody><tr><td>Agent keys are free, so an agent-only circle is a Sybil farm.</td><td>Accept circles only when a named human curator, such as an operator or community, stands behind the member list. Ignore agent-to-agent vouching.</td></tr><tr><td>One untrusted member could be the signer.</td><td>Accept a circle ID, a trusted publisher, or a ring whose members are all trusted. Never accept a fraction.</td></tr><tr><td>An agent key leaks or is rotated.</td><td>Use short expiry, publish a revocation, and vouch for the new key afresh. Verifiers should check freshness every time.</td></tr><tr><td>The operator changes.</td><td>Treat the vouch as void on a change of operator. Re-review and publish a new assertion.</td></tr><tr><td>A vouched agent misbehaves.</td><td>Add post-admission enforcement, rate limits, and logging. The circle re-reviews and revokes.</td></tr><tr><td>One operator runs many vouched agents.</td><td>Do not read the vouch as uniqueness. Apply per-operator limits where numbers matter.</td></tr><tr><td>The proof says nothing about safety.</td><td>Keep spending caps, sandboxing, and human approval for high-risk actions.</td></tr></tbody></table></div>
+<h2>Policy choices</h2>
+<ul><li>Which circles, publishers, or trusted rings does the verifier accept?</li><li>What does <code>rank</code> mean, and what minimum does each action need?</li><li>How long does a vouch last, and how is it revoked?</li><li>Which actions need a vouch, and which still need human approval?</li></ul>
+        <h2>NIP-85 kind reference</h2>
+<p>NIP-85 defines the assertion kind by the subject being scored. The kind number is part of the proof v2 context, so deployments should verify both the number and the subject hint tag.</p>
+<div class="kind-reference">
+  <div class="kind-reference-item">
+    <span>30382</span>
+    <strong>User assertion</strong>
+    <p>Nostr pubkey subjects. Subject hint: <code>p</code>.</p>
+  </div>
+  <div class="kind-reference-item">
+    <span>30383</span>
+    <strong>Event assertion</strong>
+    <p>Nostr event id subjects. Subject hint: <code>e</code>.</p>
+  </div>
+  <div class="kind-reference-item">
+    <span>30384</span>
+    <strong>Addressable event assertion</strong>
+    <p>NIP-33 address subjects. Subject hint: <code>a</code>.</p>
+  </div>
+  <div class="kind-reference-item">
+    <span>30385</span>
+    <strong>NIP-73/external identifier assertion</strong>
+    <p>packages, relays, domains, vendors, and other identifiers. Subject hint: <code>k</code>.</p>
+  </div>
+  <div class="kind-reference-item">
+    <span>10040</span>
+    <strong>Trusted service provider declaration</strong>
+    <p>provider metadata, not a score assertion. Subject hint: <code>provider tags</code>.</p>
+  </div>
+</div>
+<p>Spec: <a href="https://nips.nostr.com/85">NIP-85 trusted assertions</a>.</p>
+        <h2>Live relay test</h2>
+<p>The opt-in relay test signs this canonical example as real Nostr event data, publishes it to <code>wss://relay.primal.net</code>, fetches it back by id, and re-runs the application, syntax, Nostr signature, canonical tag, and proof checks.</p>
+<div class="relay-evidence pass">
+  <div class="relay-evidence-head">
+    <span>Passed</span>
+    <strong>2026-10-30T05:15:22.000Z</strong>
+  </div>
+  <dl>
+    <div>
+      <dt>Events</dt>
+      <dd>1/1 fetched from relay</dd>
+    </div>
+    <div>
+      <dt>Proof</dt>
+      <dd>3/3 threshold from a 3-member ring</dd>
+    </div>
+    <div>
+      <dt>Run</dt>
+      <dd><code>tnpfxm-eab9d410f0</code></dd>
+    </div>
+  </dl>
+  <ul class="relay-checks">
+    <li class="pass"><span aria-hidden="true"></span>Canonical example passes locally</li>
+    <li class="pass"><span aria-hidden="true"></span>Relay stored and returned every signed event</li>
+    <li class="pass"><span aria-hidden="true"></span>Fetched Nostr event signatures are valid</li>
+    <li class="pass"><span aria-hidden="true"></span>Fetched tags match the canonical example</li>
+    <li class="pass"><span aria-hidden="true"></span>NIP-85 syntax validation passes</li>
+    <li class="pass"><span aria-hidden="true"></span>nostr-veil proof verification passes</li>
+    <li class="pass"><span aria-hidden="true"></span>Deployment profile verifier passes</li>
+  </ul>
+  <div class="relay-event-ids">
+    <code title="c851001c47b9732fad7c57e3886c93a55a23e2ed5716e552b78786ab6cac1df9">c851001c47b9...6cac1df9</code>
+  </div>
+  <p class="relay-command">Run the same check with <code>npm run test:use-cases:relay -- --write docs/use-case-relay-checks.json</code>.</p>
+</div>
+        <h2>Safety checks</h2>
+<p>Each canonical use-case example is also exercised by an adversarial test harness. These are the failure modes a production verifier should reject before acting on the score.</p>
+<div class="safety-grid">
+  <div class="safety-item">
+    <span>Tampered metric</span>
+    <p>Published scores must still match the signed contribution aggregate.</p>
+  </div>
+  <div class="safety-item">
+    <span>Wrong subject</span>
+    <p>The d tag and subject hint must stay bound to the signed v2 proof.</p>
+  </div>
+  <div class="safety-item">
+    <span>Wrong kind</span>
+    <p>The assertion kind must match the profile and the signed v2 context.</p>
+  </div>
+  <div class="safety-item">
+    <span>Proof downgrade</span>
+    <p>New deployment profiles require proof v2.</p>
+  </div>
+  <div class="safety-item">
+    <span>Duplicate signer</span>
+    <p>Repeated key images must not increase the signer count.</p>
+  </div>
+  <div class="safety-item">
+    <span>Insufficient threshold</span>
+    <p>Removing a signature must fail the profile threshold.</p>
+  </div>
+  <div class="safety-item">
+    <span>Stale assertion</span>
+    <p>created_at must remain inside the freshness window.</p>
+  </div>
+  <div class="safety-item">
+    <span>Unknown circle</span>
+    <p>The circle ID must be accepted by deployment policy.</p>
+  </div>
+  <div class="safety-item">
+    <span>Unsigned policy</span>
+    <p>verifyProductionDeployment() should require a signed deployment bundle from a trusted publisher.</p>
+  </div>
+  <div class="safety-item">
+    <span>Relay mutation</span>
+    <p>Fetched event content and tags must match the Nostr signature.</p>
+  </div>
+</div>
+<p>Use <code>validateUseCaseProfileDefinition()</code> for custom profiles, then <code>verifyProductionDeployment()</code> with trusted bundle publishers, signed relay events, accepted circle manifests, expected subject, freshness, and threshold policy so these checks are not left to application glue. For application UI and audit logs, use <code>verifyProductionDeploymentReport()</code> or <code>createProductionDecisionReport()</code> so failures include issue codes, remediation text, a recommended action, pass/fail/not-checked status for the controls, and the profile's <code>proofClaims</code>, <code>proofLimitations</code>, <code>requiredControls</code>, and <code>recommendedActions</code>.</p>
+        <h2>Next examples</h2>
+        <div class="next-grid">
+          <a class="next-card" href="../privacy-preserving-onboarding/">
+            <span>Previous</span>
+            <strong>Privacy-preserving onboarding</strong>
+          </a>
+          <a class="next-card" href="../source-corroboration/">
+            <span>Next</span>
+            <strong>Source corroboration</strong>
+          </a>
+        </div>
+      </article>
+    </div>
+  </main>
+
+  <footer>
+    <div class="wrap">
+      <p>nostr-veil: verifiable threshold-backed trust scores without naming the contributors.</p>
+    </div>
+  </footer>
+  <script>
+    document.querySelectorAll('[data-copy-code]').forEach((button) => {
+      const sample = button.closest('.code-sample')
+      const code = sample ? sample.querySelector('code') : null
+
+      if (!code || !navigator.clipboard) {
+        button.hidden = true
+        return
+      }
+
+      const originalLabel = button.textContent || 'Copy'
+      button.addEventListener('click', async () => {
+        try {
+          await navigator.clipboard.writeText(code.textContent || '')
+          button.textContent = 'Copied'
+        } catch {
+          button.textContent = 'Unavailable'
+        }
+        window.setTimeout(() => {
+          button.textContent = originalLabel
+        }, 1400)
+      })
+    })
+  </script>
+</body>
+</html>

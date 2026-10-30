@@ -499,6 +499,7 @@ Supported today:
 - Community list, labeler, and moderation-list reputation where users can compare curation sources without mapping every reviewer.
 - Federated moderation where scoped circles count overlapping contributors once, not once per circle.
 - Privacy-preserving onboarding where an already-trusted circle can vouch for a new account without naming the individual vouchees.
+- AI agent trust and vouching, where a human-curated circle vouches for an agent's pubkey without naming the humans. Agent-only circles prove nothing about Sybil resistance.
 - Relay or community admission gate building blocks, using a standard NIP-85
   kind 30382 vouch plus the additive admission challenge helpers.
 

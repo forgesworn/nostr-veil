@@ -1,3 +1,4 @@
+import { result as aiAgentTrust } from './ai-agent-trust.js'
 import { result as anonymousCredentialAttestationCosigning } from './anonymous-credential-attestation-cosigning.js'
 import { result as anonymousGroupDecisions } from './anonymous-group-decisions.js'
 import { result as articleResearchReview } from './article-research-review.js'
@@ -18,6 +19,7 @@ import { result as vendorMarketplaceSignals } from './vendor-marketplace-signals
 export const useCaseResults = [
   userReputationAbuseReporting,
   privacyPreservingOnboarding,
+  aiAgentTrust,
   sourceCorroboration,
   eventClaimVerification,
   articleResearchReview,
