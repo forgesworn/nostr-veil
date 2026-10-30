@@ -102,7 +102,7 @@ if (result.decision === 'revoke') revokeSession(applicantPubkey)
 
 ## Live relay proof
 
-The public live smoke test publishes two signed events to `wss://relay.trotters.cc`:
+The public live smoke test publishes two signed events to `wss://relay.primal.net`:
 
 - a NIP-85 kind 30382 admission vouch whose tags stay byte-for-byte aligned with
   the canonical example;

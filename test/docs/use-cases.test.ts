@@ -177,7 +177,7 @@ describe('public use-case pages', () => {
     }
     const page = readText(join(publicUseCasesDir, 'relay-community-admission', 'index.html'))
 
-    expect(report.relay).toBe('wss://relay.trotters.cc')
+    expect(report.relay).toBe('wss://relay.primal.net')
     expect(report.status).toBe('pass')
     expect(Number.isNaN(Date.parse(report.checkedAt))).toBe(false)
     expect(report.events.vouchKind).toBe(30382)

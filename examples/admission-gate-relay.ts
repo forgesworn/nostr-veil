@@ -37,7 +37,7 @@ declare const process: {
   exitCode?: number
 }
 
-const DEFAULT_RELAY = 'wss://relay.trotters.cc'
+const DEFAULT_RELAY = 'wss://relay.primal.net'
 const BUNDLE_PUBLISHER_KEY = '66'.repeat(32)
 const RELAY_PUBLISHER_KEY = '55'.repeat(32)
 const TEXT_ENCODER = new TextEncoder()

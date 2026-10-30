@@ -780,7 +780,7 @@
 })</code></pre>
 </div>
 <h2>Live relay proof</h2>
-<p>The public live smoke test publishes two signed events to <code>wss://relay.trotters.cc</code>:</p>
+<p>The public live smoke test publishes two signed events to <code>wss://relay.primal.net</code>:</p>
 <ul><li>a NIP-85 kind 30382 admission vouch whose tags stay byte-for-byte aligned with the canonical example;</li><li>a NIP-78 kind 30078 application data event that carries the signed deployment bundle for the verifier.</li></ul>
 <p>The test fetches both events back by id, verifies their Nostr signatures, parses the signed bundle, verifies the bundle signature and trusted publisher, then runs <code>verifyAdmissionRequest()</code> against the fetched vouch. Run it locally with:</p>
 <pre><code class="language-bash">npm run test:admission-gate:relay -- --dry-run
