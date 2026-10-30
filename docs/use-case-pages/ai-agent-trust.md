@@ -92,8 +92,9 @@ circle's trust still comes from who curates its member list.
 - Kind 30382, with `d` and `p` equal to the agent pubkey being considered.
 - The circle is accepted under the rules in the recipe, and
   `proof.distinctSigners` meets the verifier's threshold.
-- The signer is not the subject: if the agent pubkey is in the ring, one
-  signature per scope is discounted.
+- The signer is not the subject: `proof.subjectInRing` is false, or compare
+  `proof.independentSigners` against the threshold. If the agent pubkey is in
+  the ring, one signature per scope may be its own.
 - The `rank` meaning matches the circle's published policy.
 - The assertion is fresh, and no later revocation or re-review replaces it.
 

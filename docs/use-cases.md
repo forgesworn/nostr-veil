@@ -133,7 +133,10 @@ For any supported use case:
 4. Aggregate the contributions into a NIP-85 event.
 5. Sign and publish the aggregate like any other Nostr event.
 6. Verify with `verifyProof`, and require proof v2 for workflows that rely on
-   kind/subject binding.
+   kind/subject binding. For a pubkey subject (kind 30382), compare
+   `independentSigners` rather than `distinctSigners` against your threshold, or
+   pass `rejectSubjectInRing: true`: a subject inside its own ring may have
+   signed for itself, and the proof cannot say.
 
 Use proof v2 for new non-user workflows:
 
@@ -484,7 +487,7 @@ that existing kind 30382 vouch.
 
 The relay-backed smoke test in `examples/admission-gate-relay.ts` publishes the
 kind 30382 vouch and a separate NIP-78 kind 30078 deployment-bundle carrier to
-`wss://relay.trotters.cc`, fetches both back by id, and verifies the fetched
+`wss://relay.primal.net`, fetches both back by id, and verifies the fetched
 material with `verifyAdmissionRequest()`.
 
 A full anonymous admission flow still needs more than NIP-85: the verifier must

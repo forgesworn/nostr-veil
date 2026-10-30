@@ -67,6 +67,14 @@ export interface ProofVerification {
   circleSize: number
   threshold: number
   distinctSigners: number
+  /**
+   * True when the d-tag subject is also a veil-ring member, so one valid signature may be the subject's own.
+   * Meaningful for kind 30382, where the subject is a pubkey. On other kinds the d-tag is an event id, address
+   * or identifier and cannot equal a member pubkey except by hash collision; it is computed the same way on every kind.
+   */
+  subjectInRing: boolean
+  /** distinctSigners, less one when subjectInRing: the signatures that cannot be the subject's. */
+  independentSigners: number
   errors: string[]
 }
 
@@ -84,6 +92,10 @@ export interface FederationVerification {
   totalSignatures: number
   /** Distinct contributors across the federation, deduplicated by LSAG key image */
   distinctSigners: number
+  /** True when any verified event's ring contains the subject, so one signature across the federation may be the subject's own */
+  subjectInRing: boolean
+  /** distinctSigners, less one when subjectInRing: the subject holds at most one key image across the shared scope */
+  independentSigners: number
   /** Verification errors, each per-event error prefixed with its index; empty when valid */
   errors: string[]
 }

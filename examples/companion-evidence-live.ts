@@ -41,7 +41,7 @@ declare const process: {
 }
 
 const args = process.argv.slice(2)
-const DEFAULT_RELAY = 'wss://relay.trotters.cc'
+const DEFAULT_RELAY = 'wss://relay.primal.net'
 const DEFAULT_NIP05 = 'jack@primal.net'
 const checkedAt = Math.floor(Date.now() / 1000)
 
@@ -348,7 +348,7 @@ async function nip05Evidence(currentMode: ReportMode): Promise<CompanionEvidence
   })
 }
 
-function listEventFor(subjectDTag: string): SignedEvent {
+function listEventFor(subjectDTag: string, relay: string): SignedEvent {
   const author = key('66')
   return signEvent({
     content: '',
@@ -356,7 +356,7 @@ function listEventFor(subjectDTag: string): SignedEvent {
     kind: 30000,
     tags: [
       ['d', subjectDTag],
-      ['relay', 'wss://relay.trotters.cc'],
+      ['relay', relay],
       ['name', 'nostr-veil companion evidence smoke test'],
     ],
   }, author.priv)
@@ -366,7 +366,7 @@ async function listEvidence(currentMode: ReportMode, relay: string): Promise<Com
   const dTag = currentMode === 'fixture-dry-run'
     ? 'companion-evidence-fixture'
     : `companion-evidence-${checkedAt}`
-  const event = listEventFor(dTag)
+  const event = listEventFor(dTag, relay)
   const subject = canonicalAddressSubject(event.kind, event.pubkey, dTag)
   const fetch = currentMode === 'fixture-dry-run'
     ? fixtureFetch({ 'https://labels.example.com/corrections': textResponse('ok') })

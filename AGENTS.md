@@ -46,7 +46,7 @@ The proof layer imports from nip85 but not the other way around.
 
 - `TrustCircle` -- sorted member pubkeys + SHA-256 circle ID
 - `Contribution` -- LSAG-signed metrics with key image
-- `ProofVerification` -- result of `verifyProof()`: valid, circleSize, threshold, distinctSigners, errors
+- `ProofVerification` -- result of `verifyProof()`: valid, circleSize, threshold, distinctSigners, subjectInRing, independentSigners, errors
 - `EventTemplate` -- unsigned Nostr event (kind, tags, content)
 
 ## Companion libraries (not dependencies)

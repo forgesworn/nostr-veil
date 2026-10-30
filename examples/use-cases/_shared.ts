@@ -48,6 +48,8 @@ export const keys: ExampleKey[] = ['11', '22', '33', '44'].map(byte => {
 export const defaultMembers = keys.slice(0, 3)
 export const subjectPubkey = keys[3].pub
 export const authorPubkey = keys[0].pub
+/** A pubkey that is in none of the example circles, for assertions whose circles together span every example key. */
+export const outsideSubjectPubkey = bytesToHex(schnorr.getPublicKey(hexToBytes('55'.repeat(32))))
 
 export function memberIndex(circle: TrustCircle, pubkey: string): number {
   const index = circle.members.indexOf(pubkey)

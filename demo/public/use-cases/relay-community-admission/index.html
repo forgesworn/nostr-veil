@@ -780,7 +780,7 @@
 })</code></pre>
 </div>
 <h2>Live relay proof</h2>
-<p>The public live smoke test publishes two signed events to <code>wss://relay.trotters.cc</code>:</p>
+<p>The public live smoke test publishes two signed events to <code>wss://relay.primal.net</code>:</p>
 <ul><li>a NIP-85 kind 30382 admission vouch whose tags stay byte-for-byte aligned with the canonical example;</li><li>a NIP-78 kind 30078 application data event that carries the signed deployment bundle for the verifier.</li></ul>
 <p>The test fetches both events back by id, verifies their Nostr signatures, parses the signed bundle, verifies the bundle signature and trusted publisher, then runs <code>verifyAdmissionRequest()</code> against the fetched vouch. Run it locally with:</p>
 <pre><code class="language-bash">npm run test:admission-gate:relay -- --dry-run
@@ -798,11 +798,11 @@ npm run test:admission-gate:relay -- --write docs/admission-gate-relay-check.jso
 <h2>Operational controls</h2>
 <div class="table-wrap"><table><thead><tr><th>Risk to handle</th><th>Required control</th></tr></thead><tbody><tr><td>Challenge replay</td><td>Short challenge TTL, replay cache keyed by challenge id, and one decision per challenge.</td></tr><tr><td>Clock skew</td><td>Small tolerance in the relay, short bundle/assertion expiry, and monitoring for future-dated events.</td></tr><tr><td>Stale reviewers</td><td>Circle manifests with expiry, supersession, and revoked circle ids.</td></tr><tr><td>Untrusted policy updates</td><td>Pin trusted bundle publisher pubkeys and rotate with an explicit operator process.</td></tr><tr><td>Applicant compromise</td><td>Revocation list, re-admission rules, session invalidation, and appeal path.</td></tr><tr><td>Reviewer abuse</td><td>Circle governance, independence rules, evidence retention, audit logs, and conflict handling.</td></tr></tbody></table></div>
         <h2>Live admission gate test</h2>
-<p>The opt-in admission gate test publishes the normal NIP-85 kind 30382 vouch and a separate NIP-78 kind 30078 carrier for the signed deployment bundle to <code>wss://relay.trotters.cc</code>, fetches both back by id, and runs <code>verifyAdmissionRequest()</code> against the fetched material.</p>
+<p>The opt-in admission gate test publishes the normal NIP-85 kind 30382 vouch and a separate NIP-78 kind 30078 carrier for the signed deployment bundle to <code>wss://relay.primal.net</code>, fetches both back by id, and runs <code>verifyAdmissionRequest()</code> against the fetched material.</p>
 <div class="relay-evidence pass">
   <div class="relay-evidence-head">
     <span>Passed</span>
-    <strong>2026-05-18T08:55:39.000Z</strong>
+    <strong>2026-10-30T05:31:36.000Z</strong>
   </div>
   <dl>
     <div>
@@ -830,8 +830,8 @@ npm run test:admission-gate:relay -- --write docs/admission-gate-relay-check.jso
     <li class="pass"><span aria-hidden="true"></span>verifyAdmissionRequest() admits the fetched material</li>
   </ul>
   <div class="relay-event-ids">
-    <code title="4a288c5fceca7f0189ce59dfd01e4d6b335dce7f48c911b698b9405f5dfd0d5b">vouch 4a288c5fceca...5dfd0d5b</code>
-    <code title="131b014e498281c3aa892a4d79a0d6c293cfe5daab3b0770d57b1a7a32bc0634">bundle 131b014e4982...32bc0634</code>
+    <code title="c3586f2c1f6fb870248bcf9fb876a677080fffc53e328544ece11805d608448f">vouch c3586f2c1f6f...d608448f</code>
+    <code title="5fd1d1301388409ad33c7b6b5893488b686cffbb6a1472db1432aac32d2c333f">bundle 5fd1d1301388...2d2c333f</code>
   </div>
   <p class="relay-command">Run the same check with <code>npm run test:admission-gate:relay -- --write docs/admission-gate-relay-check.json</code>.</p>
 </div>

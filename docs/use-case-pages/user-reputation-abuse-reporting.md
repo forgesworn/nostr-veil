@@ -68,6 +68,8 @@ signed it; they cannot see which members signed.
   ID is in the client's allow-list.
 - `proof.distinctSigners` meets the policy threshold, the `rank` direction is
   known, and the assertion is fresh enough for the action being taken.
+- `proof.subjectInRing` is false, or compare `proof.independentSigners` against
+  the threshold.
 
 ## What this proves
 

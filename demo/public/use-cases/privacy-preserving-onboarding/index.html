@@ -759,7 +759,7 @@
 })</code></pre>
 </div>
 <h2>What to verify</h2>
-<ul><li>Strict NIP-85 syntax and a valid proof v2.</li><li>Kind 30382, with <code>d</code> and <code>p</code> equal to the candidate pubkey being considered.</li><li>The <code>veil-ring</code> belongs to an accepted admission circle and <code>proof.distinctSigners</code> meets the community threshold.</li><li>The <code>rank</code> meaning matches the community's onboarding policy.</li><li>The assertion is not expired or superseded by a revocation, ban, or later re-review.</li></ul>
+<ul><li>Strict NIP-85 syntax and a valid proof v2.</li><li>Kind 30382, with <code>d</code> and <code>p</code> equal to the candidate pubkey being considered.</li><li>The <code>veil-ring</code> belongs to an accepted admission circle and <code>proof.distinctSigners</code> meets the community threshold.</li><li><code>proof.subjectInRing</code> is false, or compare <code>proof.independentSigners</code> against the threshold.</li><li>The <code>rank</code> meaning matches the community's onboarding policy.</li><li>The assertion is not expired or superseded by a revocation, ban, or later re-review.</li></ul>
 <h2>What this proves</h2>
 <ul><li>Enough distinct circle members vouched for the candidate.</li><li>The candidate subject is bound to the proof.</li><li>No individual vouching member is identified.</li></ul>
 <h2>What not to claim</h2>

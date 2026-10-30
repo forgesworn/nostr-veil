@@ -43,6 +43,25 @@ describe('contributeAssertion', () => {
     expect(r0.keyImage).not.toBe(r1.keyImage)
   })
 
+  it('refuses to sign an assertion about the signer\'s own pubkey', () => {
+    const memberIndex = circle.members.indexOf(pubKeys[0])
+    expect(() => contributeAssertion(circle, pubKeys[0], metrics, privKeys[0], memberIndex))
+      .toThrow('A circle member cannot contribute to an assertion about themselves')
+    expect(() => contributeAssertion(circle, pubKeys[0], metrics, privKeys[0], memberIndex, { proofVersion: 'v2' }))
+      .toThrow('A circle member cannot contribute to an assertion about themselves')
+  })
+
+  it('still lets a member sign about a different member', () => {
+    // The guard only covers the signer being the subject.
+    const memberIndex = circle.members.indexOf(pubKeys[0])
+    expect(() => contributeAssertion(circle, pubKeys[1], metrics, privKeys[0], memberIndex)).not.toThrow()
+  })
+
+  it('still signs about a non-member subject', () => {
+    const memberIndex = circle.members.indexOf(pubKeys[0])
+    expect(() => contributeAssertion(circle, subject, metrics, privKeys[0], memberIndex)).not.toThrow()
+  })
+
   it('scopes the electionId to the circleId by default', () => {
     const result = contributeAssertion(circle, subject, metrics, privKeys[0], circle.members.indexOf(pubKeys[0]))
     expect(result.signature.electionId).toBe(`veil:v1:${circle.circleId}:${subject}`)

@@ -8,7 +8,7 @@ import {
   keys,
   memberIndex,
   proofVersion,
-  subjectPubkey,
+  outsideSubjectPubkey,
   verifyFederatedUseCase,
   withCreatedAt,
 } from './_shared.js'
@@ -18,6 +18,10 @@ const slug = 'federated-moderation'
 const scope = 'moderation.federation.example'
 const circleA = createTrustCircle(keys.slice(0, 3).map(member => member.pub), { scope })
 const circleB = createTrustCircle(keys.slice(1, 4).map(member => member.pub), { scope })
+
+// The two circles together span every example key, so the subject is a separate
+// pubkey: a circle member cannot contribute to an assertion about themselves.
+const subjectPubkey = outsideSubjectPubkey
 
 function makeAssertion(circle: TrustCircle, members: typeof keys, offset: number) {
   const contributions = members.map((member, index) =>
