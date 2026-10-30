@@ -203,7 +203,8 @@ transport privacy, and service-specific checks.
 ## Use-Case Mapping
 
 Use `aggregateContributions` for user reputation, abuse reporting, source
-corroboration, onboarding vouches, and pubkey-backed trade reputation. Use
+corroboration, onboarding vouches, AI agent vouches from a human-curated
+circle, and pubkey-backed trade reputation. Use
 `aggregateEventContributions` for event and claim verification. Use
 `aggregateAddressableContributions` for long-form review, research, proposals,
 lists, and labeler profiles. Use `aggregateIdentifierContributions` for relays,

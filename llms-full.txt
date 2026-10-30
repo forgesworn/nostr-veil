@@ -82,8 +82,8 @@ tags). It contains `c0`, `electionId`, `message`, `responses`, and optionally
 The shipped primitives cover these concrete shapes:
 
 - Kind 30382 user assertions: user reputation, abuse reporting, source
-  corroboration where the source has a pubkey, onboarding vouches, and
-  pubkey-backed trade reputation.
+  corroboration where the source has a pubkey, onboarding vouches, AI agent
+  vouches from a human-curated circle, and pubkey-backed trade reputation.
 - Kind 30383 event assertions: event, claim, announcement, and proposal review.
 - Kind 30384 addressable assertions: long-form notes, research artefacts,
   grant applications, community lists, labeler profiles, and moderation lists.
@@ -109,6 +109,12 @@ Verifier and issuer legitimacy is supported today as a kind 30385 profile:
 score `verifier:<credential-class>:<method>:<verifier-id>` subjects to answer
 "who verifies the verifier?" before a community accepts Attestr-style,
 NIP-VA-style, or other credential artefacts from that verifier.
+AI agent trust and vouching is supported today as a kind 30382 profile: a
+human-curated circle vouches for an agent pubkey, and a verifier accepts the
+proof only when the `veil-ring` circle ID is on its accepted list, the publisher
+is trusted, or every ring member is already trusted. Agent-only circles are a
+Sybil farm, so their vouches should be ignored. The vouch does not show an agent
+is safe or unique.
 
 The use-case documentation is written as implementation profiles. Each page
 should identify the subject shape, helper, metric meaning, proof version,

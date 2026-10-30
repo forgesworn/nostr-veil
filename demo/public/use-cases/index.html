@@ -737,6 +737,7 @@
         <div class="atlas">
           <nav class="atlas-nav" aria-label="Use-case categories">
             <a href="#people">People</a>
+            <a href="#agents">Agents</a>
             <a href="#content">Content</a>
             <a href="#infrastructure">Infrastructure</a>
             <a href="#markets">Markets</a>
@@ -782,6 +783,31 @@
                   <div class="requirement">Requires admission policy, expiry, revocation, threshold rules, and post-admission moderation.</div>
                   <div class="case-links">
                     <a href="./privacy-preserving-onboarding/">Worked example</a>
+                  </div>
+                </article>
+              </div>
+            </section>
+
+            <section id="agents" class="case-group">
+              <div class="group-head">
+                <h3>Agents</h3>
+                <p>Human-curated circles can vouch for AI agent keys. Agent-only circles prove nothing about Sybil resistance.</p>
+              </div>
+              <div class="case-grid">
+                <article class="case-card">
+                  <div class="case-top">
+                    <span class="pill">AI agents</span>
+                    <span class="pill today">Today</span>
+                  </div>
+                  <h4>AI agent trust and vouching</h4>
+                  <p>A human-curated circle can vouch for an agent's pubkey without naming the humans, so an agent host can check the proof before acting.</p>
+                  <div class="case-meta">
+                    <span>NIP-85 kind 30382 / agent pubkey</span>
+                    <span>Helper: aggregateContributions</span>
+                  </div>
+                  <div class="requirement">Requires a human-curated circle, an accepted-circle rule, short expiry, revocation, and post-admission enforcement.</div>
+                  <div class="case-links">
+                    <a href="./ai-agent-trust/">Worked example</a>
                   </div>
                 </article>
               </div>

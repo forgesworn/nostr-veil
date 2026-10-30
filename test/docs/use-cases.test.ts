@@ -38,7 +38,7 @@ const requiredImplementationSections = [
 
 describe('public use-case pages', () => {
   it('publishes a generated detail page for every use-case source', () => {
-    expect(slugs).toHaveLength(16)
+    expect(slugs).toHaveLength(17)
 
     for (const pagePath of detailPagePaths) {
       expect(existsSync(pagePath), pagePath).toBe(true)

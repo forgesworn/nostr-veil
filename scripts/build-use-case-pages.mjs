@@ -25,6 +25,12 @@ const cases = [
     status: 'Supported today',
   },
   {
+    slug: 'ai-agent-trust',
+    file: 'ai-agent-trust.md',
+    group: 'Agents',
+    status: 'Supported today',
+  },
+  {
     slug: 'source-corroboration',
     file: 'source-corroboration.md',
     group: 'Content',
