@@ -149,6 +149,53 @@ export const PRIVACY_PRESERVING_ONBOARDING_PROFILE = profile({
   }),
 })
 
+export const AI_AGENT_TRUST_PROFILE = profile({
+  id: 'ai-agent-trust',
+  title: 'AI agent trust and vouching',
+  group: 'Agents',
+  status: 'supported',
+  kind: NIP85_KINDS.USER,
+  subjectTag: 'p',
+  subjectFormats: ['pubkey'],
+  proofVersion: 'v2',
+  minDistinctSigners: 3,
+  maxAgeSeconds: 300,
+  metrics: [rankMetric],
+  failurePolicy: commonFailurePolicy,
+  ...safety({
+    proofClaims: [
+      'A human-curated circle vouched for the agent pubkey without revealing which members contributed.',
+    ],
+    proofLimitations: [
+      'It does not show the agent is safe, aligned, non-malicious, or still controlled by its operator.',
+      'It does not show the agent is the only one its operator runs: one operator can have many vouched agents.',
+      'Agent keys are free, so a circle made only of agent keys is a Sybil farm and its vouches should be ignored.',
+    ],
+    recommendedActions: [
+      'Use the vouch as one input before reading a DM, accepting a task, paying an invoice, or admitting a key, and keep spending caps and human approval for high-risk actions.',
+    ],
+    requiredControls: [
+      ...peopleControls,
+      {
+        risk: 'A circle of agents or a partly trusted ring is accepted as a human vouch.',
+        control: 'Accept a proof only when the circle ID is on the accepted list, the publisher is trusted, or every ring member is already trusted; a fraction of trusted members is not enough. Report proofs from unknown circles as unverified-origin.',
+      },
+      {
+        risk: 'The agent key leaks, rotates, or changes operator.',
+        control: 'Use short expiry, publish a revocation, and vouch for the replacement key afresh after re-review.',
+      },
+      {
+        risk: 'A vouched agent misbehaves after admission.',
+        control: 'Apply post-admission enforcement, rate limits, and logging, and have the circle re-review and revoke.',
+      },
+      {
+        risk: 'The subject appears in its own ring.',
+        control: 'Discount one signature per scope before comparing against the threshold.',
+      },
+    ],
+  }),
+})
+
 export const SOURCE_CORROBORATION_PROFILE = profile({
   id: 'source-corroboration',
   title: 'Source corroboration',
@@ -659,6 +706,7 @@ export const ANONYMOUS_GROUP_DECISIONS_PROFILE = profile({
 export const USE_CASE_PROFILES = [
   USER_REPUTATION_ABUSE_REPORTING_PROFILE,
   PRIVACY_PRESERVING_ONBOARDING_PROFILE,
+  AI_AGENT_TRUST_PROFILE,
   SOURCE_CORROBORATION_PROFILE,
   EVENT_CLAIM_VERIFICATION_PROFILE,
   ARTICLE_RESEARCH_REVIEW_PROFILE,
