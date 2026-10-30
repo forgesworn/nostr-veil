@@ -178,4 +178,58 @@ describe('verifyFederation', () => {
     expect(result.valid).toBe(false)
     expect(result.errors.some(e => e.includes('different election ids'))).toBe(true)
   })
+
+  describe('subject inside a ring', () => {
+    // signers[0] is the subject. It is a passive member of the first circle and never signs.
+    const memberSubject = signers[0].pub
+    const eventAbout = (members: typeof signers, signing: typeof signers) => {
+      const circle = createTrustCircle(members.map(m => m.pub), { scope: 'fed-1' })
+      const contributions = signing.map(m =>
+        contributeAssertion(circle, memberSubject, { rank: 80 }, m.priv, circle.members.indexOf(m.pub)),
+      )
+      return aggregateContributions(circle, memberSubject, contributions)
+    }
+    const federation = () => [
+      eventAbout([signers[0], signers[1], signers[2]], [signers[1], signers[2]]),
+      eventAbout([signers[3], signers[4]], [signers[3], signers[4]]),
+    ]
+
+    it('reports the subject and one fewer independent signer', () => {
+      const result = verifyFederation(federation())
+      expect(result.valid).toBe(true)
+      expect(result.distinctSigners).toBe(4)
+      expect(result.subjectInRing).toBe(true)
+      expect(result.independentSigners).toBe(3)
+    })
+
+    it('counts three distinct signers as two independent when the subject is in one ring', () => {
+      const result = verifyFederation([
+        eventAbout([signers[0], signers[1], signers[2]], [signers[1], signers[2]]),
+        eventAbout([signers[1], signers[3]], [signers[3]]),
+      ])
+      expect(result.valid).toBe(true)
+      expect(result.distinctSigners).toBe(3)
+      expect(result.subjectInRing).toBe(true)
+      expect(result.independentSigners).toBe(2)
+    })
+
+    it('is invalid under rejectSubjectInRing and still reports the subject', () => {
+      const result = verifyFederation(federation(), { rejectSubjectInRing: true })
+      expect(result.valid).toBe(false)
+      expect(result.subjectInRing).toBe(true)
+      expect(result.errors.some(e => e.includes('Subject is a veil-ring member'))).toBe(true)
+    })
+
+    it('reports no subject in a ring and every signer independent otherwise', () => {
+      const result = verifyFederation([scopedEvent([signers[0], signers[1]], 'fed-1'), scopedEvent([signers[2], signers[3]], 'fed-1')])
+      expect(result.subjectInRing).toBe(false)
+      expect(result.independentSigners).toBe(result.distinctSigners)
+    })
+
+    it('reports a clean negative for an empty federation', () => {
+      const result = verifyFederation([])
+      expect(result.subjectInRing).toBe(false)
+      expect(result.independentSigners).toBe(0)
+    })
+  })
 })

@@ -133,7 +133,8 @@ const signed = signEvent(assertion, aggregator.privkey)
 
 // 5. Any client verifies -- two distinct members agreed, no names attached
 const result = verifyProof(signed, { expectedKind: NIP85_KINDS.USER })
-// { valid: true, circleSize: 3, threshold: 2, distinctSigners: 2, errors: [] }
+// { valid: true, circleSize: 3, threshold: 2, distinctSigners: 2,
+//   subjectInRing: false, independentSigners: 2, errors: [] }
 ```
 
 The `@noble/curves` and `@noble/hashes` imports are only used for key generation; nostr-veil already depends on both, so install them directly if your package manager does not hoist them.
@@ -143,6 +144,8 @@ The `@noble/curves` and `@noble/hashes` imports are only used for key generation
 **Important:** `memberIndex` must match the member's position in the *sorted* pubkey array. `createTrustCircle` sorts pubkeys lexicographically -- the index you pass to `contributeAssertion` must reflect that sorted order, not the order you passed to `createTrustCircle`. Always use `circle.members.indexOf(myPubkey)`. A wrong index throws `Private key does not match ring member at signerIndex`.
 
 **Who signs what.** The ring signatures live in the `veil-sig` tags. The outer Nostr signature from `signEvent` is made by the aggregator, the party that collects the contributions and publishes the event. Any Nostr key will do and it need not belong to a circle member. `verifyProof` checks the ring proofs only; use `verifySignedEvent(event)` to check the outer id and signature after fetching an event from an untrusted relay.
+
+**A subject inside its own ring.** A ring signature hides which member signed, so when the subject of a kind 30382 assertion is itself a ring member, the proof cannot tell whether the subject signed. Key images allow at most one signature per scope from any member, so at most one of the valid signatures can be the subject's. `verifyProof` reports this as `subjectInRing` (the d-tag subject is a ring member) and `independentSigners` (`distinctSigners`, less one when `subjectInRing`: the signatures that cannot be the subject's). A subject in the ring does not make the proof invalid by default; pass `rejectSubjectInRing: true` to fail closed with `Subject is a veil-ring member`. The subject's contribution also sits inside the aggregated metric and cannot be removed after the fact, so a verifier that wants a clean score should use `rejectSubjectInRing` or compare `independentSigners` against its threshold, rather than `distinctSigners`. `contributeAssertion` refuses to sign about the signer's own pubkey (`A circle member cannot contribute to an assertion about themselves`), but a modified client can still do it, which is why the verifier-side fields exist. On kinds other than 30382 the d-tag is an event id, address or identifier, so `subjectInRing` is false in practice. `verifyFederation` reports the same two fields across the federation, where the subject can hold at most one key image.
 
 Passing `expectedKind` matters because v1 proofs are not bound to the event kind; see [Proof v2](#proof-v2).
 
@@ -271,16 +274,17 @@ The root entry point re-exports all of `nostr-veil/nip85`, `nostr-veil/proof` an
 
 `expiration` and `alt` are publisher tags: the circle does not sign them, and `verifyProof` does not read them as metrics. `expiration` must be a non-negative safe integer and `alt` a non-empty string, or aggregation throws. `verifyProof` accepts at most one of each, rejects an `expiration` that is not a unix time in seconds or an empty `alt`, and does not compare expiry with the clock, so archived events can still be re-checked. The profile verifiers (`verifyUseCaseProfile`, `verifyDeploymentPolicy` and the bundle verifiers built on them) do: they reject an assertion whose `expiration` is at or before `now`, because many relays and caches still serve expired events. These tags are only as trustworthy as the outer Nostr signature, which `verifyProof` does not check: verify the event signature (`verifySignedEvent`, or `requireNostrSignature` in a deployment policy) before relying on them. Other general tags (`client`, `nonce`, `-`, `L`, `l`, `i`, `content-warning`) are not accepted on veil events, and `verifyProof` reads them as unsigned metrics. A metric tag must be exactly `[name, value]`: the circle signs only those two, so `verifyProof` rejects a metric tag with anything after the value, and the same for the `d` tag and the `k` tag. The proof tags have a fixed shape too: a second `veil-ring`, `veil-threshold`, `veil-agg`, `veil-version` or `veil-scope` tag, or extra elements on any of them or on a `veil-sig`, makes the event invalid. Unknown `veil-*` tags are ignored, so a verifier keeps working when a later release adds one. A `k` tag is accepted only on kind 30385, where it names the identifier type.
 
-**`verifyProof(event, options?)`.** `options` is a bare aggregate function or an object `{ aggregateFn?, expectedKind?, requireProofVersion?, limits? }`:
+**`verifyProof(event, options?)`.** `options` is a bare aggregate function or an object `{ aggregateFn?, expectedKind?, requireProofVersion?, rejectSubjectInRing?, limits? }`:
 
 | Option | Type | Meaning |
 |--------|------|---------|
 | `aggregateFn` | `(values: number[]) => number` | Needed only when `veil-agg` is `custom` |
 | `expectedKind` | `number` | Reject events of any other NIP-85 kind. Recommended for v1 proofs, which are not kind-bound |
 | `requireProofVersion` | `'v1' \| 'v2'` | Reject signatures of the other proof version |
+| `rejectSubjectInRing` | `boolean` | Fail with `Subject is a veil-ring member` when the d-tag subject is a ring member. Default `false`; `subjectInRing` is reported either way |
 | `limits` | `Partial<VerifyLimits>` | Override `DEFAULT_VERIFY_LIMITS`: `maxRingSize` 1000, `maxSigPayloadBytes` 128000, `maxSignedMessageBytes` 16384, `maxMetricCount` 128, `maxMetricNameLength` 64 |
 
-It returns `{ valid, circleSize, threshold, distinctSigners, errors }`.
+It returns `{ valid, circleSize, threshold, distinctSigners, subjectInRing, independentSigners, errors }`.
 
 **`contributeAssertion` options and `canonicalMessageV2`.** `contributeAssertion(..., options?)` takes `{ proofVersion?: 'v1' | 'v2', kind?: number, subjectTag?: 'p' | 'e' | 'a' | 'k', subjectTagValue?: string }`; for v2 the defaults are kind 30382, tag `p` and the subject itself. The typed helpers (`contributeEventAssertion`, `contributeAddressableAssertion`, `contributeIdentifierAssertion`) take only `{ proofVersion?: 'v1' | 'v2' }`, fill in the kind and tag, and sign v2 unless given `{ proofVersion: 'v1' }`. `contributeAssertion` stays v1 by default, because it cannot know which kind the contribution will be published under. Aggregators follow the version the contributions were signed with, so an aggregator on this release still combines v1 contributions from members on an older one; contributions that mix versions throw, as does an explicit `proofVersion` that differs from theirs. `canonicalMessageV2(circleId, subject, metrics, context)` takes `context` as `{ kind, subjectTag, subjectTagValue }`, all required: `kind` a non-negative safe integer, `subjectTag` one of `p`, `e`, `a`, `k`, and `subjectTagValue` a non-empty string.
 
@@ -421,7 +425,8 @@ const contribution = contributeEventAssertion(
 // One contribution keeps the example short; a real workflow collects several.
 const eventAssertion = aggregateEventContributions(circle, eventId, [contribution], { proofVersion: 'v2' })
 const eventResult = verifyProof(eventAssertion, { requireProofVersion: 'v2' })
-// { valid: true, circleSize: 3, threshold: 1, distinctSigners: 1, errors: [] }
+// { valid: true, circleSize: 3, threshold: 1, distinctSigners: 1,
+//   subjectInRing: false, independentSigners: 1, errors: [] }
 ```
 
 Old v1 events still verify without changes. Use `requireProofVersion: 'v2'` only when your application policy wants to reject legacy proofs for that workflow.
@@ -535,7 +540,8 @@ import { verifyFederation } from 'nostr-veil'
 // Aggregated events from every circle in the federation, all about the same subject
 const result = verifyFederation([circleAEvent, circleBEvent, circleCEvent])
 // { valid: true, scope: 'community-moderators', circleCount: 3,
-//   totalSignatures: 7, distinctSigners: 5, ... }
+//   totalSignatures: 7, distinctSigners: 5, subjectInRing: false,
+//   independentSigners: 5, ... }
 // distinctSigners < totalSignatures: two contributors signed in more than one circle
 ```
 

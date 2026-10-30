@@ -721,7 +721,7 @@
   keys,
   memberIndex,
   proofVersion,
-  subjectPubkey,
+  outsideSubjectPubkey,
   verifyFederatedUseCase,
   withCreatedAt,
 } <span class="tok-keyword">from</span> <span class="tok-string">'./_shared.js'</span>
@@ -731,6 +731,10 @@
 <span class="tok-keyword">const</span> scope = <span class="tok-string">'moderation.federation.example'</span>
 <span class="tok-keyword">const</span> circleA = <span class="tok-fn">createTrustCircle</span>(keys.<span class="tok-fn">slice</span>(<span class="tok-number">0</span>, <span class="tok-number">3</span>).<span class="tok-fn">map</span>(member =&gt; member.pub), { scope })
 <span class="tok-keyword">const</span> circleB = <span class="tok-fn">createTrustCircle</span>(keys.<span class="tok-fn">slice</span>(<span class="tok-number">1</span>, <span class="tok-number">4</span>).<span class="tok-fn">map</span>(member =&gt; member.pub), { scope })
+
+<span class="tok-comment">// The two circles together span every example key, so the subject is a separate</span>
+<span class="tok-comment">// pubkey: a circle member cannot contribute to an assertion about themselves.</span>
+<span class="tok-keyword">const</span> subjectPubkey = outsideSubjectPubkey
 
 <span class="tok-keyword">function</span> <span class="tok-fn">makeAssertion</span>(circle: TrustCircle, members: <span class="tok-keyword">typeof</span> keys, offset: number) {
   <span class="tok-keyword">const</span> contributions = members.<span class="tok-fn">map</span>((member, index) =&gt;

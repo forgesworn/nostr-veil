@@ -340,3 +340,107 @@ describe('verifyProof', () => {
     expect(result.errors.some(e => /signature payload/i.test(e))).toBe(true)
   })
 })
+
+describe('verifyProof subject in ring', () => {
+  const privKeys = ['01', '02', '03'].map(b => b.repeat(32))
+  const pubKeys = privKeys.map(k => bytesToHex(schnorr.getPublicKey(hexToBytes(k))))
+  const circle = createTrustCircle(pubKeys)
+  // The subject is a passive ring member: it never signs, because contributeAssertion refuses that.
+  const memberSubject = pubKeys[0]
+  const outsideSubject = 'dd'.repeat(32)
+
+  function eventAbout(subject: string, signerIndexes: number[]) {
+    const contributions = signerIndexes.map(i =>
+      contributeAssertion(circle, subject, { rank: 85 }, privKeys[i], circle.members.indexOf(pubKeys[i])),
+    )
+    return aggregateContributions(circle, subject, contributions)
+  }
+
+  it('reports subjectInRing and one fewer independent signer when the subject is a member', () => {
+    const result = verifyProof(eventAbout(memberSubject, [1, 2]))
+    expect(result.valid).toBe(true)
+    expect(result.distinctSigners).toBe(2)
+    expect(result.subjectInRing).toBe(true)
+    expect(result.independentSigners).toBe(1)
+  })
+
+  it('fails closed on a subject in the ring when rejectSubjectInRing is set', () => {
+    const result = verifyProof(eventAbout(memberSubject, [1, 2]), { rejectSubjectInRing: true })
+    expect(result.valid).toBe(false)
+    expect(result.errors).toContain('Subject is a veil-ring member')
+    expect(result.subjectInRing).toBe(true)
+    expect(result.distinctSigners).toBe(2)
+  })
+
+  it('leaves a subject outside the ring valid under rejectSubjectInRing', () => {
+    const result = verifyProof(eventAbout(outsideSubject, [0, 1]), { rejectSubjectInRing: true })
+    expect(result.valid).toBe(true)
+    expect(result.subjectInRing).toBe(false)
+  })
+
+  it('does not apply rejectSubjectInRing through the bare function form', () => {
+    const result = verifyProof(eventAbout(memberSubject, [1, 2]), (values: number[]) => values[0])
+    expect(result.subjectInRing).toBe(true)
+  })
+
+  it('reports every signer as independent when the subject is not a member', () => {
+    const result = verifyProof(eventAbout(outsideSubject, [0, 1, 2]))
+    expect(result.valid).toBe(true)
+    expect(result.subjectInRing).toBe(false)
+    expect(result.independentSigners).toBe(result.distinctSigners)
+    expect(result.independentSigners).toBe(3)
+  })
+
+  it('reports no independent signers at threshold 1 with the subject in the ring, and stays valid', () => {
+    const result = verifyProof(eventAbout(memberSubject, [1]))
+    expect(result.valid).toBe(true)
+    expect(result.distinctSigners).toBe(1)
+    expect(result.subjectInRing).toBe(true)
+    expect(result.independentSigners).toBe(0)
+  })
+
+  it('reports subjectInRing false and no independent signers when the ring was never validated', () => {
+    const event = eventAbout(memberSubject, [1, 2])
+    event.tags = event.tags.filter(t => t[0] !== 'veil-ring')
+    const missing = verifyProof(event)
+    expect(missing.valid).toBe(false)
+    expect(missing.subjectInRing).toBe(false)
+    expect(missing.independentSigners).toBe(0)
+
+    const unsorted = eventAbout(memberSubject, [1, 2])
+    const ringIdx = unsorted.tags.findIndex(t => t[0] === 'veil-ring')
+    unsorted.tags[ringIdx] = ['veil-ring', ...unsorted.tags[ringIdx].slice(1).reverse()]
+    const result = verifyProof(unsorted)
+    expect(result.valid).toBe(false)
+    expect(result.subjectInRing).toBe(false)
+    expect(result.independentSigners).toBe(0)
+  })
+
+  it('reports subjectInRing on a failure that comes after ring parsing', () => {
+    const event = eventAbout(memberSubject, [1, 2])
+    event.tags = event.tags.filter(t => t[0] !== 'veil-threshold')
+    const result = verifyProof(event)
+    expect(result.valid).toBe(false)
+    expect(result.subjectInRing).toBe(true)
+    expect(result.independentSigners).toBe(0)
+
+    const noSigs = eventAbout(memberSubject, [1, 2])
+    noSigs.tags = noSigs.tags.filter(t => t[0] !== 'veil-sig')
+    const noSigsResult = verifyProof(noSigs)
+    expect(noSigsResult.valid).toBe(false)
+    expect(noSigsResult.subjectInRing).toBe(true)
+    expect(noSigsResult.independentSigners).toBe(0)
+  })
+
+  it('reports subjectInRing false for a kind 30383 event, whose subject is an event id', () => {
+    const eventId = 'e1'.repeat(32)
+    const contributions = privKeys.map((pk, i) =>
+      contributeEventAssertion(circle, eventId, { rank: 85 }, pk, circle.members.indexOf(pubKeys[i]), { proofVersion: 'v2' }),
+    )
+    const event = aggregateEventContributions(circle, eventId, contributions, { proofVersion: 'v2' })
+    const result = verifyProof(event, { rejectSubjectInRing: true })
+    expect(result.valid).toBe(true)
+    expect(result.subjectInRing).toBe(false)
+    expect(result.independentSigners).toBe(result.distinctSigners)
+  })
+})

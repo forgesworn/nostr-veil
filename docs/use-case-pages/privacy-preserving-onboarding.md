@@ -58,6 +58,8 @@ event that another client, relay, or community can use as an input to policy.
 - Kind 30382, with `d` and `p` equal to the candidate pubkey being considered.
 - The `veil-ring` belongs to an accepted admission circle and
   `proof.distinctSigners` meets the community threshold.
+- `proof.subjectInRing` is false, or compare `proof.independentSigners` against
+  the threshold.
 - The `rank` meaning matches the community's onboarding policy.
 - The assertion is not expired or superseded by a revocation, ban, or later
   re-review.

@@ -23,7 +23,7 @@ import { NIP85_KINDS } from '../nip85/types.js'
  *
  * @param event - A Nostr event (or template) containing `veil-ring`, `veil-threshold`, and `veil-sig` tags
  * @param options - Optional aggregate function, needed only for events whose `veil-agg` tag is `custom`. Named aggregates are resolved from the tag automatically.
- * @returns A {@link ProofVerification} with `valid`, `circleSize`, `threshold`, `distinctSigners`, and any `errors`
+ * @returns A {@link ProofVerification} with `valid`, `circleSize`, `threshold`, `distinctSigners`, `subjectInRing`, `independentSigners`, and any `errors`
  */
 export interface VerifyLimits {
   /** Maximum pubkeys accepted in a veil-ring. */
@@ -72,6 +72,13 @@ export type VerifyOptions = AggregateFn | {
   expectedKind?: number
   limits?: Partial<VerifyLimits>
   requireProofVersion?: ProofVersion
+  /**
+   * Fail closed when the d-tag subject is itself a veil-ring member. A ring
+   * signature hides which member signed, so one of the valid signatures may be
+   * the subject's own. Default false: the proof stays valid and the result
+   * reports `subjectInRing` and `independentSigners` for the caller to judge.
+   */
+  rejectSubjectInRing?: boolean
 }
 
 interface SignedMessageV1 {
@@ -102,6 +109,30 @@ function aggregateFnFromOptions(options?: VerifyOptions): AggregateFn {
 function limitsFromOptions(options?: VerifyOptions): VerifyLimits {
   const override = typeof options === 'function' ? undefined : options?.limits
   return { ...DEFAULT_VERIFY_LIMITS, ...override }
+}
+
+function rejectsSubjectInRing(options?: VerifyOptions): boolean {
+  return typeof options === 'function' ? false : options?.rejectSubjectInRing === true
+}
+
+/**
+ * Build a failed {@link ProofVerification}. No signatures are counted, so
+ * `distinctSigners` and `independentSigners` are 0. `subjectInRing` is false
+ * unless the ring has already been parsed and checked.
+ */
+function failure(
+  errors: string[],
+  fields: { circleSize?: number; threshold?: number; subjectInRing?: boolean } = {},
+): ProofVerification {
+  return {
+    valid: false,
+    circleSize: fields.circleSize ?? 0,
+    threshold: fields.threshold ?? 0,
+    distinctSigners: 0,
+    subjectInRing: fields.subjectInRing ?? false,
+    independentSigners: 0,
+    errors,
+  }
 }
 
 function requiredProofVersion(options?: VerifyOptions): ProofVersion | undefined {
@@ -538,29 +569,29 @@ export function verifyProof(event: {
   // so without this check a proof can be replayed under a different NIP-85 kind
   if (expectedKind !== undefined && event.kind !== expectedKind) {
     errors.push(`Event kind ${event.kind} does not match expected kind ${expectedKind}`)
-    return { valid: false, circleSize: 0, threshold: 0, distinctSigners: 0, errors }
+    return failure(errors)
   }
 
   // Every tag name must be a string, or later checks would throw instead of failing closed
   if (!Array.isArray(event.tags) || event.tags.some(t => !Array.isArray(t) || typeof t[0] !== 'string')) {
-    return { valid: false, circleSize: 0, threshold: 0, distinctSigners: 0, errors: ['Malformed tag: every tag must be an array whose name is a string'] }
+    return failure(['Malformed tag: every tag must be an array whose name is a string'])
   }
 
   // Require d tag -- without it the electionId check cannot bind signatures to a subject
   const dTags = event.tags.filter(t => t[0] === 'd')
   const dTag = dTags[0]
   if (!dTag) {
-    return { valid: false, circleSize: 0, threshold: 0, distinctSigners: 0, errors: ['Missing d tag'] }
+    return failure(['Missing d tag'])
   }
   // A second d tag would let relays index the proof under a subject it was not made for
   if (dTags.length > 1) {
-    return { valid: false, circleSize: 0, threshold: 0, distinctSigners: 0, errors: ['Multiple d tags'] }
+    return failure(['Multiple d tags'])
   }
   if (typeof dTag[1] !== 'string' || dTag[1] === '') {
-    return { valid: false, circleSize: 0, threshold: 0, distinctSigners: 0, errors: ['Invalid d tag'] }
+    return failure(['Invalid d tag'])
   }
   if (dTag.length > 2) {
-    return { valid: false, circleSize: 0, threshold: 0, distinctSigners: 0, errors: ['d tag has extra elements the circle did not sign'] }
+    return failure(['d tag has extra elements the circle did not sign'])
   }
   const subject = dTag[1]
 
@@ -619,38 +650,45 @@ export function verifyProof(event: {
     }
   }
   if (shapeErrors.length > 0) {
-    return { valid: false, circleSize: 0, threshold: 0, distinctSigners: 0, errors: [...errors, ...shapeErrors] }
+    return failure([...errors, ...shapeErrors])
   }
 
   const ringTag = event.tags.find(t => t[0] === 'veil-ring')
   if (!ringTag) {
-    return { valid: false, circleSize: 0, threshold: 0, distinctSigners: 0, errors: ['Missing veil-ring tag'] }
+    return failure(['Missing veil-ring tag'])
   }
   const ring = ringTag.slice(1)
 
   if (ring.length < 2) {
-    return { valid: false, circleSize: ring.length, threshold: 0, distinctSigners: 0, errors: ['veil-ring requires at least 2 members'] }
+    return failure(['veil-ring requires at least 2 members'], { circleSize: ring.length })
   }
 
   // Guard against relay-supplied DoS: unbounded ring inflates memory + verification time
   if (ring.length > limits.maxRingSize) {
-    return { valid: false, circleSize: ring.length, threshold: 0, distinctSigners: 0, errors: [`veil-ring exceeds maximum size (${limits.maxRingSize})`] }
+    return failure([`veil-ring exceeds maximum size (${limits.maxRingSize})`], { circleSize: ring.length })
   }
 
   // Validate ring members are valid hex pubkeys in sorted order
   for (let i = 0; i < ring.length; i++) {
     if (!HEX64_RE.test(ring[i])) {
-      return { valid: false, circleSize: ring.length, threshold: 0, distinctSigners: 0, errors: [`Invalid pubkey format in veil-ring at index ${i}`] }
+      return failure([`Invalid pubkey format in veil-ring at index ${i}`], { circleSize: ring.length })
     }
     if (i > 0 && ring[i] <= ring[i - 1]) {
-      return { valid: false, circleSize: ring.length, threshold: 0, distinctSigners: 0, errors: ['veil-ring pubkeys are not in sorted order'] }
+      return failure(['veil-ring pubkeys are not in sorted order'], { circleSize: ring.length })
     }
   }
+
+  // The ring is parsed and validated. A ring signature hides which member
+  // signed, so a subject that is a ring member may have signed for itself.
+  // Meaningful for kind 30382, where the subject is a pubkey. On other kinds
+  // the d-tag is an event id, address or identifier and cannot equal a member
+  // pubkey, so the same check is computed on every kind and is simply false.
+  const subjectInRing = ring.includes(subject)
 
   // Require veil-threshold tag
   const thresholdTag = event.tags.find(t => t[0] === 'veil-threshold')
   if (!thresholdTag) {
-    return { valid: false, circleSize: ring.length, threshold: 0, distinctSigners: 0, errors: ['Missing veil-threshold tag'] }
+    return failure(['Missing veil-threshold tag'], { circleSize: ring.length, subjectInRing })
   }
   const threshold = parseDecimalInteger(thresholdTag[1])
   const declaredCircleSize = parseDecimalInteger(thresholdTag[2])
@@ -659,23 +697,23 @@ export function verifyProof(event: {
   // Validate threshold is a sane integer
   if (threshold === undefined || threshold < 1 || threshold > ring.length) {
     errors.push(`Invalid threshold: ${thresholdTag[1]}`)
-    return { valid: false, circleSize, threshold: 0, distinctSigners: 0, errors }
+    return failure(errors, { circleSize, subjectInRing })
   }
   if (declaredCircleSize !== circleSize) {
     errors.push(`veil-threshold circle size ${thresholdTag[2]} does not match veil-ring size ${circleSize}`)
-    return { valid: false, circleSize, threshold, distinctSigners: 0, errors }
+    return failure(errors, { circleSize, threshold, subjectInRing })
   }
 
   const sigTags = event.tags.filter(t => t[0] === 'veil-sig')
   if (sigTags.length === 0) {
     errors.push('No veil-sig tags found')
-    return { valid: false, circleSize, threshold, distinctSigners: 0, errors }
+    return failure(errors, { circleSize, threshold, subjectInRing })
   }
 
   // Cap sig tags at ring size -- legitimate events cannot have more sigs than members
   if (sigTags.length > ring.length) {
     errors.push(`Too many veil-sig tags (${sigTags.length}) for ring of size ${ring.length}`)
-    return { valid: false, circleSize, threshold, distinctSigners: 0, errors }
+    return failure(errors, { circleSize, threshold, subjectInRing })
   }
 
   // Circle ID is derived from the already-validated sorted ring
@@ -683,11 +721,11 @@ export function verifyProof(event: {
   // Scope comes from the veil-scope tag, or defaults to the circleId
   const scope = resolveScope(event.tags, expectedCircleId, errors)
   if (scope === null) {
-    return { valid: false, circleSize, threshold, distinctSigners: 0, errors }
+    return failure(errors, { circleSize, threshold, subjectInRing })
   }
   const declaredVersion = declaredProofVersion(event.tags, errors)
   if (errors.length > 0) {
-    return { valid: false, circleSize, threshold, distinctSigners: 0, errors }
+    return failure(errors, { circleSize, threshold, subjectInRing })
   }
 
   const keyImages: string[] = []
@@ -764,11 +802,19 @@ export function verifyProof(event: {
     }
   }
 
+  if (subjectInRing && rejectsSubjectInRing(options)) {
+    errors.push('Subject is a veil-ring member')
+  }
+
   return {
     valid: errors.length === 0 && validSigs === threshold,
     circleSize,
     threshold,
     distinctSigners: validSigs,
+    subjectInRing,
+    // Key images allow at most one signature per scope from the subject, so one
+    // valid signature may be theirs when the subject is in the ring.
+    independentSigners: subjectInRing ? Math.max(0, validSigs - 1) : validSigs,
     errors,
   }
 }

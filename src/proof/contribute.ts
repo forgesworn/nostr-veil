@@ -1,4 +1,4 @@
-import { lsagSign } from '@forgesworn/ring-sig'
+import { lsagSign, ValidationError } from '@forgesworn/ring-sig'
 import { NIP85_KINDS } from '../nip85/types.js'
 import type { Contribution, ProofContext, ProofVersion, TrustCircle } from './types.js'
 import { canonicalMessage, canonicalMessageV2, electionId, electionIdV2 } from './circle.js'
@@ -47,6 +47,7 @@ function typedOptions(
  * @param memberIndex - 0-based index of this member in `circle.members` (sorted order)
  * @returns A {@link Contribution} containing the LSAG signature, key image, and metrics
  * @throws If `memberIndex` is out of range or the private key doesn't match the pubkey at that index
+ * @throws {ValidationError} If the member at `memberIndex` is the `subject`. A circle member cannot contribute to an assertion about themselves. A modified client can still do it, so verifiers should read `subjectInRing` and `independentSigners` from {@link verifyProof}.
  */
 export function contributeAssertion(
   circle: TrustCircle,
@@ -56,6 +57,10 @@ export function contributeAssertion(
   memberIndex: number,
   options?: ContributionOptions,
 ): Contribution {
+  if (circle.members[memberIndex] === subject) {
+    throw new ValidationError('A circle member cannot contribute to an assertion about themselves')
+  }
+
   const proofVersion = options?.proofVersion ?? 'v1'
   const context = proofVersion === 'v2' ? v2Context(subject, options) : undefined
   const message = context === undefined

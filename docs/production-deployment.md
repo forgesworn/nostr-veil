@@ -174,7 +174,7 @@ presentation together with the existing signed vouch and deployment bundle.
 
 [`examples/admission-gate-relay.ts`](../examples/admission-gate-relay.ts) is
 the opt-in live relay smoke test for that handshake. It publishes the signed
-kind 30382 admission vouch to `wss://relay.trotters.cc`, publishes the signed
+kind 30382 admission vouch to `wss://relay.primal.net`, publishes the signed
 deployment bundle as a separate NIP-78 kind 30078 application data event, fetches
 both objects back by id, and verifies the fetched material. Kind 30078 is only a
 transport wrapper for the signed bundle; it is not a NIP-85 assertion and does
@@ -192,6 +192,10 @@ A production verifier should reject, or move to manual review, when:
 - the assertion is about a different subject;
 - the assertion is stale;
 - the proof is not v2 for a profile that requires v2;
+- the subject is a pubkey inside the `veil-ring` and the policy needs a score
+  free of the subject's own vote: read `subjectInRing` and compare
+  `independentSigners`, not `distinctSigners`, against the threshold, or pass
+  `rejectSubjectInRing: true` to `verifyProof`;
 - the metric is missing, non-numeric, outside range, or unexpected;
 - required companion evidence is missing, failed, stale, malformed, or for a
   different canonical subject;

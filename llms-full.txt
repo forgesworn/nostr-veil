@@ -187,6 +187,8 @@ interface ProofVerification {
   circleSize: number     // total members in the ring
   threshold: number      // how many contributions were included
   distinctSigners: number // valid signatures with unique key images
+  subjectInRing: boolean  // the d-tag subject is also a veil-ring member, so one valid signature may be the subject's own
+  independentSigners: number // distinctSigners, less one when subjectInRing
   errors: string[]
 }
 ```
@@ -620,15 +622,16 @@ kind-specific subject tags; the typed contribute helpers sign proof v2 by defaul
 Verify all ring signatures in a veil-enhanced NIP-85 event.
 
 - **`event`** `{ kind, tags, content }` — A Nostr event containing proof tags
-- **`options`** `AggregateFn | { aggregateFn?: AggregateFn; expectedKind?: number; requireProofVersion?: ProofVersion; limits?: Partial<VerifyLimits> }` -- `aggregateFn` is needed only when `veil-agg` is `custom` (built-in names are read from the tag); `expectedKind` rejects events of any other NIP-85 kind and is recommended for v1 proofs, which are not kind-bound; `requireProofVersion` rejects the other proof version; `limits` overrides `DEFAULT_VERIFY_LIMITS` (`maxRingSize` 1000, `maxSigPayloadBytes` 128000, `maxSignedMessageBytes` 16384, `maxMetricCount` 128, `maxMetricNameLength` 64)
-- **Returns** `ProofVerification` with `valid`, `circleSize`, `threshold`, `distinctSigners`, `errors`
+- **`options`** `AggregateFn | { aggregateFn?: AggregateFn; expectedKind?: number; requireProofVersion?: ProofVersion; rejectSubjectInRing?: boolean; limits?: Partial<VerifyLimits> }` -- `rejectSubjectInRing` fails the proof with `Subject is a veil-ring member` when the d-tag subject is a ring member (default false; `subjectInRing` is reported either way); `aggregateFn` is needed only when `veil-agg` is `custom` (built-in names are read from the tag); `expectedKind` rejects events of any other NIP-85 kind and is recommended for v1 proofs, which are not kind-bound; `requireProofVersion` rejects the other proof version; `limits` overrides `DEFAULT_VERIFY_LIMITS` (`maxRingSize` 1000, `maxSigPayloadBytes` 128000, `maxSignedMessageBytes` 16384, `maxMetricCount` 128, `maxMetricNameLength` 64)
+- **Returns** `ProofVerification` with `valid`, `circleSize`, `threshold`, `distinctSigners`, `subjectInRing`, `independentSigners`, `errors`
 - An event with more than one `d` tag, a `p`, `e` or `a` tag (on any kind) that is repeated or differs from `d`, more than one `k` tag, a `k` tag on any kind but 30385, a `__proto__` tag or a malformed tag is invalid. The circle signs only the name and value of a metric tag, so a metric, `d` or `k` tag with anything after the value is invalid too. So is a second `veil-ring`, `veil-threshold`, `veil-agg`, `veil-version` or `veil-scope` tag, or extra elements on any of them or on a `veil-sig`; unknown `veil-*` tags are ignored, for forward compatibility. NIP-85 allows `p`/`e`/`a` only as relay hints that repeat the `d` value
 - An event whose signed contributions use a reserved metric name is invalid (`signed metric rejected: Metric name "<name>" is reserved: ...`), so one circle member cannot inject a tag such as `expiration` or `-` into the published event
 - A publisher-set `expiration` or `alt` tag is not read as a metric. Each may appear at most once, and `expiration` must be a unix time in seconds (`Invalid expiration tag: must be a unix time in seconds`). `alt` must be non-empty (`Invalid alt tag: must be a non-empty string`). `verifyProof` does not compare expiry with the clock; the profile verifiers do, rejecting an assertion whose `expiration` is at or before `now`. Trust these tags only after verifying the outer Nostr signature, which `verifyProof` does not check. Other general tags (`client`, `nonce`, `-`, `L`, `l`, `i`, `content-warning`) are still read as unsigned metrics and fail
 
 ```ts
 const result = verifyProof(event)
-// { valid: true, circleSize: 3, threshold: 2, distinctSigners: 2, errors: [] }
+// { valid: true, circleSize: 3, threshold: 2, distinctSigners: 2,
+//   subjectInRing: false, independentSigners: 2, errors: [] }
 ```
 
 Use `verifyProof(event, { requireProofVersion: 'v2' })` when an application
@@ -915,7 +918,8 @@ const signed = signEvent(assertion, aggregator.privkey)
 
 // 5. Any client verifies -- two distinct members agreed, no names attached
 const result = verifyProof(signed, { expectedKind: NIP85_KINDS.USER })
-// { valid: true, circleSize: 3, threshold: 2, distinctSigners: 2, errors: [] }
+// { valid: true, circleSize: 3, threshold: 2, distinctSigners: 2,
+//   subjectInRing: false, independentSigners: 2, errors: [] }
 ```
 
 Formats: pubkeys are 64-char lowercase hex x-only strings and every `privateKey` argument is a 64-char hex string. `memberIndex` must come from `circle.members.indexOf(pubkey)`. The aggregator is whoever collects the contributions and publishes the event; it need not be a circle member. `verifyProof` does not check the outer Nostr signature, so call `verifySignedEvent(event)` on events fetched from untrusted relays. Pass `expectedKind` because v1 proofs are not kind-bound.

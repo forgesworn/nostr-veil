@@ -39,7 +39,7 @@ interface ScopedEvent {
  * best verified in batches rather than in a single call.
  *
  * @param events - Aggregated Veil events ({@link aggregateContributions} output), signed or not
- * @param options - Forwarded to every {@link verifyProof} call: an aggregate function (needed only for events whose `veil-agg` tag is `custom`), or options such as `expectedKind`, which v1 proofs need since their signatures are not bound to the kind
+ * @param options - Forwarded to every {@link verifyProof} call: an aggregate function (needed only for events whose `veil-agg` tag is `custom`), or options such as `expectedKind`, which v1 proofs need since their signatures are not bound to the kind, and `rejectSubjectInRing`, which fails the federation when the subject is a member of any event's ring
  * @returns A {@link FederationVerification}; its counts are meaningful only when `valid` is true
  *
  * @example
@@ -63,14 +63,19 @@ export function verifyFederation(
       circleCount: 0,
       totalSignatures: 0,
       distinctSigners: 0,
+      subjectInRing: false,
+      independentSigners: 0,
       errors: ['Federation requires at least one event'],
     }
   }
 
   const scopedEvents: ScopedEvent[] = []
+  let anySubjectInRing = false
   for (let i = 0; i < events.length; i++) {
     const event = events[i]
     const proof = verifyProof(event, options)
+    // Carry the flag even from an event that fails, so a failed federation still reports it
+    if (proof.subjectInRing) anySubjectInRing = true
     if (!proof.valid) {
       for (const error of proof.errors) errors.push(`event[${i}]: ${error}`)
       continue
@@ -128,6 +133,9 @@ export function verifyFederation(
     circleCount: circleIds.size,
     totalSignatures,
     distinctSigners: distinctKeyImages.size,
+    subjectInRing: anySubjectInRing,
+    // Events share one scope, so the subject holds at most one key image across the federation
+    independentSigners: anySubjectInRing ? Math.max(0, distinctKeyImages.size - 1) : distinctKeyImages.size,
     errors,
   }
 }
