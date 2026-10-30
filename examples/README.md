@@ -89,7 +89,7 @@ same real-world thing across several strings.
 
 `use-cases-relay.ts` is an opt-in live relay check. It signs every canonical
 use-case example as a Nostr event, publishes the events to
-`wss://relay.trotters.cc`, fetches them back by id, and verifies the fetched
+`wss://relay.primal.net`, fetches them back by id, and verifies the fetched
 events again. Use `--dry-run` to check signing and proof verification without
 network publication. To refresh the public evidence file:
 

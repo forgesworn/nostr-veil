@@ -35,7 +35,7 @@ declare const process: {
   exitCode?: number
 }
 
-const DEFAULT_RELAY = 'wss://relay.trotters.cc'
+const DEFAULT_RELAY = 'wss://relay.primal.net'
 const TEXT_ENCODER = new TextEncoder()
 const args = process.argv.slice(2)
 

@@ -695,7 +695,7 @@
         <p>Use this when the subject is a relay, upload service, moderation service, bot, algorithm provider, or other service endpoint rather than a Nostr account.</p>
 <h2>Fit</h2>
 <ul><li>Status: supported today.</li><li>NIP-85 kind: 30385 identifier assertion.</li><li>Subject examples: <code>relay:wss://relay.example.com</code>, <code>service:blossom:example.com</code>, <code>service:moderation:https://mod.example.com/api</code>.</li><li>Canonical helpers: <code>canonicalRelaySubject</code> and <code>canonicalServiceSubject</code>.</li><li>Helpers: <code>contributeIdentifierAssertion</code>, <code>aggregateIdentifierContributions</code>.</li><li>Proof version: v2 recommended.</li><li>Useful metrics: <code>rank</code>, <code>comment_cnt</code>, <code>reaction_cnt</code>.</li></ul>
-<p>The <code>k</code> value is an application profile namespace. The example below uses <code>10002</code> because the profile is scoring relay-selection context; choose a different decimal namespace if your application needs one.</p>
+<p>The <code>k</code> value here is a nostr-veil profile namespace, not a NIP-73 type: NIP-73 has no type for relays or service endpoints. The built-in profile uses <code>10002</code> because it scores relay-selection context, and profile definitions require a decimal value. For subjects NIP-73 does cover, such as a website (<code>web</code>), use <code>aggregateIdentifierContributions</code> directly with the NIP-73 type.</p>
 <h2>Subject design</h2>
 <ul><li>Use kind 30385 when the subject is an endpoint, service, bot, API, or relay rather than a user pubkey.</li><li>Canonicalise the identifier before review: scheme, host, port, path, trailing slash, service class, and any punycode or case rules.</li><li>Use separate subjects for different service classes. A relay uptime score should not automatically apply to an upload service on the same domain.</li><li>Pick a stable <code>k</code> namespace for the application profile and document it so verifiers know what kind of identifier is being scored.</li></ul>
 <h2>What to publish</h2>
@@ -807,11 +807,11 @@
 </div>
 <p>Spec: <a href="https://nips.nostr.com/85">NIP-85 trusted assertions</a>.</p>
         <h2>Live relay test</h2>
-<p>The opt-in relay test signs this canonical example as real Nostr event data, publishes it to <code>wss://relay.trotters.cc</code>, fetches it back by id, and re-runs the application, syntax, Nostr signature, canonical tag, and proof checks.</p>
+<p>The opt-in relay test signs this canonical example as real Nostr event data, publishes it to <code>wss://relay.primal.net</code>, fetches it back by id, and re-runs the application, syntax, Nostr signature, canonical tag, and proof checks.</p>
 <div class="relay-evidence pass">
   <div class="relay-evidence-head">
     <span>Passed</span>
-    <strong>2026-06-23T06:52:48.000Z</strong>
+    <strong>2026-10-30T05:15:22.000Z</strong>
   </div>
   <dl>
     <div>
@@ -824,7 +824,7 @@
     </div>
     <div>
       <dt>Run</dt>
-      <dd><code>th2og0-c6f633c86f</code></dd>
+      <dd><code>tnpfxm-eab9d410f0</code></dd>
     </div>
   </dl>
   <ul class="relay-checks">
@@ -837,7 +837,7 @@
     <li class="pass"><span aria-hidden="true"></span>Deployment profile verifier passes</li>
   </ul>
   <div class="relay-event-ids">
-    <code title="438cf7cd0a3706c03c0dd09a2497d1e9fe8d13306f67f07ad0e1b2383eca5e21">438cf7cd0a37...3eca5e21</code>
+    <code title="194eaa15c7b406f7328e8bb1cdeb825b0409397bfbb40c1b9cdf64dc68778166">194eaa15c7b4...68778166</code>
   </div>
   <p class="relay-command">Run the same check with <code>npm run test:use-cases:relay -- --write docs/use-case-relay-checks.json</code>.</p>
 </div>
