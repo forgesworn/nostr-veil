@@ -21,9 +21,45 @@ jobs:
         id: meta
         uses: dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98 # v3.1.0
 
-      - name: Enable auto-merge for patch/minor
+      # `gh pr merge --auto` DEFERS TO BRANCH PROTECTION. On the free plan a
+      # private repo has no branch protection at all -- the API answers
+      # "Upgrade to GitHub Pro or make this repository public" -- so there is
+      # nothing to defer to and --auto merges the moment the PR is mergeable,
+      # which is immediately. CI never enters into it.
+      #
+      # On 2026-09-08 that landed eight cargo PRs on forgesworn/charter with
+      # four red builds each and left main unable to compile. The auto-merge
+      # check showed green beside four failing Rust jobs.
+      #
+      # So wait for the checks explicitly. Every check except this job's own
+      # must have finished and passed before we merge.
+      - name: Wait for CI, then merge patch/minor
         if: steps.meta.outputs.update-type == 'version-update:semver-patch' || steps.meta.outputs.update-type == 'version-update:semver-minor'
         env:
           PR_URL: ${{ github.event.pull_request.html_url }}
+          SELF: ${{ github.job }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh pr merge --auto --squash --delete-branch "$PR_URL"
+        run: |
+          set -euo pipefail
+          # Poll rather than `gh pr checks --watch`: --watch also waits on THIS
+          # job, which can never finish while it is waiting on itself.
+          for _ in $(seq 1 120); do
+            checks=$(gh pr checks "$PR_URL" --json name,state 2>/dev/null || echo '[]')
+            others=$(jq -c --arg self "$SELF" '[.[] | select(.name != $self)]' <<<"$checks")
+            pending=$(jq '[.[] | select(.state == "PENDING" or .state == "QUEUED" or .state == "IN_PROGRESS")] | length' <<<"$others")
+            failed=$(jq -r '[.[] | select(.state == "FAILURE" or .state == "TIMED_OUT" or .state == "CANCELLED" or .state == "ACTION_REQUIRED") | .name] | join(", ")' <<<"$others")
+            if [ -n "$failed" ]; then
+              echo "::error::not merging, these checks failed: $failed"
+              exit 1
+            fi
+            # The length guard is the fail-safe: a repo with no CI at all has no
+            # other checks, and must not be merged blind just because nothing failed.
+            if [ "$pending" = "0" ] && [ "$(jq 'length' <<<"$others")" != "0" ]; then
+              echo "all checks green, merging"
+              gh pr merge --squash --delete-branch "$PR_URL"
+              exit 0
+            fi
+            sleep 30
+          done
+          echo "::error::timed out waiting for checks; not merging"
+          exit 1

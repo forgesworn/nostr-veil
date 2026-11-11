@@ -1,13 +1,21 @@
 version: 2
 
-# Canonical dependabot config for npm/TypeScript repos in forgesworn.
-# Synced from forgesworn/.github/templates/dependabot/dependabot.npm.yml.
-# Edit the template, not individual repos -- run the propagator to sync.
+# Canonical dependabot config for forgesworn repos.
+# COMPOSED by templates/dependabot/propagate.sh from one fragment per ecosystem
+# the repo actually contains, plus the shared github-actions block.
+# Edit the fragments, not individual repos -- then run the propagator to sync.
 #
 # Tiering:
-#   patch + minor  -> grouped, auto-merged on green CI
-#   major          -> individual PR, manual review
-#   TS / Node / framework majors -> ignored here, upgraded deliberately
+#   patch + minor        -> grouped, auto-merged on green CI
+#   major                -> individual PR, manual review
+#   peer-locked families -> grouped across ALL update types, still manual review
+#   TS / Node / framework majors -> ignored, upgraded deliberately
+#
+# "Peer-locked family" means a set of packages that pin each other's exact
+# version. Bumped one at a time they can never install or build, so the PRs sit
+# failing forever and the failure looks like the dependency's fault rather than
+# this file's. vitest/@vitest/*, @noble/*, and the RustCrypto digest family are
+# all in that category.
 
 updates:
   - package-ecosystem: npm
@@ -20,6 +28,21 @@ updates:
       prefix: chore
       include: scope
     groups:
+      # Listed first: a dependency joins the first group whose patterns match.
+      # @vitest/* declare a peer dependency on the exact vitest version, so a
+      # per-package major PR can never install -- npm ci dies on ERESOLVE and
+      # the PR is unmergeable no matter how many times it is retried. Grouping
+      # across all update types keeps the manual-review policy for majors while
+      # letting the family move together in one PR.
+      vitest:
+        patterns: ["vitest", "@vitest/*"]
+        update-types: ["patch", "minor", "major"]
+      # @noble/curves will not build against a mismatched @noble/hashes major:
+      # curves v2 needs hashes v2, so a per-package major PR deadlocks the same
+      # way the vitest family does. Grouped across all update types.
+      noble:
+        patterns: ["@noble/*"]
+        update-types: ["patch", "minor", "major"]
       production-minor:
         dependency-type: production
         update-types: ["patch", "minor"]
@@ -27,6 +50,10 @@ updates:
         dependency-type: development
         update-types: ["patch", "minor"]
     ignore:
+      # nostr-tools >=2.23.11 corrupts the pool's in-use counter under enablePing
+      # and idle-closes relays with reconnection disabled; repos pin 2.23.9.
+      # Remove once nbd-wtf/nostr-tools#539 is fixed and pins are lifted.
+      - dependency-name: "nostr-tools"
       - dependency-name: "typescript"
         update-types: ["version-update:semver-major"]
       - dependency-name: "@types/node"
