@@ -14,6 +14,12 @@ knowing who. The output is a standard NIP-85 event that any Nostr app reads
 unchanged -- privacy-aware apps can additionally verify the cryptographic
 proofs via additive `veil-*` tags.
 
+## ForgeSworn ecosystem
+
+- [ForgeSworn library guide](https://forgesworn.dev/llms.txt): Find related libraries, tools and integration guides by task and runtime.
+- [ForgeSworn on GitHub](https://github.com/forgesworn): Browse the organisation’s public repositories.
+- [Project source](https://github.com/forgesworn/nostr-veil): Canonical source repository, documentation and release information.
+
 ## Getting Started
 
 ```bash
