@@ -319,6 +319,35 @@ describe('verifyProof', () => {
     expect(right.valid, right.errors.join('; ')).toBe(true)
   })
 
+  it('rejects a valid proof relabelled as a non-NIP-85 kind, with no option needed', () => {
+    const event = makeEvent()
+    for (const kind of [31000, 1, 1985, 10040, 30381, 30386]) {
+      const result = verifyProof({ ...event, kind })
+      expect(result.valid).toBe(false)
+      expect(result.errors).toEqual([`Event kind ${kind} is not a NIP-85 assertion kind (30382-30385)`])
+    }
+  })
+
+  it('rejects a kind that is not an integer rather than throwing', () => {
+    const event = makeEvent()
+    for (const kind of ['30382', 30382.5, Number.NaN, undefined, null]) {
+      const result = verifyProof({ ...event, kind } as never)
+      expect(result.valid).toBe(false)
+      expect(result.errors[0]).toMatch(/is not a NIP-85 assertion kind/)
+    }
+  })
+
+  it('reports an expectedKind mismatch ahead of the NIP-85 kind check', () => {
+    const result = verifyProof({ ...makeEvent(), kind: 31000 }, { expectedKind: NIP85_KINDS.USER })
+    expect(result.errors).toEqual(['Event kind 31000 does not match expected kind 30382'])
+  })
+
+  it('refuses an expectedKind that is itself not a NIP-85 assertion kind', () => {
+    const result = verifyProof({ ...makeEvent(), kind: 31000 }, { expectedKind: 31000 })
+    expect(result.valid).toBe(false)
+    expect(result.errors).toEqual(['Event kind 31000 is not a NIP-85 assertion kind (30382-30385)'])
+  })
+
   it('does not let a v1 proof be re-published under a different kind when expectedKind is set', () => {
     const event = makeEvent()
     const replayed = { ...event, kind: NIP85_KINDS.EVENT }
