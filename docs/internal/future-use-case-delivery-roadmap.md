@@ -9,6 +9,9 @@ The public pages should stay focused on what developers can build safely today.
 Future profiles can be mentioned there only as bounded building blocks with
 clear caveats and practical mitigations.
 
+The wider map of candidates, with the limits that decide how close each one is,
+is in the [use-case catalogue](./use-case-catalogue.md). It is internal too.
+
 ## Compatibility stance
 
 - Keep existing NIP-85 event compatibility unless a new companion protocol
