@@ -67,7 +67,8 @@ export type VerifyOptions = AggregateFn | {
    * Expected event kind. Strongly recommended for v1 proofs: their signatures
    * are not bound to the event kind, so a valid proof can be re-published under
    * a different NIP-85 kind with the same d-tag. Pass the kind you intend to
-   * consume (or require proof version v2 via `requireProofVersion`).
+   * consume (or require proof version v2 via `requireProofVersion`). Kinds
+   * outside 30382-30385 are always rejected, whatever is passed here.
    */
   expectedKind?: number
   limits?: Partial<VerifyLimits>
@@ -555,6 +556,14 @@ function validateV2EventBinding(
   return valid
 }
 
+/** The kinds a ring proof may be published on: NIP-85 user, event, addressable and identifier assertions. */
+const ASSERTION_KINDS: ReadonlySet<number> = new Set([
+  NIP85_KINDS.USER,
+  NIP85_KINDS.EVENT,
+  NIP85_KINDS.ADDRESSABLE,
+  NIP85_KINDS.IDENTIFIER,
+])
+
 export function verifyProof(event: {
   kind: number
   tags: string[][]
@@ -570,6 +579,13 @@ export function verifyProof(event: {
   if (expectedKind !== undefined && event.kind !== expectedKind) {
     errors.push(`Event kind ${event.kind} does not match expected kind ${expectedKind}`)
     return failure(errors)
+  }
+
+  // A ring proof is only defined on the four NIP-85 assertion kinds. Without
+  // this, a proof copied onto any other kind (an attestation, a note, a label)
+  // verifies, and a caller who forgets expectedKind reads it as an endorsement.
+  if (!ASSERTION_KINDS.has(event.kind)) {
+    return failure([`Event kind ${String(event.kind)} is not a NIP-85 assertion kind (30382-30385)`])
   }
 
   // Every tag name must be a string, or later checks would throw instead of failing closed
