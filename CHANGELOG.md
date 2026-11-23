@@ -1,3 +1,11 @@
+## 0.34.1 (2026-11-23)
+
+### Bug Fixes
+
+- reject ring proofs on kinds outside the NIP-85 assertions (#66) (proof)
+
+
+
 ## 0.34.0 (2026-10-30)
 
 ### Features
