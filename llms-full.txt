@@ -727,6 +727,23 @@ a malformed value throws. A signed bundle embeds the profile it was issued
 with, so a bundle issued by a release that did not pin aggregates does not
 carry the check: re-issue it.
 
+`acceptedPublishers` names the keys that may sign the assertion events, as
+64-character lowercase hex pubkeys. A proof does not say who published it or
+when: the ring signatures are public and carry no time, so without the list
+anyone can republish a favourable subset of them, or an old proof under a new
+`created_at`, with their own key, and `maxAgeSeconds` reads the timestamp that
+key set. `createDeploymentPolicy` throws on an empty, malformed or repeated
+list. Naming publishers turns `requireNostrSignature` on (passing `false`
+with the list throws), and `verifyDeploymentPolicy` then checks every event's
+Nostr id and signature whatever the policy says. An event signed by another key
+fails with `event.publisher_unaccepted`; an empty or malformed list in a policy
+read from JSON rejects every event with `policy.accepted_publishers_invalid`.
+The result carries `publishers: { checked, valid }` beside `nostrSignatures`.
+The list does not stop a named publisher leaving signatures out, or a relay
+serving that publisher's earlier event inside the freshness window. It is not `trustedPublishers`, which
+names who may sign a deployment bundle. The field is left off the policy when
+not set, and a verifier on an earlier release ignores it in a bundle.
+
 #### Companion evidence helper pairs
 
 Use requirement helpers when building the deployment policy, then pass resolver
@@ -817,8 +834,12 @@ Companion evidence failures use stable codes such as `companion.missing`,
 Convert a `verifyProductionDeployment()` result into an audit- and UI-ready
 report. The report keeps the accept/reject decision, adds `recommendedAction`,
 expands every issue with summary and remediation text, lists unique
-remediations, and reports whether production controls passed, failed, or were
-explicitly relaxed.
+remediations, and reports each production control as passed, failed or not
+checked (relaxed by the caller, or never asked for by the policy). The
+`event-publisher` control reads `not-checked` when the policy names no accepted
+publishers, as `companion-evidence` does for a policy that requires none, so
+gate on the decision, not on every control reading `pass`. A result with no
+`publishers` field, as an earlier release returned, also reads `not-checked`.
 
 #### `verifyProductionDeploymentReport(events, bundle, options) → ProductionDecisionReport`
 
@@ -965,7 +986,8 @@ const event = signEvent(
 const policy = createDeploymentPolicy(USER_REPUTATION_ABUSE_REPORTING_PROFILE, {
   acceptedCircleIds: [circle.circleId],
   expectedSubject: subjectPubkey,
-  requireNostrSignature: true,       // verifyProductionDeployment rejects a policy without this
+  acceptedPublishers: [aggregator.pubkey], // nobody else may republish the circle's signatures
+  requireNostrSignature: true,       // verifyProductionDeployment needs this; naming acceptedPublishers also turns it on
 })
 const now = Math.floor(Date.now() / 1000)
 const bundle = createSignedDeploymentBundle(policy, {
@@ -976,7 +998,8 @@ const bundle = createSignedDeploymentBundle(policy, {
 })
 
 const verdict = verifyProductionDeployment([event], bundle, { trustedPublishers: [operator.pubkey] })
-// verdict.decision === 'accept'; a bundle signed by another key fails with `bundle.signer_untrusted`
+// verdict.decision === 'accept'; a bundle signed by another key fails with `bundle.signer_untrusted`,
+// and an event signed by any key but the aggregator's with `event.publisher_unaccepted`
 ```
 
 See `examples/production-recipes.ts` in the repository for six production-shaped gates with companion evidence.
@@ -991,11 +1014,11 @@ nostr-veil assert event <event-id> [--json '<metrics>']
 nostr-veil assert address <address> [--json '<metrics>']
 nostr-veil assert identifier <id> <k-tag> [--json '<metrics>']
 nostr-veil provider-declare [--json '<entries>']
-nostr-veil verify '<event-json>' [--kind <n>]
+nostr-veil verify '<event-json>' [--kind <n>] [--aggregate <fn>]
 nostr-veil --help
 ```
 
-`assert` and `provider-declare` build plain NIP-85 events (kinds 30382 to 30385 and 10040), not ring-signed ones, sign them with the key in `NOSTR_SECRET_KEY` (64-char hex) or the file named by `NOSTR_SECRET_KEY_FILE` (takes precedence), and print the signed event as JSON on stdout. `--json` takes a JSON object of metrics (`provider-declare`: an array of `{ kind, metric, servicePubkey, relayHint }`). `verify` needs no key: `<event-json>` is an inline JSON string, not a file path, and must come first (`nostr-veil verify "$(cat event.json)" --kind 30382`). `--kind` takes a non-negative integer and applies `expectedKind`. It prints the `verifyProof` result as JSON and exits 0 even when `valid` is false, so read `valid` rather than the exit code.
+`assert` and `provider-declare` build plain NIP-85 events (kinds 30382 to 30385 and 10040), not ring-signed ones, sign them with the key in `NOSTR_SECRET_KEY` (64-char hex) or the file named by `NOSTR_SECRET_KEY_FILE` (takes precedence), and print the signed event as JSON on stdout. `--json` takes a JSON object of metrics (`provider-declare`: an array of `{ kind, metric, servicePubkey, relayHint }`). `verify` needs no key: `<event-json>` is an inline JSON string, not a file path (`nostr-veil verify "$(cat event.json)" --kind 30382`). Options may come before or after it, as `--kind 30382` or `--kind=30382`, and an unknown or repeated option is an error, never dropped in silence. `--kind` takes a non-negative integer and applies `expectedKind`. `--aggregate` takes `median`, `mean`, `sum`, `min` or `max` and applies `requireAggregate`; without it `verify` accepts whichever function the event names. It prints the `verifyProof` result as JSON and exits 0 even when `valid` is false, so read `valid` rather than the exit code.
 
 ## Companion Libraries
 

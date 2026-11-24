@@ -1,3 +1,5 @@
+import { schnorr } from '@noble/curves/secp256k1.js'
+import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js'
 import {
   describeNip85Kind,
   signEvent,
@@ -53,6 +55,10 @@ interface RecipeResult {
 
 const BUNDLE_PUBLISHER_KEY = '44'.repeat(32)
 const RELAY_PUBLISHER_KEY = '55'.repeat(32)
+// The one key each gate accepts assertions from. The ring signatures are public
+// and carry no time, so without it anyone could republish a subset of them, or
+// an old proof under a new timestamp, with their own key.
+const RELAY_PUBLISHER = bytesToHex(schnorr.getPublicKey(hexToBytes(RELAY_PUBLISHER_KEY)))
 
 function jsonResponse(value: unknown): EvidenceFetchResponse {
   return {
@@ -208,6 +214,7 @@ async function packageReleaseGate(): Promise<RecipeResult> {
       rank: { required: true, min: 0, max: 100, integer: true },
     },
     rejectUnknownMetrics: true,
+    acceptedPublishers: [RELAY_PUBLISHER],
     requireNostrSignature: true,
   })
   const companionEvidence = await collectPackageReleaseCompanionEvidence({
@@ -246,6 +253,7 @@ function relayServicePreference(): RecipeResult {
       reaction_cnt: { required: true, min: 0, integer: true },
     },
     rejectUnknownMetrics: true,
+    acceptedPublishers: [RELAY_PUBLISHER],
     requireNostrSignature: true,
   })
   const result = verifyWithSignedBundle(relayReputationAssertion, policy)
@@ -276,6 +284,7 @@ function verifierLegitimacyGate(): RecipeResult {
       reaction_cnt: { required: true, min: 0, integer: true },
     },
     rejectUnknownMetrics: true,
+    acceptedPublishers: [RELAY_PUBLISHER],
     requireNostrSignature: true,
   })
   const result = verifyWithSignedBundle(verifierLegitimacyAssertion, policy)
@@ -313,6 +322,7 @@ async function nip05DomainWarning(): Promise<RecipeResult> {
       rank: { required: true, min: 0, max: 100, integer: true },
     },
     rejectUnknownMetrics: true,
+    acceptedPublishers: [RELAY_PUBLISHER],
     requireNostrSignature: true,
   })
   const companionEvidence = await collectNip05DomainCompanionEvidence({
@@ -354,6 +364,7 @@ async function listLabelerSelection(): Promise<RecipeResult> {
       reaction_cnt: { required: true, min: 0, integer: true },
     },
     rejectUnknownMetrics: true,
+    acceptedPublishers: [RELAY_PUBLISHER],
     requireNostrSignature: true,
   })
   const companionEvidence = await collectListLabelerCompanionEvidence({
@@ -400,6 +411,7 @@ function federatedModerationReview(): RecipeResult {
       reports_cnt_recd: { required: true, min: 0, integer: true },
     },
     rejectUnknownMetrics: true,
+    acceptedPublishers: [RELAY_PUBLISHER],
     requireNostrSignature: true,
   })
   const result = verifyWithSignedBundle(moderationEvents, policy)
@@ -428,6 +440,7 @@ function relayAdmissionGate(): RecipeResult {
       rank: { required: true, min: 0, max: 100, integer: true },
     },
     rejectUnknownMetrics: true,
+    acceptedPublishers: [RELAY_PUBLISHER],
     requireNostrSignature: true,
   })
   const result = verifyWithSignedBundle(relayAdmissionAssertion, policy)

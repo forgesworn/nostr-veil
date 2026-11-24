@@ -302,7 +302,7 @@ It returns `{ valid, circleSize, threshold, distinctSigners, subjectInRing, inde
 |----------|---------|
 | `createCircleManifest(options)` | Required: `issuedAt`, `members`, `name`, `profileIds`, `purpose`. Optional: `expiresAt`, `status` (`'active' \| 'revoked' \| 'superseded'`), `supersedes`, `revokedCircleIds`, `contact`, `evidenceProcess`, `policyUri` |
 | `verifyCircleManifest(manifest, options?)` | `allowSuperseded`, `now`, `profileId`, `revokedCircleIds` |
-| `createDeploymentPolicy(profile, options)` | Required: `expectedSubject`, plus at least one active circle from `acceptedCircleIds` or `circleManifests`. Optional: `expectedSubjectTagValue`, `id` (default: the profile id), `maxAgeSeconds` and `minDistinctSigners` (default: the profile's), `metricPolicies` (`{ [metric]: { required?, min?, max?, integer? } }`, bounds on the published aggregate), `aggregate` (default: the profile's), `contributionBounds` (`{ [metric]: { min?, max?, integer?, required? } }`, bounds on each contribution, replacing the profile's for that metric), `rejectUnknownMetrics` (default `false`), `requireNostrSignature` (default `false`), `companionEvidence`, `allowSupersededCircleIds` (default `false`), `now` |
+| `createDeploymentPolicy(profile, options)` | Required: `expectedSubject`, plus at least one active circle from `acceptedCircleIds` or `circleManifests`. Optional: `expectedSubjectTagValue`, `id` (default: the profile id), `maxAgeSeconds` and `minDistinctSigners` (default: the profile's), `metricPolicies` (`{ [metric]: { required?, min?, max?, integer? } }`, bounds on the published aggregate), `aggregate` (default: the profile's), `contributionBounds` (`{ [metric]: { min?, max?, integer?, required? } }`, bounds on each contribution, replacing the profile's for that metric), `rejectUnknownMetrics` (default `false`), `requireNostrSignature` (default `false`), `acceptedPublishers` (hex pubkeys that may sign the assertion events; naming any turns `requireNostrSignature` on), `companionEvidence`, `allowSupersededCircleIds` (default `false`), `now` |
 | `createSignedDeploymentBundle(policy, options)` | Required: `id`, `issuedAt`, `privateKey` (hex). Optional: `expiresAt` (must be greater than `issuedAt`). Returns a frozen bundle carrying the `signer` pubkey and `signature` |
 | `verifyUseCaseProfile(events, profile, options?)` | `acceptedCircleIds`, `aggregate`, `aggregateFn`, `contributionBounds`, `expectedSubject`, `expectedSubjectTagValue`, `maxAgeSeconds`, `minDistinctSigners`, `now`, `requireKnownCircle` (fails when no accepted circle is supplied unless set to `false`) |
 | `verifyDeploymentPolicy(events, policy, options?)` | `aggregateFn`, `companionEvidence` (the supplied `CompanionEvidence[]`), `now` |
@@ -313,6 +313,8 @@ It returns `{ valid, circleSize, threshold, distinctSigners, subjectInRing, inde
 `trustedPublishers` is effectively required for bundle verification: without at least one valid pubkey it fails with `no trusted bundle publishers configured`. `verifyProductionDeployment` returns the bundle and policy results plus `{ decision: 'accept' | 'reject', valid, errors, issues }`.
 
 Every built-in profile pins the aggregate function: `median`, and `sum` for `anonymous-group-decisions`, which also bounds each ballot to 0 or 1. The profile verifiers reject an event published under any other function (issue code `proof.aggregate_mismatch`) or holding a contribution outside the bounds (`proof.contribution_out_of_bounds`). To publish under another function, say so in the policy (`aggregate: 'mean'`) and bound each contribution. A custom profile sets `aggregate` and, per metric, `contribution: { min, max, integer }`; `validateUseCaseProfileDefinition` warns when either is missing. A signed bundle embeds the profile it was issued with, so a bundle issued by an earlier release does not carry these checks: re-issue it.
+
+A proof does not say who published it, or when. The ring signatures are public and carry no time, so anyone can republish a favourable subset of them, or an old proof under a new `created_at`, with their own key; `maxAgeSeconds` reads the timestamp that key set. Where the circle has a designated publisher, name it: `acceptedPublishers: [aggregator.pubkey]` in `createDeploymentPolicy`. The policy then checks every event's Nostr signature and rejects an event signed by any other key (issue code `event.publisher_unaccepted`). `createDeploymentPolicy` throws on an empty or malformed list, and a policy read from a bundle with one rejects every event (`policy.accepted_publishers_invalid`). A named publisher is still trusted to include every signature it was given, and a relay can still serve that publisher's earlier event for as long as the freshness window allows. The list is not `trustedPublishers`, which names who may sign a deployment bundle. A verifier on an earlier release ignores the field in a bundle.
 
 ### Profiles example
 
@@ -341,7 +343,8 @@ const event = signEvent(
 const policy = createDeploymentPolicy(USER_REPUTATION_ABUSE_REPORTING_PROFILE, {
   acceptedCircleIds: [circle.circleId],
   expectedSubject: subjectPubkey,
-  requireNostrSignature: true,       // verifyProductionDeployment rejects a policy without this
+  acceptedPublishers: [aggregator.pubkey], // nobody else may republish the circle's signatures
+  requireNostrSignature: true,       // verifyProductionDeployment needs this; naming acceptedPublishers also turns it on
 })
 const now = Math.floor(Date.now() / 1000)
 const bundle = createSignedDeploymentBundle(policy, {
@@ -356,7 +359,7 @@ const verdict = verifyProductionDeployment([event], bundle, { trustedPublishers:
 // verdict.decision === 'accept', verdict.valid === true, verdict.errors === []
 ```
 
-A bundle signed by any other key fails with the issue code `bundle.signer_untrusted`. For the other built-in profiles, companion evidence and the report helpers, see [examples/production-recipes.ts](./examples/production-recipes.ts), which runs six production-shaped gates (`npm run test:production-recipes`).
+A bundle signed by any other key fails with the issue code `bundle.signer_untrusted`, and an event signed by any key but the aggregator's fails with `event.publisher_unaccepted`. For the other built-in profiles, companion evidence and the report helpers, see [examples/production-recipes.ts](./examples/production-recipes.ts), which runs six production-shaped gates (`npm run test:production-recipes`).
 
 ---
 
@@ -370,14 +373,14 @@ nostr-veil assert event <event-id> [--json '<metrics>']
 nostr-veil assert address <address> [--json '<metrics>']
 nostr-veil assert identifier <id> <k-tag> [--json '<metrics>']
 nostr-veil provider-declare [--json '<entries>']
-nostr-veil verify '<event-json>' [--kind <n>]
+nostr-veil verify '<event-json>' [--kind <n>] [--aggregate <fn>]
 nostr-veil --help
 ```
 
 - `assert` builds a plain NIP-85 assertion (kind 30382, 30383, 30384 or 30385 respectively) and signs it with one key. It does not make ring signatures; use the library for that. `--json` takes a JSON object of metrics, for example `--json '{"rank":74}'`. Without it the metrics are empty.
 - `provider-declare` builds and signs a kind 10040 provider declaration. `--json` takes a JSON array of `{ kind, metric, servicePubkey, relayHint }` entries.
 - `assert` and `provider-declare` read the signing key from `NOSTR_SECRET_KEY` (64-char hex) or from the file named by `NOSTR_SECRET_KEY_FILE`, which takes precedence. They print the signed event as JSON on stdout, ready to pipe to a relay publisher.
-- `verify` needs no key. `<event-json>` is the event itself as an inline JSON string, not a file path, and it must be the first argument after `verify` (for a file use `nostr-veil verify "$(cat event.json)" --kind 30382`). The event must be a JSON object with a `tags` array. `--kind <n>` takes a non-negative integer and applies the `expectedKind` check; it is recommended for v1 proofs.
+- `verify` needs no key. `<event-json>` is the event itself as an inline JSON string, not a file path (for a file use `nostr-veil verify "$(cat event.json)" --kind 30382`). The event must be a JSON object with a `tags` array. `--kind <n>` takes a non-negative integer and applies the `expectedKind` check; it is recommended for v1 proofs. `--aggregate <fn>` takes `median`, `mean`, `sum`, `min` or `max` and applies the `requireAggregate` check. Without it `verify` accepts whichever function the event names, and the publisher chooses that, so the same signatures also verify as a `max` or a `min`. An option may come before or after the event, written `--kind 30382` or `--kind=30382`. An option `verify` does not know, or one given twice, is an error: both options make the check stricter, so a mistyped one is never dropped in silence.
 - `verify` prints the `verifyProof` result as JSON. It exits 0 even when `valid` is `false`, and exits 1 only for bad arguments or unparseable JSON, so read the `valid` field rather than the exit code.
 
 ---
@@ -477,12 +480,16 @@ application control:
   conflict rules for circles that drive real decisions.
 - A shared federation `scope` intentionally reveals cross-circle overlap by key
   image; use scoped federation only when deduplication is worth that signal.
-- The publisher chooses the aggregate function and which signatures to include,
-  and the signatures are public. Anyone can republish a subset of them, or the
-  same set as a `max` or a `min`, under their own key. Pin the function with
-  `requireAggregate` (the built-in profiles do), set the signer threshold to a
-  turnout that matters for the circle, and where the circle has a designated
-  publisher accept assertions only from that key.
+- The publisher chooses the aggregate function, which signatures to include and
+  the event's `created_at`. The circle signs none of the three, and the
+  signatures are public. Anyone can republish a subset of them, the same set as
+  a `max` or a `min`, or an old proof under a new timestamp, with their own key.
+  Pin the function with `requireAggregate` (the built-in profiles do), set the
+  signer threshold to a turnout that matters for the circle, and where the
+  circle has a designated publisher name its key in the deployment policy
+  (`acceptedPublishers`). A named publisher is still trusted to include every
+  signature, and a relay can still serve its earlier event for as long as the
+  freshness window allows.
 - A key image stops a member contributing twice, not contributing one large
   value. Under `sum`, `mean`, `min` or `max`, bound each contribution with
   `contributionBounds`.
@@ -505,7 +512,8 @@ and rotated.
 Production verifiers should prefer `verifyProductionDeployment()` over manually
 composing lower-level checks. It returns the existing human-readable `errors`
 plus stable `issues[].code` values such as `bundle.signer_untrusted`,
-`event.signature_invalid`, `circle.unaccepted`, and `metric.below_min`. Use
+`event.signature_invalid`, `event.publisher_unaccepted`, `circle.unaccepted`,
+and `metric.below_min`. Use
 `explainVerificationIssue()` or `remediationForIssue()` to show the exact
 operator action for each failure. For application UI, audit logs, and support
 runbooks, `verifyProductionDeploymentReport()` returns the same decision with a

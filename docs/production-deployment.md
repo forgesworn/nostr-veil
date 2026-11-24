@@ -17,7 +17,11 @@ should include:
 - the accepted circle manifests or explicit circle IDs for this deployment;
 - the minimum distinct signer count, set to a turnout that matters for the
   circle size, because any publisher can republish a subset of the signatures;
-- the freshness window;
+- the keys that may publish the assertions (`acceptedPublishers`), wherever the
+  circle has a designated publisher. The ring signatures are public and carry
+  no time, so without the list anyone can republish a subset of them, or an old
+  proof under a new timestamp, with their own key;
+- the freshness window, which reads the `created_at` the publisher set;
 - the aggregate function, which the built-in profiles pin (`median`, or `sum`
   for a tally) and a policy can replace with `aggregate`;
 - metric bounds and required metrics, which apply to the published aggregate;
@@ -63,6 +67,7 @@ const policy = createDeploymentPolicy(RELEASE_PACKAGE_MAINTAINER_REPUTATION_PROF
     rank: { required: true, min: 0, max: 100, integer: true },
   },
   rejectUnknownMetrics: true,
+  acceptedPublishers: [aggregatorPubkey],
   requireNostrSignature: true,
 })
 const bundle = createSignedDeploymentBundle(policy, {
@@ -109,7 +114,11 @@ trusted-publishing provenance and a real SBOM URL is supplied.
 The production verifier is intentionally stricter than
 `verifyDeploymentBundle()`: by default it requires a trusted bundle publisher,
 an expiring signed bundle, and a bundled policy that requires valid Nostr event
-signatures for relay-fetched assertions. The result is a gate, not a business
+signatures for relay-fetched assertions. It does not require the policy to
+name its publishers: when the policy names none, the decision report shows the
+`event-publisher` control as `not-checked`, as it shows `companion-evidence`
+for a policy that requires none. So do not gate on every control reading
+`pass`; gate on the decision. The result is a gate, not a business
 decision. After it passes, the application still decides what action is
 proportionate for that subject and score.
 
@@ -117,7 +126,7 @@ The raw `verifyProductionDeployment()` result keeps human-readable
 `result.errors`. Both the raw result and the decision report include stable
 machine-readable codes such as `bundle.trusted_publishers_missing`,
 `bundle.signer_untrusted`, `bundle.expired`, `event.signature_invalid`,
-`circle.unaccepted`, `metric.below_min`, `companion.missing`,
+`event.publisher_unaccepted`, `circle.unaccepted`, `metric.below_min`, `companion.missing`,
 `companion.failed`, and `policy.nostr_signature_not_required`.
 Use those codes for audit logs, alerts, retry decisions, and fail-closed policy.
 Use `explainVerificationIssue(issue)` or `remediationForIssue(issue)` when the
@@ -130,7 +139,8 @@ For application UI and audit logs, prefer `verifyProductionDeploymentReport()`
 or pass an existing `verifyProductionDeployment()` result to
 `createProductionDecisionReport()`. The report keeps the accept/reject decision,
 adds `recommendedAction`, expands every issue with summary and remediation text,
-names the controls that passed, failed, or were explicitly relaxed, and carries
+names each control as passed, failed or not checked (relaxed by the caller, or
+never asked for by the policy), and carries
 the profile's `proofClaims`, `proofLimitations`, `requiredControls`, and
 `recommendedActions` so the UI can explain the proof boundary without inventing
 its own copy.
@@ -205,6 +215,8 @@ A production verifier should reject, or move to manual review, when:
 - required companion evidence is missing, failed, stale, malformed, or for a
   different canonical subject;
 - the relay returned an unsigned or tampered signed event;
+- the policy names its publishers and the event was signed by another key, or
+  the list of publishers is empty or malformed;
 - a federation has too few circles, mixed scopes, or overlapping contributors
   counted incorrectly.
 - an admission challenge is expired, replayed, for the wrong audience, or signed

@@ -117,7 +117,9 @@ profile.
   published value matches the signed ballots under whichever aggregate the
   publisher named. It does not bound a ballot or require `sum`.
 - Do not claim every ballot cast is in the tally. The signatures are public, so
-  any publisher can republish a subset of them; compare turnout with the quorum.
+  any publisher can republish a subset of them; compare turnout with the quorum,
+  and name the aggregator's key in the deployment policy (`acceptedPublishers`)
+  so that nobody else can.
 
 ## What a full profile still needs
 

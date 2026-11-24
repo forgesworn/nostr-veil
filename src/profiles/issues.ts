@@ -30,6 +30,7 @@ export type VerificationIssueCode =
   | 'companion.missing'
   | 'companion.stale'
   | 'companion.subject_mismatch'
+  | 'event.publisher_unaccepted'
   | 'event.signature_invalid'
   | 'event.signature_missing'
   | 'federation.invalid'
@@ -41,6 +42,7 @@ export type VerificationIssueCode =
   | 'metric.required_missing'
   | 'metric.unknown'
   | 'nip85.syntax_invalid'
+  | 'policy.accepted_publishers_invalid'
   | 'policy.nostr_signature_not_required'
   | 'profile.event_count_invalid'
   | 'profile.kind_mismatch'
@@ -232,6 +234,10 @@ const VERIFICATION_ISSUE_EXPLANATION_INPUTS = {
     'A companion evidence check was run against a different subject.',
     'Run the external check against the same canonical subject used by the NIP-85 assertion.',
   ),
+  'event.publisher_unaccepted': explanation(
+    'The assertion was published by a key the deployment policy does not accept.',
+    'Reject it. A proof\'s ring signatures are public and carry no time, so anyone can republish a subset of them, or an old proof under a new timestamp, with their own key. Fetch the assertion from an accepted publisher, or add the key to acceptedPublishers only through explicit governance.',
+  ),
   'event.signature_invalid': explanation(
     'The fetched Nostr event id or signature is invalid.',
     'Reject the event, fetch it again from another relay if useful, and do not verify or act on mutated event data.',
@@ -281,6 +287,11 @@ const VERIFICATION_ISSUE_EXPLANATION_INPUTS = {
   'nip85.syntax_invalid': explanation(
     'The event does not pass NIP-85 syntax validation.',
     'Reject the event and publish it again with the correct kind, tags, subject hint, and metric tag shape.',
+  ),
+  'policy.accepted_publishers_invalid': explanation(
+    'The deployment policy names accepted publishers, but the list is empty or malformed.',
+    'Re-issue the policy with acceptedPublishers as one or more 64-character lowercase hex pubkeys. Every assertion is rejected until then.',
+    'operator-action',
   ),
   'policy.nostr_signature_not_required': explanation(
     'The production bundle policy would allow unsigned relay events.',
@@ -358,7 +369,7 @@ function pathFromMessage(message: string): string | undefined {
   const metric = message.match(/^(event\[\d+\]) metric "([^"]+)"/u)
   if (metric !== null) return `${metric[1]}.tags.${metric[2]}`
 
-  const path = message.match(/^(event\[\d+\]|manifest\[\d+\]|trustedPublishers\[\d+\])/u)?.[1]
+  const path = message.match(/^(event\[\d+\]|manifest\[\d+\]|trustedPublishers\[\d+\]|acceptedPublishers\[\d+\])/u)?.[1]
   if (path !== undefined) return path
 
   return undefined
@@ -398,6 +409,13 @@ function codeFromError(message: string): VerificationIssueCode {
 
   if (lower.includes('is not a fully signed nostr event')) return 'event.signature_missing'
   if (lower.includes('nostr event signature is invalid')) return 'event.signature_invalid'
+  // Matched against the whole message, not a fragment: the syntax, proof and
+  // metric messages below quote tag names taken from the event, and an event
+  // must not be able to name its way into either of these codes
+  if (/^event\[\d+\] publisher is not accepted by deployment policy$/u.test(message)) {
+    return 'event.publisher_unaccepted'
+  }
+  if (/^acceptedPublishers(\[\d+\])? must be /u.test(message)) return 'policy.accepted_publishers_invalid'
 
   if (lower.includes('no accepted circle ids were supplied')) return 'circle.accepted_missing'
   if (lower.includes('acceptedcircleids')) return 'circle.accepted_invalid'

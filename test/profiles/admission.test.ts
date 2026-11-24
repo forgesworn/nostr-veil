@@ -32,7 +32,7 @@ function circleMembers(event: EventTemplate): string[] {
   return members
 }
 
-function signedBundle() {
+function signedBundle(acceptedPublishers?: readonly string[]) {
   const manifest = createCircleManifest({
     issuedAt: now,
     expiresAt: now + 900,
@@ -50,6 +50,7 @@ function signedBundle() {
     now,
     rejectUnknownMetrics: true,
     requireNostrSignature: true,
+    ...(acceptedPublishers === undefined ? {} : { acceptedPublishers }),
   })
 
   return createSignedDeploymentBundle(policy, {
@@ -89,6 +90,27 @@ describe('relay/community admission reference flow', () => {
     expect(result.applicantPubkey).toBe(subjectPubkey)
     expect(result.presentation.signatureValid).toBe(true)
     expect(result.deployment.valid).toBe(true)
+  })
+
+  // The vouch's ring signatures are public, so anyone can sign the same proof
+  // as their own Nostr event. A gate that names its publisher must refuse it.
+  it('denies a vouch republished by a key the deployment does not name', () => {
+    const fromRelay = signEvent(relayAdmissionAssertion, RELAY_PUBLISHER_KEY)
+    const fromOutsider = signEvent(relayAdmissionAssertion, '77'.repeat(32))
+    const bundle = signedBundle([fromRelay.pubkey])
+    const challenge = challengeFor()
+    const presentation = createAdmissionPresentation(challenge, keys[3].priv, { createdAt: now + 1 })
+    const options = { expectedAudience: audience, now: now + 1, trustedPublishers: [bundle.signer] }
+
+    const admitted = verifyAdmissionRequest(fromRelay, bundle, challenge, presentation, options)
+    const denied = verifyAdmissionRequest(fromOutsider, bundle, challenge, presentation, options)
+
+    expect(admitted.decision, admitted.errors.join('; ')).toBe('admit')
+    expect(denied.valid).toBe(false)
+    expect(denied.decision).toBe('deny')
+    expect(denied.errors).toEqual(['event[0] publisher is not accepted by deployment policy'])
+    // Without the list the same republished vouch is admitted
+    expect(verifyAdmissionRequest(fromOutsider, signedBundle(), challenge, presentation, options).decision).toBe('admit')
   })
 
   it('rejects replayed, wrong-audience, and expired presentations before admission policy runs', () => {
