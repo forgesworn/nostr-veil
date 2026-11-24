@@ -1,3 +1,11 @@
+## 0.36.0 (2026-11-24)
+
+### Features
+
+- let a contribution bound require the metric (#68) (proof)
+
+
+
 ## 0.35.0 (2026-11-24)
 
 ### Features
