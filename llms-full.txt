@@ -706,7 +706,13 @@ metric also carries `contribution: { min: 0, max: 1, integer: true, required: tr
 published under another function fails with issue code
 `proof.aggregate_mismatch`; a contribution outside the bounds fails with
 `proof.contribution_out_of_bounds`. Options `aggregate` and
-`contributionBounds` replace the profile's values.
+`contributionBounds` replace the profile's values. The freshness window has two
+ends: an assertion older than `maxAgeSeconds` fails with `assertion.stale`, and
+one dated more than `maxFutureSeconds` ahead of `now` fails with
+`assertion.created_at_future` (default `DEFAULT_MAX_FUTURE_SECONDS`, 60; `0`
+allows no skew). Only the signer sets `created_at`, and an event dated ahead
+stays inside the window until that date plus the window. With `maxAgeSeconds`
+0 neither end is checked.
 
 #### `createCircleManifest(options) → CircleManifest`
 
@@ -723,7 +729,11 @@ requirements, and optional Nostr event signature requirements. `metricPolicies`
 bound the published aggregate. `aggregate` replaces the aggregate function the
 profile pins, and `contributionBounds` (`{ [metric]: { min?, max?, integer?, required? } }`)
 bounds what one member may sign; both are left off the policy when not set, and
-a malformed value throws. A signed bundle embeds the profile it was issued
+a malformed value throws. `maxFutureSeconds` sets how far ahead of the
+verifier's clock an assertion may be dated; it too is left off when not set,
+and a value that is not a non-negative integer throws here and, in a policy
+read from a bundle, rejects every event with
+`policy.max_future_seconds_invalid`. A signed bundle embeds the profile it was issued
 with, so a bundle issued by a release that did not pin aggregates does not
 carry the check: re-issue it.
 

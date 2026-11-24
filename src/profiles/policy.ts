@@ -96,6 +96,13 @@ export interface CreateDeploymentPolicyOptions {
   expectedSubjectTagValue?: string
   id?: string
   maxAgeSeconds?: number
+  /**
+   * How far ahead of the verifier's clock an assertion's `created_at` may be,
+   * in seconds, before it is rejected. Only the signer sets `created_at`, and
+   * an event dated ahead stays inside the freshness window until that date
+   * plus the window. Zero allows no skew. Default: `DEFAULT_MAX_FUTURE_SECONDS`.
+   */
+  maxFutureSeconds?: number
   metricPolicies?: Readonly<Record<string, DeploymentMetricPolicy>>
   minDistinctSigners?: number
   /**
@@ -123,6 +130,8 @@ export interface UseCaseDeploymentPolicy {
   expectedSubjectTagValue?: string
   id: string
   maxAgeSeconds: number
+  /** Present only when the deployment sets its own allowance for a `created_at` ahead of the verifier's clock. */
+  maxFutureSeconds?: number
   metricPolicies: Readonly<Record<string, DeploymentMetricPolicy>>
   minDistinctSigners: number
   profile: UseCaseProfile
@@ -375,6 +384,7 @@ export function createDeploymentPolicy(
   const maxAgeSeconds = options.maxAgeSeconds ?? profile.maxAgeSeconds
   const minDistinctSigners = options.minDistinctSigners ?? profile.minDistinctSigners
   assertNonNegativeInteger(maxAgeSeconds, 'maxAgeSeconds')
+  if (options.maxFutureSeconds !== undefined) assertNonNegativeInteger(options.maxFutureSeconds, 'maxFutureSeconds')
   assertPositiveInteger(minDistinctSigners, 'minDistinctSigners')
   const rawCircleIds = optionalAcceptedCircleIds(options.acceptedCircleIds)
   const circleManifests = Object.freeze([...(options.circleManifests ?? [])])
@@ -412,6 +422,7 @@ export function createDeploymentPolicy(
     ...(options.expectedSubjectTagValue === undefined ? {} : { expectedSubjectTagValue: options.expectedSubjectTagValue }),
     id: options.id ?? profile.id,
     maxAgeSeconds,
+    ...(options.maxFutureSeconds === undefined ? {} : { maxFutureSeconds: options.maxFutureSeconds }),
     metricPolicies: cloneMetricPolicies(options.metricPolicies),
     minDistinctSigners,
     profile,
@@ -657,6 +668,9 @@ export function verifyDeploymentPolicy(
     expectedSubject: policy.expectedSubject,
     expectedSubjectTagValue: policy.expectedSubjectTagValue,
     maxAgeSeconds: policy.maxAgeSeconds,
+    // Passed as it stands: a policy inside a bundle arrives as JSON, and the
+    // profile verifier rejects a value that is not a non-negative integer
+    ...(policy.maxFutureSeconds === undefined ? {} : { maxFutureSeconds: policy.maxFutureSeconds }),
     minDistinctSigners: policy.minDistinctSigners,
     now: options.now,
   })

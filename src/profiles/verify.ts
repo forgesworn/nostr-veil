@@ -14,8 +14,31 @@ import type {
   VerifyUseCaseProfileOptions,
 } from './types.js'
 
+/**
+ * How far ahead of the verifier's clock an assertion may be dated, in seconds,
+ * when the caller sets no `maxFutureSeconds`. Enough for ordinary clock drift,
+ * and short beside the 300-second window the built-in profiles use.
+ */
+export const DEFAULT_MAX_FUTURE_SECONDS = 60
+
 function nowSeconds(): number {
   return Math.floor(Date.now() / 1000)
+}
+
+/**
+ * The allowance for a `created_at` ahead of `now`. A value that is not a
+ * non-negative integer is an error and allows nothing: compared as it stands,
+ * a string or NaN would make the test false and take the bound away. Null is
+ * read as unset, which is how a missing field can come back from JSON.
+ */
+function maxFutureSecondsFrom(options: VerifyUseCaseProfileOptions, errors: string[]): number {
+  const value: unknown = options.maxFutureSeconds
+  if (value === undefined || value === null) return DEFAULT_MAX_FUTURE_SECONDS
+  if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < 0) {
+    errors.push('maxFutureSeconds must be a non-negative integer')
+    return 0
+  }
+  return value
 }
 
 function tagValues(event: EventTemplate, name: string): string[] {
@@ -84,6 +107,7 @@ function verifyEvent(
   index: number,
   options: VerifyUseCaseProfileOptions,
   acceptedCircles: Set<string> | undefined,
+  maxFutureSeconds: number,
   errors: string[],
 ): VerifiedProfileEvent {
   const prefix = `event[${index}]`
@@ -131,10 +155,16 @@ function verifyEvent(
 
   const maxAgeSeconds = options.maxAgeSeconds ?? profile.maxAgeSeconds
   if (maxAgeSeconds > 0) {
+    const now = options.now ?? nowSeconds()
     if (event.created_at === undefined) {
       errors.push(`${prefix} missing created_at for freshness check`)
-    } else if (event.created_at < (options.now ?? nowSeconds()) - maxAgeSeconds) {
+    } else if (event.created_at < now - maxAgeSeconds) {
       errors.push(`${prefix} assertion is outside the accepted freshness window`)
+    } else if (event.created_at > now + maxFutureSeconds) {
+      // Only the signer sets created_at, and an event dated ahead stays inside
+      // the window until that date plus the window. Without this bound the
+      // publisher chooses how long an assertion counts as fresh.
+      errors.push(`${prefix} assertion created_at is in the future`)
     }
   }
 
@@ -198,8 +228,9 @@ export function verifyUseCaseProfile(
     }
   }
 
+  const maxFutureSeconds = maxFutureSecondsFrom(options, errors)
   const verifiedEvents = eventList.map((event, index) =>
-    verifyEvent(profile, event, index, options, acceptedCircles, errors),
+    verifyEvent(profile, event, index, options, acceptedCircles, maxFutureSeconds, errors),
   )
 
   const federation = profile.federation === undefined

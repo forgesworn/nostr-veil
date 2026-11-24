@@ -1,4 +1,5 @@
 export type VerificationIssueCode =
+  | 'assertion.created_at_future'
   | 'assertion.created_at_missing'
   | 'assertion.stale'
   | 'bundle.expired'
@@ -43,6 +44,7 @@ export type VerificationIssueCode =
   | 'metric.unknown'
   | 'nip85.syntax_invalid'
   | 'policy.accepted_publishers_invalid'
+  | 'policy.max_future_seconds_invalid'
   | 'policy.nostr_signature_not_required'
   | 'profile.event_count_invalid'
   | 'profile.kind_mismatch'
@@ -85,6 +87,10 @@ function explanation(
 }
 
 const VERIFICATION_ISSUE_EXPLANATION_INPUTS = {
+  'assertion.created_at_future': explanation(
+    'The assertion is dated further ahead of the verifier clock than the deployment allows.',
+    'Reject the assertion. Only its signer sets created_at, and an event dated ahead stays inside the freshness window until that date plus the window. If the verifier clock is right and the publisher is known to run ahead, raise maxFutureSeconds in the deployment policy.',
+  ),
   'assertion.created_at_missing': explanation(
     'The assertion has no Nostr created_at timestamp.',
     'Fetch or publish a complete signed Nostr event with created_at before applying freshness policy.',
@@ -293,6 +299,11 @@ const VERIFICATION_ISSUE_EXPLANATION_INPUTS = {
     'Re-issue the policy with acceptedPublishers as one or more 64-character lowercase hex pubkeys. Every assertion is rejected until then.',
     'operator-action',
   ),
+  'policy.max_future_seconds_invalid': explanation(
+    'The deployment policy maxFutureSeconds is not a non-negative integer.',
+    'Correct maxFutureSeconds in the deployment policy and reissue the bundle. A malformed allowance allows nothing, so every assertion is rejected until then.',
+    'operator-action',
+  ),
   'policy.nostr_signature_not_required': explanation(
     'The production bundle policy would allow unsigned relay events.',
     'Set requireNostrSignature: true in createDeploymentPolicy() for production relay-fetched assertions.',
@@ -377,6 +388,12 @@ function pathFromMessage(message: string): string | undefined {
 
 function codeFromError(message: string): VerificationIssueCode {
   const lower = message.toLowerCase()
+
+  // Matched against the whole message, ahead of the fragment rules below. The
+  // syntax, proof and metric messages quote tag names taken from the event,
+  // and an event must not be able to name its way into either of these codes.
+  if (/^event\[\d+\] assertion created_at is in the future$/u.test(message)) return 'assertion.created_at_future'
+  if (message === 'maxFutureSeconds must be a non-negative integer') return 'policy.max_future_seconds_invalid'
 
   if (lower.includes('production verifier requires policy.requirenostrsignature')) {
     return 'policy.nostr_signature_not_required'

@@ -99,6 +99,13 @@ export interface VerifyUseCaseProfileOptions {
   expectedSubject?: string
   expectedSubjectTagValue?: string
   maxAgeSeconds?: number
+  /**
+   * How far ahead of `now` an assertion's `created_at` may be, in seconds,
+   * before it is rejected. Checked wherever the freshness window is. Only the
+   * signer sets `created_at`, and an event dated ahead stays inside the window
+   * until that date plus the window. Default: `DEFAULT_MAX_FUTURE_SECONDS`.
+   */
+  maxFutureSeconds?: number
   minDistinctSigners?: number
   now?: number
   requireKnownCircle?: boolean
