@@ -6,6 +6,7 @@ import { isUnixSecondsTagValue } from '../nip85/tags.js'
 import { subjectMatchesAnyFormat } from './canonical.js'
 import { issuesFromErrors } from './issues.js'
 import type { EventTemplate } from '../nip85/types.js'
+import type { ContributionBound, ContributionBounds } from '../proof/types.js'
 import type {
   UseCaseProfile,
   UseCaseProfileVerification,
@@ -52,6 +53,31 @@ function acceptedCircleSet(options: VerifyUseCaseProfileOptions): Set<string> | 
     : new Set(options.acceptedCircleIds)
 }
 
+/**
+ * The per-contribution bounds to enforce: each metric's bound from the
+ * profile, with any bound the caller supplies for a metric taking its place.
+ * Left unvalidated here; `verifyProof` checks the shape and fails closed.
+ */
+function contributionBoundsFor(
+  profile: UseCaseProfile,
+  options: VerifyUseCaseProfileOptions,
+): ContributionBounds | undefined {
+  // No prototype, so a metric named like an Object.prototype member cannot be read from it
+  const bounds = Object.create(null) as Record<string, ContributionBound>
+  for (const metric of profile.metrics) {
+    if (metric.contribution !== undefined) bounds[metric.name] = metric.contribution
+  }
+  const supplied: unknown = options.contributionBounds
+  if (supplied !== undefined) {
+    // A malformed value is passed through whole so verifyProof reports it
+    if (typeof supplied !== 'object' || supplied === null || Array.isArray(supplied)) {
+      return supplied as ContributionBounds
+    }
+    Object.assign(bounds, supplied)
+  }
+  return Object.keys(bounds).length === 0 ? undefined : bounds
+}
+
 function verifyEvent(
   profile: UseCaseProfile,
   event: EventTemplate,
@@ -86,9 +112,13 @@ function verifyEvent(
     errors.push(`${prefix} ${profile.subjectTag} tag does not match expected subject hint`)
   }
 
+  const requireAggregate = options.aggregate ?? profile.aggregate
+  const contributionBounds = contributionBoundsFor(profile, options)
   const proof = verifyProof(event, {
     aggregateFn: options.aggregateFn,
     requireProofVersion: profile.proofVersion,
+    ...(requireAggregate === undefined ? {} : { requireAggregate }),
+    ...(contributionBounds === undefined ? {} : { contributionBounds }),
   })
   if (!proof.valid) {
     errors.push(...proof.errors.map(error => `${prefix} proof: ${error}`))

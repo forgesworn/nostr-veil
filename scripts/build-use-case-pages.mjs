@@ -123,6 +123,7 @@ const safetyChecks = [
   ['Wrong kind', 'The assertion kind must match the profile and the signed v2 context.'],
   ['Proof downgrade', 'New deployment profiles require proof v2.'],
   ['Duplicate signer', 'Repeated key images must not increase the signer count.'],
+  ['Aggregate swap', 'The same signatures republished under another aggregate function, such as max, must fail the profile.'],
   ['Insufficient threshold', 'Removing a signature must fail the profile threshold.'],
   ['Stale assertion', 'created_at must remain inside the freshness window.'],
   ['Unknown circle', 'The circle ID must be accepted by deployment policy.'],

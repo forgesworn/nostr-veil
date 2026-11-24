@@ -47,6 +47,8 @@ export type VerificationIssueCode =
   | 'profile.subject_format_invalid'
   | 'profile.subject_hint_mismatch'
   | 'profile.subject_mismatch'
+  | 'proof.aggregate_mismatch'
+  | 'proof.contribution_out_of_bounds'
   | 'proof.invalid'
   | 'proof.threshold_not_met'
   | 'verification.failed'
@@ -307,6 +309,14 @@ const VERIFICATION_ISSUE_EXPLANATION_INPUTS = {
     'The assertion is about a different subject than the deployment expected.',
     'Reject it and verify only assertions whose subject equals the canonical expectedSubject.',
   ),
+  'proof.aggregate_mismatch': explanation(
+    'The assertion was published with a different aggregate function from the one the profile or policy requires.',
+    'Reject it. The publisher chooses the veil-agg tag, so the same signatures can be republished as a max or a min; fetch the assertion published with the expected aggregate, or change the policy aggregate only through explicit governance.',
+  ),
+  'proof.contribution_out_of_bounds': explanation(
+    'A contribution carries a value outside the bounds the profile or policy sets for one member.',
+    'Reject it. The aggregator should leave that contribution out and publish again; contributionBoundViolations() finds it before aggregating.',
+  ),
   'proof.invalid': explanation(
     'The nostr-veil ring proof is invalid.',
     'Reject the assertion; collect a new aggregate from the circle rather than trying to repair proof tags.',
@@ -398,6 +408,16 @@ function codeFromError(message: string): VerificationIssueCode {
   if (lower.includes('manifest does not allow profile')) return 'circle.profile_not_allowed'
   if (lower.includes('circleid') || lower.includes('members') || lower.includes('profileids')) {
     return 'circle.manifest_invalid'
+  }
+
+  // Proof-level policy failures, ahead of the metric checks: their messages name a metric too
+  if (lower.includes('veil-agg is "') && lower.includes('is required')) return 'proof.aggregate_mismatch'
+  if (
+    lower.includes('the contribution minimum')
+    || lower.includes('the contribution maximum')
+    || lower.includes('the contribution bounds require')
+  ) {
+    return 'proof.contribution_out_of_bounds'
   }
 
   if (lower.includes('metric "') && lower.includes('is not allowed')) return 'metric.unknown'

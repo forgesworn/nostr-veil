@@ -54,9 +54,12 @@ Use `createDeploymentPolicy()` and `verifyProductionDeployment()` with:
 - expected subject;
 - expected subject hint where it is not the subject itself;
 - proof v2 requirement;
-- minimum distinct signer count;
+- minimum distinct signer count, set to a turnout that matters for the circle
+  size;
 - freshness window;
+- the aggregate function the profile pins, or the policy's own `aggregate`;
 - metric bounds and required metrics;
+- per-contribution bounds for any aggregate but `median`;
 - Nostr event signature verification for relay-fetched events;
 - federation scope policy, when applicable.
 

@@ -201,6 +201,7 @@ describe('public use-case pages', () => {
       'Wrong subject',
       'Proof downgrade',
       'Duplicate signer',
+      'Aggregate swap',
       'Unknown circle',
       'Unsigned policy',
       'Relay mutation',

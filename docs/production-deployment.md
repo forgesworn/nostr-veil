@@ -15,9 +15,14 @@ should include:
 - the exact expected subject;
 - the canonical subject helper used before signing and verification;
 - the accepted circle manifests or explicit circle IDs for this deployment;
-- the minimum distinct signer count;
+- the minimum distinct signer count, set to a turnout that matters for the
+  circle size, because any publisher can republish a subset of the signatures;
 - the freshness window;
-- metric bounds and required metrics;
+- the aggregate function, which the built-in profiles pin (`median`, or `sum`
+  for a tally) and a policy can replace with `aggregate`;
+- metric bounds and required metrics, which apply to the published aggregate;
+- bounds on each contribution (`contributionBounds`) for any aggregate but
+  `median`, where one member's value can move the result;
 - companion evidence requirements for external facts the proof cannot prove;
 - whether unknown metrics should be rejected;
 - whether fetched events must carry a valid Nostr event signature.

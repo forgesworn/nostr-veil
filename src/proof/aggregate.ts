@@ -4,12 +4,15 @@ import { NIP85_KINDS } from '../nip85/types.js'
 import type {
   AggregateFn,
   AggregateName,
+  AggregateTagValue,
   Contribution,
+  ContributionBounds,
   ProofContext,
   ProofVersion,
   SubjectTag,
   TrustCircle,
 } from './types.js'
+import { contributionBoundViolations, contributionBoundsProblem } from './bounds.js'
 import { canonicalMessage, canonicalMessageV2, computeCircleId, electionId, electionIdV2 } from './circle.js'
 import { reservedMetricNameReason } from './metric-names.js'
 
@@ -24,17 +27,27 @@ export interface PublisherTagOptions {
   alt?: string
 }
 
+/** A check the aggregator applies to every contribution before it publishes. */
+export interface ContributionBoundsOptions {
+  /**
+   * Refuse to aggregate when a contribution carries a value outside these
+   * bounds. Use the bounds your verifiers apply, so you never publish an event
+   * they will reject.
+   */
+  contributionBounds?: ContributionBounds
+}
+
 export type AggregateOptions = AggregateFn | ({
   aggregateFn?: AggregateFn
   aggregate?: AggregateName
   kind?: number
   proofVersion?: ProofVersion
-} & PublisherTagOptions)
+} & PublisherTagOptions & ContributionBoundsOptions)
 export type TypedAggregateOptions = AggregateFn | ({
   aggregateFn?: AggregateFn
   aggregate?: AggregateName
   proofVersion?: ProofVersion
-} & PublisherTagOptions)
+} & PublisherTagOptions & ContributionBoundsOptions)
 
 function median(values: number[]): number {
   const sorted = [...values].sort((a, b) => a - b)
@@ -60,6 +73,20 @@ export const AGGREGATES: Record<AggregateName, AggregateFn> = {
 /** True if `name` is a recognised built-in aggregate function. */
 export function isAggregateName(name: string): name is AggregateName {
   return Object.prototype.hasOwnProperty.call(AGGREGATES, name)
+}
+
+/** True if `value` is a `veil-agg` tag value: a built-in aggregate name or `custom`. */
+export function isAggregateTagValue(value: unknown): value is AggregateTagValue {
+  return typeof value === 'string' && (value === 'custom' || isAggregateName(value))
+}
+
+function contributionBoundsFrom(options: AggregateOptions | undefined): ContributionBounds | undefined {
+  if (typeof options !== 'object' || options === null) return undefined
+  const bounds: unknown = options.contributionBounds
+  if (bounds === undefined) return undefined
+  const problem = contributionBoundsProblem(bounds)
+  if (problem !== undefined) throw new Error(problem)
+  return bounds as ContributionBounds
 }
 
 function serialiseSig(sig: Contribution['signature']): string {
@@ -246,6 +273,7 @@ function aggregateContributionsWithSubjectTags(
   subjectTags: string[][],
 ): EventTemplate {
   const { aggregateFn, aggName, kind, proofVersion: requested } = resolveAggregate(options)
+  const contributionBounds = contributionBoundsFrom(options)
   const proofVersion = resolveProofVersion(requested, contributions)
   const publisherTagList = publisherTags(options)
   if (circle.size !== circle.members.length) {
@@ -285,6 +313,10 @@ function aggregateContributionsWithSubjectTags(
       : canonicalMessageV2(circle.circleId, subject, contribution.metrics, proofContext)
     if (contribution.signature.message !== expectedMessage) {
       throw new Error(`Signature signed message does not match contribution metrics at contribution index ${i}`)
+    }
+    if (contributionBounds !== undefined) {
+      const violations = contributionBoundViolations(contribution.metrics, contributionBounds)
+      if (violations.length > 0) throw new Error(`Contribution index ${i} ${violations.join('; ')}`)
     }
     if (!lsagVerify(contribution.signature)) {
       throw new Error(`Invalid LSAG signature at contribution index ${i}`)
@@ -366,8 +398,12 @@ function aggregateContributionsWithSubjectTags(
  *   publisher's Nostr signature covers it. The typed helpers accept it too.
  * @param options.alt - Optional NIP-31 alt text, emitted as an `alt` tag on the
  *   same terms as `expiration`.
+ * @param options.contributionBounds - Optional bounds on each contribution, by
+ *   metric name. A contribution outside them throws. Set it whenever the
+ *   aggregate is not median: a key image stops a second contribution, not one
+ *   large value. The typed helpers accept it too.
  * @returns An unsigned {@link EventTemplate} with proof tags — sign and publish as a standard Nostr event
- * @throws If any LSAG signature is invalid, duplicate key images are detected, an unknown aggregate name is supplied, or `expiration` or `alt` is malformed
+ * @throws If any LSAG signature is invalid, duplicate key images are detected, an unknown aggregate name is supplied, a contribution is outside `contributionBounds`, or `expiration`, `alt` or the bounds are malformed
  */
 export function aggregateContributions(
   circle: TrustCircle,

@@ -132,7 +132,7 @@ const assertion = aggregateContributions(circle, subjectPubkey, [aliceContributi
 const signed = signEvent(assertion, aggregator.privkey)
 
 // 5. Any client verifies -- two distinct members agreed, no names attached
-const result = verifyProof(signed, { expectedKind: NIP85_KINDS.USER })
+const result = verifyProof(signed, { expectedKind: NIP85_KINDS.USER, requireAggregate: 'median' })
 // { valid: true, circleSize: 3, threshold: 2, distinctSigners: 2,
 //   subjectInRing: false, independentSigners: 2, errors: [] }
 ```
@@ -147,7 +147,7 @@ The `@noble/curves` and `@noble/hashes` imports are only used for key generation
 
 **A subject inside its own ring.** A ring signature hides which member signed, so when the subject of a kind 30382 assertion is itself a ring member, the proof cannot tell whether the subject signed. Key images allow at most one signature per scope from any member, so at most one of the valid signatures can be the subject's. `verifyProof` reports this as `subjectInRing` (the d-tag subject is a ring member) and `independentSigners` (`distinctSigners`, less one when `subjectInRing`: the signatures that cannot be the subject's). A subject in the ring does not make the proof invalid by default; pass `rejectSubjectInRing: true` to fail closed with `Subject is a veil-ring member`. The subject's contribution also sits inside the aggregated metric and cannot be removed after the fact, so a verifier that wants a clean score should use `rejectSubjectInRing` or compare `independentSigners` against its threshold, rather than `distinctSigners`. `contributeAssertion` refuses to sign about the signer's own pubkey (`A circle member cannot contribute to an assertion about themselves`), but a modified client can still do it, which is why the verifier-side fields exist. On kinds other than 30382 the d-tag is an event id, address or identifier, so `subjectInRing` is false in practice. `verifyFederation` reports the same two fields across the federation, where the subject can hold at most one key image.
 
-Passing `expectedKind` matters because v1 proofs are not bound to the event kind; see [Proof v2](#proof-v2).
+Passing `expectedKind` matters because v1 proofs are not bound to the event kind; see [Proof v2](#proof-v2). Passing `requireAggregate` matters because the publisher, not the circle, chooses the aggregate function; see [Options and types](#options-and-types).
 
 ---
 
@@ -184,7 +184,8 @@ Passing `expectedKind` matters because v1 proofs are not bound to the event kind
 | `aggregateEventContributions(circle, eventId, contributions, options?)` | Aggregate into a kind 30383 event assertion with `d`/`e` tags |
 | `aggregateAddressableContributions(circle, address, contributions, options?)` | Aggregate into a kind 30384 addressable assertion with `d`/`a` tags |
 | `aggregateIdentifierContributions(circle, identifier, kTag, contributions, options?)` | Aggregate into a kind 30385 identifier assertion with `d`/`k` tags |
-| `verifyProof(event, options?)` | Verify ring signatures, threshold metadata, signed metric aggregation, and optional proof-version (`requireProofVersion`) and kind (`expectedKind`) requirements |
+| `verifyProof(event, options?)` | Verify ring signatures, threshold metadata, signed metric aggregation, and optional proof-version (`requireProofVersion`), kind (`expectedKind`), aggregate (`requireAggregate`) and per-contribution (`contributionBounds`) requirements |
+| `contributionBoundViolations(metrics, bounds)` | List how one contribution's metrics break a set of bounds, so an aggregator can leave a bad contribution out before it aggregates the rest |
 | `verifyFederation(events, options?)` | Verify several scoped events together and count distinct contributors across circles ([cross-circle deduplication](#cross-circle-deduplication)) |
 | `canonicalMessage(circleId, subject, metrics)` | Compute the canonical message signed by contributors |
 | `canonicalMessageV2(circleId, subject, metrics, context)` | Compute the v2 canonical message that binds kind and subject hint tag |
@@ -200,7 +201,7 @@ Passing `expectedKind` matters because v1 proofs are not bound to the event kind
 | `verifyUseCaseProfile(events, profile, options)` | Verify NIP-85 syntax, proof v2, subject binding, threshold, freshness, accepted circles, and federation policy |
 | `createCircleManifest(options)` | Build a machine-readable circle manifest with member list, allowed profiles, expiry, revocation, and supersession metadata |
 | `verifyCircleManifest(manifest, options?)` | Verify that a circle manifest matches its members and deployment constraints |
-| `createDeploymentPolicy(profile, options)` | Build a fail-closed deployment policy with accepted circles, expected subject, metric bounds, freshness, threshold, signature requirements, and optional companion evidence requirements |
+| `createDeploymentPolicy(profile, options)` | Build a fail-closed deployment policy with accepted circles, expected subject, metric bounds, freshness, threshold, signature requirements, the aggregate function, per-contribution bounds, and optional companion evidence requirements |
 | `verifyDeploymentPolicy(events, policy, options?)` | Verify a profile plus deployment-specific controls and supplied companion evidence before acting on a score |
 | `createSignedDeploymentBundle(policy, options)` | Sign a deployment policy and its manifests as trusted operator configuration |
 | `verifySignedDeploymentBundle(bundle, options?)` | Verify only the bundle: shape, expiry and future-`issuedAt` against `now`, the signer's BIP-340 signature, and `trustedPublishers`. Does not look at any events |
@@ -267,20 +268,25 @@ The root entry point re-exports all of `nostr-veil/nip85`, `nostr-veil/proof` an
   kind?: number                                           // aggregateContributions only; legacy, default 30382
   expiration?: number                                     // NIP-40 expiration tag, unix seconds
   alt?: string                                            // NIP-31 alt tag, non-empty
+  contributionBounds?: Record<string, { min?: number; max?: number; integer?: boolean }>  // refuse a contribution outside these bounds
 }
 ```
 
 `median` and `mean` round to an integer; `sum`, `min` and `max` do not. A non-finite result throws, and an unknown `aggregate` name throws `Unknown aggregate function: <name>`. A built-in name is written to the `veil-agg` tag and `verifyProof` reads it from there, so verifying a summed tally needs no option: `aggregateContributions(circle, subject, contributions, { aggregate: 'sum' })` verifies with a bare `verifyProof(event)`. A custom function is written as `veil-agg: custom` and must be passed to the verifier too (`verifyProof(event, { aggregateFn })` or a bare function), otherwise it fails with `veil-agg is "custom": pass the aggregate function via options to verify the metric tags`.
 
+**The publisher chooses the aggregate, and each member chooses their value.** The circle does not sign `veil-agg`, and the signatures are public, so anyone can republish the same signatures under another function: three scores of 20, 20 and 95 read as 20 under `median` and 95 under `max`, and both pass a bare `verifyProof`. A verifier that expects a particular function says so with `requireAggregate` (the built-in profiles do). A key image stops a member contributing twice, not contributing one large value, and under `sum`, `mean`, `min` or `max` one contribution can move the result. Bound each contribution with `contributionBounds`, for example `{ rank: { min: 0, max: 1, integer: true } }` for a tally of ayes; a metric with no entry is not bounded. Aggregation then throws on a contribution outside the bounds (`Contribution index 2 metric "rank" value 3 is above the contribution maximum 1`), and `contributionBoundViolations(contribution.metrics, bounds)` lets an aggregator find and leave out such a contribution first.
+
 `expiration` and `alt` are publisher tags: the circle does not sign them, and `verifyProof` does not read them as metrics. `expiration` must be a non-negative safe integer and `alt` a non-empty string, or aggregation throws. `verifyProof` accepts at most one of each, rejects an `expiration` that is not a unix time in seconds or an empty `alt`, and does not compare expiry with the clock, so archived events can still be re-checked. The profile verifiers (`verifyUseCaseProfile`, `verifyDeploymentPolicy` and the bundle verifiers built on them) do: they reject an assertion whose `expiration` is at or before `now`, because many relays and caches still serve expired events. These tags are only as trustworthy as the outer Nostr signature, which `verifyProof` does not check: verify the event signature (`verifySignedEvent`, or `requireNostrSignature` in a deployment policy) before relying on them. Other general tags (`client`, `nonce`, `-`, `L`, `l`, `i`, `content-warning`) are not accepted on veil events, and `verifyProof` reads them as unsigned metrics. A metric tag must be exactly `[name, value]`: the circle signs only those two, so `verifyProof` rejects a metric tag with anything after the value, and the same for the `d` tag and the `k` tag. The proof tags have a fixed shape too: a second `veil-ring`, `veil-threshold`, `veil-agg`, `veil-version` or `veil-scope` tag, or extra elements on any of them or on a `veil-sig`, makes the event invalid. Unknown `veil-*` tags are ignored, so a verifier keeps working when a later release adds one. A `k` tag is accepted only on kind 30385, where it names the identifier type.
 
-**`verifyProof(event, options?)`.** `options` is a bare aggregate function or an object `{ aggregateFn?, expectedKind?, requireProofVersion?, rejectSubjectInRing?, limits? }`:
+**`verifyProof(event, options?)`.** `options` is a bare aggregate function or an object `{ aggregateFn?, expectedKind?, requireProofVersion?, requireAggregate?, contributionBounds?, rejectSubjectInRing?, limits? }`:
 
 | Option | Type | Meaning |
 |--------|------|---------|
 | `aggregateFn` | `(values: number[]) => number` | Needed only when `veil-agg` is `custom` |
 | `expectedKind` | `number` | Reject events of any other NIP-85 kind. Recommended for v1 proofs, which are not kind-bound |
 | `requireProofVersion` | `'v1' \| 'v2'` | Reject signatures of the other proof version |
+| `requireAggregate` | `'median' \| 'mean' \| 'sum' \| 'min' \| 'max' \| 'custom'` | Reject the event unless its `veil-agg` tag names this function, with `veil-agg is "max" but "median" is required`. An event with no `veil-agg` tag reads as `median`. When this names a built-in function the metric tags are recomputed with it, whatever `aggregateFn` is passed. Recommended: the publisher chooses the tag |
+| `contributionBounds` | `Record<string, { min?, max?, integer? }>` | Reject the event if any contribution's value for a named metric is outside its bounds. Needed under `sum`, `mean`, `min` and `max`. Malformed bounds fail the proof; they are never ignored |
 | `rejectSubjectInRing` | `boolean` | Fail with `Subject is a veil-ring member` when the d-tag subject is a ring member. Default `false`; `subjectInRing` is reported either way |
 | `limits` | `Partial<VerifyLimits>` | Override `DEFAULT_VERIFY_LIMITS`: `maxRingSize` 1000, `maxSigPayloadBytes` 128000, `maxSignedMessageBytes` 16384, `maxMetricCount` 128, `maxMetricNameLength` 64 |
 
@@ -296,9 +302,9 @@ It returns `{ valid, circleSize, threshold, distinctSigners, subjectInRing, inde
 |----------|---------|
 | `createCircleManifest(options)` | Required: `issuedAt`, `members`, `name`, `profileIds`, `purpose`. Optional: `expiresAt`, `status` (`'active' \| 'revoked' \| 'superseded'`), `supersedes`, `revokedCircleIds`, `contact`, `evidenceProcess`, `policyUri` |
 | `verifyCircleManifest(manifest, options?)` | `allowSuperseded`, `now`, `profileId`, `revokedCircleIds` |
-| `createDeploymentPolicy(profile, options)` | Required: `expectedSubject`, plus at least one active circle from `acceptedCircleIds` or `circleManifests`. Optional: `expectedSubjectTagValue`, `id` (default: the profile id), `maxAgeSeconds` and `minDistinctSigners` (default: the profile's), `metricPolicies` (`{ [metric]: { required?, min?, max?, integer? } }`), `rejectUnknownMetrics` (default `false`), `requireNostrSignature` (default `false`), `companionEvidence`, `allowSupersededCircleIds` (default `false`), `now` |
+| `createDeploymentPolicy(profile, options)` | Required: `expectedSubject`, plus at least one active circle from `acceptedCircleIds` or `circleManifests`. Optional: `expectedSubjectTagValue`, `id` (default: the profile id), `maxAgeSeconds` and `minDistinctSigners` (default: the profile's), `metricPolicies` (`{ [metric]: { required?, min?, max?, integer? } }`, bounds on the published aggregate), `aggregate` (default: the profile's), `contributionBounds` (`{ [metric]: { min?, max?, integer? } }`, bounds on each contribution, replacing the profile's for that metric), `rejectUnknownMetrics` (default `false`), `requireNostrSignature` (default `false`), `companionEvidence`, `allowSupersededCircleIds` (default `false`), `now` |
 | `createSignedDeploymentBundle(policy, options)` | Required: `id`, `issuedAt`, `privateKey` (hex). Optional: `expiresAt` (must be greater than `issuedAt`). Returns a frozen bundle carrying the `signer` pubkey and `signature` |
-| `verifyUseCaseProfile(events, profile, options?)` | `acceptedCircleIds`, `aggregateFn`, `expectedSubject`, `expectedSubjectTagValue`, `maxAgeSeconds`, `minDistinctSigners`, `now`, `requireKnownCircle` (fails when no accepted circle is supplied unless set to `false`) |
+| `verifyUseCaseProfile(events, profile, options?)` | `acceptedCircleIds`, `aggregate`, `aggregateFn`, `contributionBounds`, `expectedSubject`, `expectedSubjectTagValue`, `maxAgeSeconds`, `minDistinctSigners`, `now`, `requireKnownCircle` (fails when no accepted circle is supplied unless set to `false`) |
 | `verifyDeploymentPolicy(events, policy, options?)` | `aggregateFn`, `companionEvidence` (the supplied `CompanionEvidence[]`), `now` |
 | `verifySignedDeploymentBundle(bundle, options?)` | `now`, `trustedPublishers` |
 | `verifyDeploymentBundle(events, bundle, options?)` | The `verifyDeploymentPolicy` options plus `trustedPublishers` |
@@ -306,9 +312,11 @@ It returns `{ valid, circleSize, threshold, distinctSigners, subjectInRing, inde
 
 `trustedPublishers` is effectively required for bundle verification: without at least one valid pubkey it fails with `no trusted bundle publishers configured`. `verifyProductionDeployment` returns the bundle and policy results plus `{ decision: 'accept' | 'reject', valid, errors, issues }`.
 
+Every built-in profile pins the aggregate function: `median`, and `sum` for `anonymous-group-decisions`, which also bounds each ballot to 0 or 1. The profile verifiers reject an event published under any other function (issue code `proof.aggregate_mismatch`) or holding a contribution outside the bounds (`proof.contribution_out_of_bounds`). To publish under another function, say so in the policy (`aggregate: 'mean'`) and bound each contribution. A custom profile sets `aggregate` and, per metric, `contribution: { min, max, integer }`; `validateUseCaseProfileDefinition` warns when either is missing. A signed bundle embeds the profile it was issued with, so a bundle issued by an earlier release does not carry these checks: re-issue it.
+
 ### Profiles example
 
-A production verifier pins the operator's publisher pubkey, loads a signed deployment bundle, and checks fetched assertions against it. This continues from the quick start (`alice`, `bob`, `carol`, `circle`, `subjectPubkey`, `aggregator`). The built-in `USER_REPUTATION_ABUSE_REPORTING_PROFILE` (id `user-reputation-abuse-reporting`) requires proof v2, at least three distinct signers, and an assertion no older than 300 seconds, so the contributions below are v2 and all three members sign.
+A production verifier pins the operator's publisher pubkey, loads a signed deployment bundle, and checks fetched assertions against it. This continues from the quick start (`alice`, `bob`, `carol`, `circle`, `subjectPubkey`, `aggregator`). The built-in `USER_REPUTATION_ABUSE_REPORTING_PROFILE` (id `user-reputation-abuse-reporting`) requires proof v2, the median aggregate, at least three distinct signers, and an assertion no older than 300 seconds, so the contributions below are v2 and all three members sign.
 
 ```ts
 import {
@@ -469,6 +477,26 @@ application control:
   conflict rules for circles that drive real decisions.
 - A shared federation `scope` intentionally reveals cross-circle overlap by key
   image; use scoped federation only when deduplication is worth that signal.
+- The publisher chooses the aggregate function and which signatures to include,
+  and the signatures are public. Anyone can republish a subset of them, or the
+  same set as a `max` or a `min`, under their own key. Pin the function with
+  `requireAggregate` (the built-in profiles do), set the signer threshold to a
+  turnout that matters for the circle, and where the circle has a designated
+  publisher accept assertions only from that key.
+- A key image stops a member contributing twice, not contributing one large
+  value. Under `sum`, `mean`, `min` or `max`, bound each contribution with
+  `contributionBounds`.
+- A key image depends only on the member's private key and the election id.
+  Whoever holds a member's key, then or later, can find that member's
+  contributions; a member can prove what they signed; and a non-signer can prove
+  they did not, so a whole roster can be asked for alibis. Use per-circle keys
+  that are destroyed after use where that matters, and do not rely on
+  nostr-veil where keys can be seized or members can be made to show which
+  contribution is theirs.
+- An event grows with ring size times signers, because each signature carries
+  one response per ring member, and verification time grows the same way. A
+  ring of 100 with 10 signers is about 80 KiB, above the 64 KiB default event
+  limit of a stock strfry relay. Size circles for the relays in use.
 
 For sensitive deployments, combine nostr-veil with careful collection,
 transport privacy, key hygiene, and a clear policy for how circles are admitted

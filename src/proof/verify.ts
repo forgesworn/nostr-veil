@@ -8,8 +8,17 @@ import {
   MAX_SCOPE_LENGTH,
   SCOPE_RE,
 } from './circle.js'
-import type { AggregateFn, ProofContext, ProofVerification, ProofVersion, SubjectTag } from './types.js'
-import { AGGREGATES, isAggregateName } from './aggregate.js'
+import type {
+  AggregateFn,
+  AggregateTagValue,
+  ContributionBounds,
+  ProofContext,
+  ProofVerification,
+  ProofVersion,
+  SubjectTag,
+} from './types.js'
+import { AGGREGATES, isAggregateName, isAggregateTagValue } from './aggregate.js'
+import { contributionBoundViolations, contributionBoundsProblem } from './bounds.js'
 import { reservedMetricNameReason } from './metric-names.js'
 import { isUnixSecondsTagValue, PUBLISHER_TAGS } from '../nip85/tags.js'
 import { NIP85_KINDS } from '../nip85/types.js'
@@ -73,6 +82,22 @@ export type VerifyOptions = AggregateFn | {
   expectedKind?: number
   limits?: Partial<VerifyLimits>
   requireProofVersion?: ProofVersion
+  /**
+   * Reject the event unless it was published with this aggregate function. The
+   * `veil-agg` tag is the publisher's choice and the circle does not sign it,
+   * so anyone can republish the same signatures under another function: three
+   * scores of 20, 20 and 95 read as 20 under `median` and 95 under `max`, and
+   * both verify. Name the function your application expects. An event with no
+   * `veil-agg` tag reads as `median`. For `custom`, pass `aggregateFn` too.
+   */
+  requireAggregate?: AggregateTagValue
+  /**
+   * Reject the event if any contribution carries a value outside these bounds.
+   * A key image stops a member contributing twice, not contributing one large
+   * value, so a tally read from `sum` needs each ballot bounded, for example
+   * `{ rank: { min: 0, max: 1, integer: true } }`.
+   */
+  contributionBounds?: ContributionBounds
   /**
    * Fail closed when the d-tag subject is itself a veil-ring member. A ring
    * signature hides which member signed, so one of the valid signatures may be
@@ -138,6 +163,51 @@ function failure(
 
 function requiredProofVersion(options?: VerifyOptions): ProofVersion | undefined {
   return typeof options === 'function' ? undefined : options?.requireProofVersion
+}
+
+/**
+ * Read the policy options that constrain how the event was aggregated. Both
+ * can arrive from signed deployment configuration, so a malformed value is an
+ * error to report, not a setting to ignore.
+ */
+function aggregationPolicyFrom(options: VerifyOptions | undefined): {
+  requireAggregate?: AggregateTagValue
+  contributionBounds?: ContributionBounds
+  error?: string
+} {
+  if (typeof options === 'function' || options === undefined) return {}
+
+  const requireAggregate: unknown = options.requireAggregate
+  if (requireAggregate !== undefined && !isAggregateTagValue(requireAggregate)) {
+    return { error: 'requireAggregate must be one of median, mean, sum, min, max or custom' }
+  }
+
+  const contributionBounds: unknown = options.contributionBounds
+  if (contributionBounds !== undefined) {
+    const problem = contributionBoundsProblem(contributionBounds)
+    if (problem !== undefined) return { error: problem }
+  }
+
+  return {
+    ...(requireAggregate === undefined ? {} : { requireAggregate }),
+    ...(contributionBounds === undefined ? {} : { contributionBounds: contributionBounds as ContributionBounds }),
+  }
+}
+
+/**
+ * Check the `veil-agg` tag names the aggregate the caller requires. An absent
+ * tag reads as median, as it does when the metric tags are recomputed.
+ */
+function checkRequiredAggregate(tags: string[][], required: AggregateTagValue, errors: string[]): void {
+  const aggTags = tags.filter(t => t[0] === 'veil-agg')
+  if (aggTags.length > 1) {
+    errors.push('Multiple veil-agg tags')
+    return
+  }
+  const actual: unknown = aggTags.length === 0 ? 'median' : aggTags[0][1]
+  if (actual !== required) {
+    errors.push(`veil-agg is "${String(actual)}" but "${required}" is required`)
+  }
 }
 
 /**
@@ -573,6 +643,11 @@ export function verifyProof(event: {
   const limits = limitsFromOptions(options)
   const requiredVersion = requiredProofVersion(options)
   const expectedKind = typeof options === 'function' ? undefined : options?.expectedKind
+  const aggregationPolicy = aggregationPolicyFrom(options)
+  if (aggregationPolicy.error !== undefined) {
+    return failure([aggregationPolicy.error])
+  }
+  const { requireAggregate, contributionBounds } = aggregationPolicy
 
   // Bind the assertion class: v1 signatures are not bound to the event kind,
   // so without this check a proof can be replayed under a different NIP-85 kind
@@ -744,6 +819,13 @@ export function verifyProof(event: {
     return failure(errors, { circleSize, threshold, subjectInRing })
   }
 
+  // The publisher chooses veil-agg and the circle does not sign it. Checked
+  // here, not earlier, so the signatures are still counted and a caller sees a
+  // sound proof published under the wrong function for what it is.
+  if (requireAggregate !== undefined) {
+    checkRequiredAggregate(event.tags, requireAggregate, errors)
+  }
+
   const keyImages: string[] = []
   const signedMessages: SignedMessage[] = []
   let validSigs = 0
@@ -789,6 +871,15 @@ export function verifyProof(event: {
       continue
     }
 
+    // A key image limits a member to one contribution, not to a sane value
+    if (contributionBounds !== undefined) {
+      const violations = contributionBoundViolations(signedMessage.metrics, contributionBounds)
+      if (violations.length > 0) {
+        for (const violation of violations) errors.push(`Signature at index ${i} ${violation}`)
+        continue
+      }
+    }
+
     if (!lsagVerify(parsedSig.fullSig)) {
       errors.push(`Invalid LSAG signature at index ${i}`)
       continue
@@ -809,7 +900,13 @@ export function verifyProof(event: {
   }
 
   if (errors.length === 0) {
-    const aggregateFn = resolveAggregateFn(event.tags, options, errors)
+    // A required built-in aggregate is the function to recompute with, whatever
+    // the caller supplied. Otherwise an event with no veil-agg tag would read as
+    // median for the requirement above and then be recomputed with the caller's
+    // own aggregateFn, letting a max through a median requirement.
+    const aggregateFn = requireAggregate !== undefined && requireAggregate !== 'custom'
+      ? AGGREGATES[requireAggregate]
+      : resolveAggregateFn(event.tags, options, errors)
     if (aggregateFn !== null) {
       const published = extractPublishedMetrics(event.tags)
       errors.push(...published.errors)

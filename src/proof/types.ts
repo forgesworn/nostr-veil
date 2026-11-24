@@ -61,6 +61,34 @@ export interface ProofContext {
  */
 export type AggregateName = 'median' | 'mean' | 'sum' | 'min' | 'max'
 
+/**
+ * A value of the `veil-agg` tag: a built-in aggregate name, or `custom` for a
+ * function the verifier must be given. An event with no `veil-agg` tag reads
+ * as `median`.
+ */
+export type AggregateTagValue = AggregateName | 'custom'
+
+/** Bounds on the value one contribution may carry for a metric. */
+export interface ContributionBound {
+  /** Inclusive lower bound. */
+  min?: number
+  /** Inclusive upper bound. */
+  max?: number
+  /** Require an integer value. */
+  integer?: boolean
+}
+
+/**
+ * Bounds on individual contributions, keyed by metric name.
+ *
+ * A key image stops a member contributing twice. It does not stop a member
+ * contributing one large value, and under `sum`, `mean`, `min` or `max` one
+ * contribution can move the published value. A tally whose ballots must be 0
+ * or 1 needs `{ rank: { min: 0, max: 1, integer: true } }`. A metric with no
+ * entry is not bounded.
+ */
+export type ContributionBounds = Readonly<Record<string, ContributionBound>>
+
 /** Result of proof verification */
 export interface ProofVerification {
   valid: boolean

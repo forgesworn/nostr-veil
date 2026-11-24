@@ -594,7 +594,7 @@ Validates all ring signatures and checks for duplicate contributors before aggre
 - **`circle`** `TrustCircle` — The trust circle the contributions belong to
 - **`subject`** `string` — The d-tag value (must match what contributors signed)
 - **`contributions`** `Contribution[]` — Array of contributions from circle members
-- **`options`** `AggregateFn | { aggregateFn?: AggregateFn; aggregate?: AggregateName; kind?: number; proofVersion?: ProofVersion; expiration?: number; alt?: string }` -- Pass a function for custom aggregation (default: median), or an options object with a built-in aggregate name (`'median' | 'mean' | 'sum' | 'min' | 'max'`; `aggregate` wins over `aggregateFn`). A built-in name is recorded in the `veil-agg` tag and `verifyProof` reads it from there; a custom function is recorded as `veil-agg: custom` and must also be passed to `verifyProof`. `median` and `mean` round to integers; `sum`, `min` and `max` do not. The legacy `kind` option is kept for compatibility and still emits a user-style `p` subject tag. `proofVersion: 'v2'` requires matching v2 contributions. `expiration` (a non-negative safe integer, unix seconds) and `alt` (a non-empty string) emit NIP-40 `expiration` and NIP-31 `alt` tags. The circle does not sign them; the publisher's Nostr signature covers them, as it covers `content`.
+- **`options`** `AggregateFn | { aggregateFn?: AggregateFn; aggregate?: AggregateName; kind?: number; proofVersion?: ProofVersion; expiration?: number; alt?: string; contributionBounds?: ContributionBounds }` -- `contributionBounds` (`Record<string, { min?: number; max?: number; integer?: boolean }>`) makes aggregation throw on a contribution whose value for a named metric is outside the bounds (`Contribution index 2 metric "rank" value 3 is above the contribution maximum 1`); use the bounds your verifiers apply, and `contributionBoundViolations(metrics, bounds)` to find and leave out a bad contribution first. Pass a function for custom aggregation (default: median), or an options object with a built-in aggregate name (`'median' | 'mean' | 'sum' | 'min' | 'max'`; `aggregate` wins over `aggregateFn`). A built-in name is recorded in the `veil-agg` tag and `verifyProof` reads it from there; a custom function is recorded as `veil-agg: custom` and must also be passed to `verifyProof`. `median` and `mean` round to integers; `sum`, `min` and `max` do not. The legacy `kind` option is kept for compatibility and still emits a user-style `p` subject tag. `proofVersion: 'v2'` requires matching v2 contributions. `expiration` (a non-negative safe integer, unix seconds) and `alt` (a non-empty string) emit NIP-40 `expiration` and NIP-31 `alt` tags. The circle does not sign them; the publisher's Nostr signature covers them, as it covers `content`.
 - **Returns** `EventTemplate` with `veil-ring`, `veil-threshold`, and `veil-sig` tags
 - **Throws** if any ring signature is invalid, duplicate contributors are detected, or a contribution uses a reserved metric name (the error names the contribution index)
 
@@ -622,7 +622,7 @@ kind-specific subject tags; the typed contribute helpers sign proof v2 by defaul
 Verify all ring signatures in a veil-enhanced NIP-85 event.
 
 - **`event`** `{ kind, tags, content }` — A Nostr event containing proof tags
-- **`options`** `AggregateFn | { aggregateFn?: AggregateFn; expectedKind?: number; requireProofVersion?: ProofVersion; rejectSubjectInRing?: boolean; limits?: Partial<VerifyLimits> }` -- `rejectSubjectInRing` fails the proof with `Subject is a veil-ring member` when the d-tag subject is a ring member (default false; `subjectInRing` is reported either way); `aggregateFn` is needed only when `veil-agg` is `custom` (built-in names are read from the tag); `expectedKind` rejects events of any other NIP-85 kind and is recommended for v1 proofs, which are not kind-bound; `requireProofVersion` rejects the other proof version; `limits` overrides `DEFAULT_VERIFY_LIMITS` (`maxRingSize` 1000, `maxSigPayloadBytes` 128000, `maxSignedMessageBytes` 16384, `maxMetricCount` 128, `maxMetricNameLength` 64)
+- **`options`** `AggregateFn | { aggregateFn?: AggregateFn; expectedKind?: number; requireProofVersion?: ProofVersion; requireAggregate?: AggregateName | 'custom'; contributionBounds?: ContributionBounds; rejectSubjectInRing?: boolean; limits?: Partial<VerifyLimits> }` -- `requireAggregate` rejects the event unless its `veil-agg` tag names that function (`veil-agg is "max" but "median" is required`; an event with no tag reads as `median`, and when a built-in function is required the metric tags are recomputed with it whatever `aggregateFn` is passed). It is recommended, because the publisher chooses the tag and the circle does not sign it: three scores of 20, 20 and 95 read as 20 under `median` and 95 under `max`, and both pass a bare `verifyProof`. `contributionBounds` rejects the event if any contribution's value for a named metric is outside its bounds (`Signature at index 2 metric "rank" value 3 is above the contribution maximum 1`); it is needed under `sum`, `mean`, `min` and `max`, where one contribution can move the result, and malformed bounds fail the proof. `rejectSubjectInRing` fails the proof with `Subject is a veil-ring member` when the d-tag subject is a ring member (default false; `subjectInRing` is reported either way); `aggregateFn` is needed only when `veil-agg` is `custom` (built-in names are read from the tag); `expectedKind` rejects events of any other NIP-85 kind and is recommended for v1 proofs, which are not kind-bound; `requireProofVersion` rejects the other proof version; `limits` overrides `DEFAULT_VERIFY_LIMITS` (`maxRingSize` 1000, `maxSigPayloadBytes` 128000, `maxSignedMessageBytes` 16384, `maxMetricCount` 128, `maxMetricNameLength` 64)
 - **Returns** `ProofVerification` with `valid`, `circleSize`, `threshold`, `distinctSigners`, `subjectInRing`, `independentSigners`, `errors`
 - An event with more than one `d` tag, a `p`, `e` or `a` tag (on any kind) that is repeated or differs from `d`, more than one `k` tag, a `k` tag on any kind but 30385, a `__proto__` tag or a malformed tag is invalid. The circle signs only the name and value of a metric tag, so a metric, `d` or `k` tag with anything after the value is invalid too. So is a second `veil-ring`, `veil-threshold`, `veil-agg`, `veil-version` or `veil-scope` tag, or extra elements on any of them or on a `veil-sig`; unknown `veil-*` tags are ignored, for forward compatibility. NIP-85 allows `p`/`e`/`a` only as relay hints that repeat the `d` value
 - An event whose signed contributions use a reserved metric name is invalid (`signed metric rejected: Metric name "<name>" is reserved: ...`), so one circle member cannot inject a tag such as `expiration` or `-` into the published event
@@ -690,12 +690,22 @@ policy. Errors catch NIP-85 kind/tag route mismatches, unsupported proof
 versions, incompatible subject formats, unsupported metrics, missing freshness
 or threshold configuration, and missing safety metadata. Warnings flag softer
 review items such as v1 proof use, low thresholds, absent real-world controls,
-or proof claims that appear to overstate what nostr-veil proves.
+a profile that does not pin its `aggregate`, a metric with no `contribution`
+bounds under an aggregate other than `median`, or proof claims that appear to
+overstate what nostr-veil proves. A kind 30385 profile's `subjectTagValue` is a
+NIP-73 type such as `doi` or `web`, or a decimal namespace.
 
 #### `verifyUseCaseProfile(events, profile, options) → UseCaseProfileVerification`
 
 Verify NIP-85 syntax, proof version, expected kind and subject tag, freshness,
-threshold, accepted circles, expected subject, and federation policy.
+threshold, accepted circles, expected subject, the aggregate function,
+per-contribution bounds, and federation policy. Every built-in profile pins
+`aggregate`: `median`, and `sum` for `anonymous-group-decisions`, whose `rank`
+metric also carries `contribution: { min: 0, max: 1, integer: true }`. An event
+published under another function fails with issue code
+`proof.aggregate_mismatch`; a contribution outside the bounds fails with
+`proof.contribution_out_of_bounds`. Options `aggregate` and
+`contributionBounds` replace the profile's values.
 
 #### `createCircleManifest(options) → CircleManifest`
 
@@ -708,7 +718,13 @@ circles, revoked circles, policy URI, contact, and evidence process.
 Build a fail-closed verifier policy with accepted circle IDs or manifests,
 expected subject, optional subject-tag value, freshness, signer threshold,
 metric bounds, unknown-metric handling, optional companion evidence
-requirements, and optional Nostr event signature requirements.
+requirements, and optional Nostr event signature requirements. `metricPolicies`
+bound the published aggregate. `aggregate` replaces the aggregate function the
+profile pins, and `contributionBounds` (`{ [metric]: { min?, max?, integer? } }`)
+bounds what one member may sign; both are left off the policy when not set, and
+a malformed value throws. A signed bundle embeds the profile it was issued
+with, so a bundle issued by a release that did not pin aggregates does not
+carry the check: re-issue it.
 
 #### Companion evidence helper pairs
 
@@ -917,7 +933,7 @@ const assertion = aggregateContributions(circle, subjectPubkey, [aliceContributi
 const signed = signEvent(assertion, aggregator.privkey)
 
 // 5. Any client verifies -- two distinct members agreed, no names attached
-const result = verifyProof(signed, { expectedKind: NIP85_KINDS.USER })
+const result = verifyProof(signed, { expectedKind: NIP85_KINDS.USER, requireAggregate: 'median' })
 // { valid: true, circleSize: 3, threshold: 2, distinctSigners: 2,
 //   subjectInRing: false, independentSigners: 2, errors: [] }
 ```

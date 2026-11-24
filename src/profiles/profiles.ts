@@ -25,8 +25,14 @@ const reportMetric: MetricProfile = {
   direction: 'count',
 }
 
+/**
+ * Every built-in profile pins the aggregate function: median unless the
+ * profile names another. The publisher chooses the `veil-agg` tag and the
+ * circle does not sign it, so without a pin the same signatures can be
+ * republished as a max or a min and still verify.
+ */
 function profile(profile: UseCaseProfile): UseCaseProfile {
-  return profile
+  return { aggregate: 'median', ...profile }
 }
 
 interface SafetyOptions {
@@ -53,6 +59,7 @@ const commonProofLimitations = [
   'It does not prove the underlying real-world claim is true.',
   'It does not prove the circle is socially legitimate or Sybil-resistant.',
   'It does not replace deployment policy, freshness, revocation, or evidence handling.',
+  'It does not show that every contribution the circle made is included: the signatures are public, so any publisher can republish a subset of them.',
 ]
 
 const commonRequiredControls = [
@@ -67,6 +74,10 @@ const commonRequiredControls = [
   {
     risk: 'Unsafe automatic action from a score alone.',
     control: 'Gate application decisions with metric bounds, freshness, thresholds, audit logs, and manual-review fallbacks.',
+  },
+  {
+    risk: 'A publisher republishing a favourable subset of the signatures, or the same signatures under another aggregate function.',
+    control: 'Keep the aggregate the profile pins, set minDistinctSigners to a turnout that matters for the circle size, and where the circle has a designated publisher accept assertions only from that key.',
   },
 ]
 
@@ -668,11 +679,16 @@ export const ANONYMOUS_GROUP_DECISIONS_PROFILE = profile({
   proofVersion: 'v2',
   minDistinctSigners: 3,
   maxAgeSeconds: 300,
+  // A tally is the sum of the ballots, and nothing else: published as a
+  // median or a max the same ballots would read as a different result.
+  aggregate: 'sum',
   metrics: [
     {
       name: 'rank',
       meaning: 'Approval tally for the motion: each ballot contributes 1 (aye) or 0, sum-aggregated into the count of aye ballots. Bounded to 0-100 by rank validation, so suited to small electorates; petitions count distinct signatories instead.',
       direction: 'count',
+      // A key image stops a second ballot, not a ballot worth more than one
+      contribution: { min: 0, max: 1, integer: true },
     },
   ],
   failurePolicy: [
@@ -682,6 +698,7 @@ export const ANONYMOUS_GROUP_DECISIONS_PROFILE = profile({
   ...safety({
     proofClaims: [
       'A threshold of distinct members of the accepted decision circle cast ballots about the same motion, and the published tally matches the signed ballots.',
+      'Each ballot is a 0 or a 1, and the published tally is their sum.',
     ],
     proofLimitations: [
       'It is not receipt-free or coercion-resistant: a voter can demonstrate how they voted.',
@@ -698,6 +715,14 @@ export const ANONYMOUS_GROUP_DECISIONS_PROFILE = profile({
       {
         risk: 'Weighted or cumulative multi-vote rules are not supported.',
         control: 'Keep one ballot per member; defer cumulative or bounded multi-vote rules to a k-linkable ring-signature construction.',
+      },
+      {
+        risk: 'A member signing a ballot worth more than one, or a tally republished under another aggregate function.',
+        control: 'Verify through this profile, which bounds each ballot to 0 or 1 and requires the sum aggregate. A custom policy or a bare verifyProof call must set contributionBounds and requireAggregate itself.',
+      },
+      {
+        risk: 'The event grows with electorate size times turnout, and relays cap event size.',
+        control: 'Each ballot carries one response per ring member. Size the electorate to the event limit of the relays in use.',
       },
     ],
   }),
