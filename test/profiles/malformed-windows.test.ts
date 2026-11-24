@@ -161,4 +161,41 @@ describe('a companion evidence window that is not a non-negative integer', () =>
     expect(verify(3600).decision).toBe('accept')
     expect(verify(300).errors).toEqual(['companion evidence "check" is outside the accepted freshness window'])
   })
+
+  // The window is checked before the evidence is looked up, so a malformed one
+  // is reported whether or not the evidence was supplied
+  it('reports the window once, with or without the evidence', () => {
+    const malformed = 'companion evidence "check" maxAgeSeconds must be a non-negative integer'
+    const optional = tampered({ companionEvidence: [{ id: 'check', required: false, maxAgeSeconds: 'abc' }] })
+    const required = tampered({ companionEvidence: [{ id: 'check', required: true, maxAgeSeconds: 'abc' }] })
+
+    expect(verifyDeploymentPolicy(dated(0), optional, { now: NOW }).errors).toEqual([malformed])
+    expect(verifyDeploymentPolicy(dated(0), optional, { now: NOW, companionEvidence: hourOld }).errors).toEqual([malformed])
+    expect(verifyDeploymentPolicy(dated(0), required, { now: NOW }).errors)
+      .toEqual([malformed, 'companion evidence "check" is missing'])
+  })
+
+  // createDeploymentPolicy reads a null window as none, as it reads a null
+  // maxAgeSeconds or minDistinctSigners as the profile's. It must not then
+  // store the null, which the verifier rejects in a policy read from JSON.
+  it('never creates a policy that its own verifier rejects', () => {
+    const created = createDeploymentPolicy(profile, {
+      ...gate,
+      companionEvidence: [{ id: 'check', maxAgeSeconds: null as unknown as number }],
+    })
+
+    expect(created.companionEvidence).toEqual([{ id: 'check', required: true }])
+    expect(verifyDeploymentPolicy(dated(0), created, { now: NOW, companionEvidence: hourOld }).decision).toBe('accept')
+    // And after the journey through a bundle
+    const read = JSON.parse(JSON.stringify(created)) as UseCaseDeploymentPolicy
+    expect(verifyDeploymentPolicy(dated(0), read, { now: NOW, companionEvidence: hourOld }).decision).toBe('accept')
+  })
+
+  it('tells the operator to correct the requirement, where that is what is wrong', () => {
+    const explained = explainVerificationIssue('companion.invalid')
+
+    expect(explained.action).toBe('operator-action')
+    expect(explained.remediation).toContain('maxAgeSeconds')
+    expect(explained.remediation).toContain('reissue')
+  })
 })

@@ -234,7 +234,7 @@ const VERIFICATION_ISSUE_EXPLANATION_INPUTS = {
   ),
   'companion.invalid': explanation(
     'A companion evidence record or requirement is malformed.',
-    'Fix the evidence id, status, subject, and timestamp before using it as deployment evidence.',
+    'Fix the evidence id, status, subject, and timestamp before using it as deployment evidence. Where the message names maxAgeSeconds, the requirement in the deployment policy is malformed and the evidence is not at fault: correct the requirement and reissue the bundle.',
     'operator-action',
   ),
   'companion.missing': explanation(

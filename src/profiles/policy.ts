@@ -249,11 +249,14 @@ function assertEvidenceRequirement(requirement: CompanionEvidenceRequirement, in
     throw new Error(`companionEvidence[${index}].label must be non-empty`)
   }
 
+  // The check above reads a null window as none, and so does this: a null is
+  // not stored, because the verifier rejects one in a policy read from JSON.
+  const window: unknown = requirement.maxAgeSeconds
   return Object.freeze({
     id,
     ...(requirement.label === undefined ? {} : { label: requirement.label }),
     ...(requirement.expectedSubject === undefined ? {} : { expectedSubject: requirement.expectedSubject }),
-    ...(requirement.maxAgeSeconds === undefined ? {} : { maxAgeSeconds: requirement.maxAgeSeconds }),
+    ...(window === undefined || window === null ? {} : { maxAgeSeconds: requirement.maxAgeSeconds }),
     required: requirement.required ?? true,
   })
 }
@@ -499,6 +502,17 @@ function verifyCompanionEvidence(
   if (now === undefined) errors.push(NOW_INVALID)
 
   for (const requirement of requirements) {
+    // The requirement arrives as JSON inside a bundle. `> 0` is false for a
+    // word or a negative number, which would switch this window off unnoticed.
+    // It is checked before the evidence is looked up, so that a malformed
+    // window is reported whether or not the evidence was supplied.
+    const window: unknown = requirement.maxAgeSeconds
+    const windowMalformed = window !== undefined
+      && (typeof window !== 'number' || !Number.isSafeInteger(window) || window < 0)
+    if (windowMalformed) {
+      errors.push(`companion evidence "${requirement.id}" maxAgeSeconds must be a non-negative integer`)
+    }
+
     const evidence = byId.get(requirement.id)
     if (evidence === undefined) {
       if (requirement.required !== false) {
@@ -514,13 +528,8 @@ function verifyCompanionEvidence(
     if (requirement.expectedSubject !== undefined && evidence.subject !== requirement.expectedSubject) {
       errors.push(`companion evidence "${requirement.id}" subject does not match expected subject`)
     }
-    // The requirement arrives as JSON inside a bundle. `> 0` is false for a
-    // word or a negative number, which would switch this window off unnoticed.
-    const window: unknown = requirement.maxAgeSeconds
-    if (window !== undefined && (typeof window !== 'number' || !Number.isSafeInteger(window) || window < 0)) {
-      errors.push(`companion evidence "${requirement.id}" maxAgeSeconds must be a non-negative integer`)
-      continue
-    }
+    // Nothing is compared against a malformed window
+    if (windowMalformed) continue
     if ((requirement.maxAgeSeconds ?? 0) > 0) {
       if (evidence.checkedAt === undefined) {
         errors.push(`companion evidence "${requirement.id}" missing checkedAt for freshness check`)
