@@ -276,6 +276,14 @@ describe('creating a policy that names its publishers', () => {
       .toThrow('acceptedPublishers[0] must be a 64-character lowercase hex string')
     expect(create([PUBLISHER, PUBLISHER])).toThrow('acceptedPublishers[1] is duplicated')
   })
+
+  it('refuses a list with a hole in it', () => {
+    const holed = [PUBLISHER]
+    holed.length = 2
+
+    expect(() => createDeploymentPolicy(reputation, { ...gate, acceptedPublishers: holed }))
+      .toThrow('acceptedPublishers[1] must be a 64-character lowercase hex string')
+  })
 })
 
 describe('a policy read from JSON with a malformed publisher list', () => {
@@ -353,6 +361,50 @@ describe('a signed bundle that names its publishers', () => {
     expect(subset.result.decision).toBe('accept')
     expect(subset.control?.status).toBe('not-checked')
     expect(subset.control?.summary).toContain('republish')
+  })
+
+  // A tag named after the option is one more unknown tag. It must not read as
+  // a broken policy, which would send the operator looking at their own bundle.
+  it('does not let a tag name in the event change the codes or the recommended action', () => {
+    const report = (tagName: string) => {
+      const event = signEvent({ ...goodScores, tags: [...goodScores.tags, [tagName, '1']] }, PUBLISHER_KEY)
+      const result = verifyProductionDeployment(event, bundle, options)
+      return { action: createProductionDecisionReport(result).recommendedAction, codes: codes(result) }
+    }
+    const anyUnknownTag = report('zzz')
+
+    expect(anyUnknownTag.codes).toEqual(['nip85.syntax_invalid', 'proof.invalid'])
+    expect(anyUnknownTag.action).toBe('reject')
+    expect(report('acceptedPublishers')).toEqual(anyUnknownTag)
+    expect(report('acceptedPublishers[0]')).toEqual(anyUnknownTag)
+    expect(report('publisher is not accepted')).toEqual(anyUnknownTag)
+  })
+
+  it('reports a result that records no publisher check as not checked', () => {
+    // The shape an earlier release returned, and may have stored as JSON
+    const result = verifyProductionDeployment(signEvent(goodScores, PUBLISHER_KEY), bundle, options)
+    const { publishers: _absent, ...deployment } = result.deployment
+    const earlier = { ...result, deployment } as typeof result
+
+    const control = createProductionDecisionReport(earlier).controls.find(item => item.id === 'event-publisher')
+    expect(control?.status).toBe('not-checked')
+    expect(control?.summary).toContain('records no publisher check')
+  })
+
+  // createDeploymentPolicy refuses this combination, so it reaches a verifier
+  // only in a policy built by hand
+  it('fails the signature control when a policy names publishers but does not require signatures', () => {
+    const handBuilt = createSignedDeploymentBundle(
+      { ...pinned, requireNostrSignature: false },
+      { expiresAt: NOW + 600, id: 'hand-built-gate', issuedAt: NOW, privateKey: OPERATOR_KEY },
+    )
+    const result = verifyProductionDeployment(signEvent(goodScores, PUBLISHER_KEY), handBuilt, options)
+    const controls = createProductionDecisionReport(result).controls
+
+    expect(result.decision).toBe('reject')
+    expect(codes(result)).toEqual(['policy.nostr_signature_not_required'])
+    expect(controls.find(item => item.id === 'event-signatures')?.status).toBe('fail')
+    expect(controls.find(item => item.id === 'event-publisher')?.status).toBe('pass')
   })
 
   it('signs the list with the rest of the policy', () => {

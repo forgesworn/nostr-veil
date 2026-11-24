@@ -271,11 +271,13 @@ function acceptedPublisherProblems(publishers: unknown): string[] {
   }
 
   const problems: string[] = []
-  publishers.forEach((publisher: unknown, index: number) => {
+  // By index: forEach would skip the holes of a sparse list
+  for (let index = 0; index < publishers.length; index++) {
+    const publisher: unknown = publishers[index]
     if (typeof publisher !== 'string' || !/^[0-9a-f]{64}$/.test(publisher)) {
       problems.push(`acceptedPublishers[${index}] must be a 64-character lowercase hex string`)
     }
-  })
+  }
   return problems
 }
 

@@ -409,8 +409,13 @@ function codeFromError(message: string): VerificationIssueCode {
 
   if (lower.includes('is not a fully signed nostr event')) return 'event.signature_missing'
   if (lower.includes('nostr event signature is invalid')) return 'event.signature_invalid'
-  if (lower.includes('publisher is not accepted')) return 'event.publisher_unaccepted'
-  if (lower.includes('acceptedpublishers')) return 'policy.accepted_publishers_invalid'
+  // Matched against the whole message, not a fragment: the syntax, proof and
+  // metric messages below quote tag names taken from the event, and an event
+  // must not be able to name its way into either of these codes
+  if (/^event\[\d+\] publisher is not accepted by deployment policy$/u.test(message)) {
+    return 'event.publisher_unaccepted'
+  }
+  if (/^acceptedPublishers(\[\d+\])? must be /u.test(message)) return 'policy.accepted_publishers_invalid'
 
   if (lower.includes('no accepted circle ids were supplied')) return 'circle.accepted_missing'
   if (lower.includes('acceptedcircleids')) return 'circle.accepted_invalid'

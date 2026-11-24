@@ -64,6 +64,21 @@ describe('verification issue explanations', () => {
     expect(explainVerificationIssue('policy.accepted_publishers_invalid').action).toBe('operator-action')
   })
 
+  // The syntax, proof and metric messages quote tag names taken from the event,
+  // so an event must not be able to name its way into a publisher code
+  it('reads a publisher code only from a message the publisher check writes', () => {
+    expect(classifyVerificationError('event[0] syntax: Unknown metric tag "acceptedPublishers" for kind 30382.').code)
+      .toBe('nip85.syntax_invalid')
+    expect(classifyVerificationError('event[0] proof: Published metric "acceptedPublishers" is not signed by any contribution').code)
+      .toBe('proof.invalid')
+    expect(classifyVerificationError('event[0] metric "acceptedPublishers" is not allowed by deployment policy'))
+      .toMatchObject({ code: 'metric.unknown', path: 'event[0].tags.acceptedPublishers' })
+    expect(classifyVerificationError('event[0] metric "my publisher is not accepted" is not allowed by deployment policy').code)
+      .toBe('metric.unknown')
+    expect(classifyVerificationError('event[0] syntax: Unknown metric tag "acceptedPublishers[0] must be" for kind 30382.'))
+      .toMatchObject({ code: 'nip85.syntax_invalid', path: 'event[0]' })
+  })
+
   it('keeps remediation lookup entries immutable', () => {
     expect(Object.isFrozen(VERIFICATION_ISSUE_EXPLANATIONS)).toBe(true)
     expect(Object.isFrozen(VERIFICATION_ISSUE_EXPLANATIONS['proof.invalid'])).toBe(true)

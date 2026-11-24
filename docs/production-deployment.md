@@ -116,7 +116,9 @@ The production verifier is intentionally stricter than
 an expiring signed bundle, and a bundled policy that requires valid Nostr event
 signatures for relay-fetched assertions. It does not require the policy to
 name its publishers: when the policy names none, the decision report shows the
-`event-publisher` control as `not-checked`. The result is a gate, not a business
+`event-publisher` control as `not-checked`, as it shows `companion-evidence`
+for a policy that requires none. So do not gate on every control reading
+`pass`; gate on the decision. The result is a gate, not a business
 decision. After it passes, the application still decides what action is
 proportionate for that subject and score.
 
@@ -137,7 +139,8 @@ For application UI and audit logs, prefer `verifyProductionDeploymentReport()`
 or pass an existing `verifyProductionDeployment()` result to
 `createProductionDecisionReport()`. The report keeps the accept/reject decision,
 adds `recommendedAction`, expands every issue with summary and remediation text,
-names the controls that passed, failed, or were explicitly relaxed, and carries
+names each control as passed, failed or not checked (relaxed by the caller, or
+never asked for by the policy), and carries
 the profile's `proofClaims`, `proofLimitations`, `requiredControls`, and
 `recommendedActions` so the UI can explain the proof boundary without inventing
 its own copy.

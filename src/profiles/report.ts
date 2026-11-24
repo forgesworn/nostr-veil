@@ -153,11 +153,17 @@ function productionControls(result: ProductionDeploymentVerification, issues: re
     'bundle.issued_at_future',
     'bundle.issued_at_invalid',
   ])
-  const eventSignatureStatus: ProductionControlStatus = signatureChecked
-    ? (result.deployment.nostrSignatures.valid ? 'pass' : 'fail')
-    : (codes.has('policy.nostr_signature_not_required') ? 'fail' : 'not-checked')
-  const publishers = result.deployment.publishers
-  const eventPublisherStatus: ProductionControlStatus = publishers.checked
+  // The policy code comes first. Naming publishers forces the signature check,
+  // so a hand-built policy can have its signatures checked without requiring
+  // them, and the production verifier still rejects it for that.
+  const eventSignatureStatus: ProductionControlStatus = codes.has('policy.nostr_signature_not_required')
+    ? 'fail'
+    : signatureChecked
+      ? (result.deployment.nostrSignatures.valid ? 'pass' : 'fail')
+      : 'not-checked'
+  // Absent from a result that an earlier release produced or stored as JSON
+  const publishers: { checked: boolean; valid: boolean } | undefined = result.deployment.publishers
+  const eventPublisherStatus: ProductionControlStatus = publishers?.checked === true
     ? (publishers.valid ? 'pass' : 'fail')
     : 'not-checked'
   const bundleFreshnessStatus: ProductionControlStatus = bundleFreshnessFailed
@@ -213,7 +219,9 @@ function productionControls(result: ProductionDeploymentVerification, issues: re
       eventPublisherStatus === 'pass'
         ? 'Every checked assertion was signed by a publisher key the deployment policy accepts.'
         : eventPublisherStatus === 'not-checked'
-          ? 'This deployment policy names no accepted publishers, so anyone can republish a subset of a proof\'s signatures, or an old proof under a new timestamp, with their own key.'
+          ? (publishers === undefined
+              ? 'This result records no publisher check, so the report cannot say who published the assertions.'
+              : 'This deployment policy names no accepted publishers, so anyone can republish a subset of a proof\'s signatures, or an old proof under a new timestamp, with their own key.')
           : 'At least one assertion was not signed by an accepted publisher key, or the policy\'s list of accepted publishers is malformed.',
     ),
     control(

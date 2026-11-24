@@ -170,7 +170,7 @@ const policy = createDeploymentPolicy(USER_REPUTATION_ABUSE_REPORTING_PROFILE, {
   acceptedCircleIds: [circle.circleId],
   expectedSubject: subjectPubkey,
   acceptedPublishers: [aggregator.pubkey], // nobody else may republish the circle's signatures
-  requireNostrSignature: true,       // verifyProductionDeployment rejects a policy without this
+  requireNostrSignature: true,       // verifyProductionDeployment needs this; naming acceptedPublishers also turns it on
 })
 const now = Math.floor(Date.now() / 1000)
 const bundle = createSignedDeploymentBundle(policy, {

@@ -834,9 +834,12 @@ Companion evidence failures use stable codes such as `companion.missing`,
 Convert a `verifyProductionDeployment()` result into an audit- and UI-ready
 report. The report keeps the accept/reject decision, adds `recommendedAction`,
 expands every issue with summary and remediation text, lists unique
-remediations, and reports whether production controls passed, failed, or were
-explicitly relaxed. The `event-publisher` control reads `not-checked` when the
-policy names no accepted publishers.
+remediations, and reports each production control as passed, failed or not
+checked (relaxed by the caller, or never asked for by the policy). The
+`event-publisher` control reads `not-checked` when the policy names no accepted
+publishers, as `companion-evidence` does for a policy that requires none, so
+gate on the decision, not on every control reading `pass`. A result with no
+`publishers` field, as an earlier release returned, also reads `not-checked`.
 
 #### `verifyProductionDeploymentReport(events, bundle, options) → ProductionDecisionReport`
 
@@ -984,7 +987,7 @@ const policy = createDeploymentPolicy(USER_REPUTATION_ABUSE_REPORTING_PROFILE, {
   acceptedCircleIds: [circle.circleId],
   expectedSubject: subjectPubkey,
   acceptedPublishers: [aggregator.pubkey], // nobody else may republish the circle's signatures
-  requireNostrSignature: true,       // verifyProductionDeployment rejects a policy without this
+  requireNostrSignature: true,       // verifyProductionDeployment needs this; naming acceptedPublishers also turns it on
 })
 const now = Math.floor(Date.now() / 1000)
 const bundle = createSignedDeploymentBundle(policy, {
