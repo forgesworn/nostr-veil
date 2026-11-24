@@ -173,9 +173,18 @@ function productionControls(result: ProductionDeploymentVerification, issues: re
     : (bundleHasExpiry ? 'pass' : 'not-checked')
   const companionEvidenceRequired = result.deployment.companionEvidence.requirements.some(requirement => requirement.required !== false)
   const companionEvidenceChecked = result.deployment.companionEvidence.evidence.length > 0
-  const companionEvidenceStatus: ProductionControlStatus = hasPrefix(codes, 'companion.')
+  // With a now that cannot be compared, no evidence age and no manifest expiry
+  // was compared. A control that depends on one of them cannot read pass. One
+  // that compares nothing against the time is left as it was.
+  const nowInvalid = codes.has('verification.now_invalid')
+  const evidenceAgeUnchecked = nowInvalid
+    && result.deployment.companionEvidence.requirements.some(requirement => (requirement.maxAgeSeconds ?? 0) > 0)
+  const manifestExpiryUnchecked = nowInvalid && (result.deployment.policy.circleManifests ?? []).length > 0
+  const companionEvidenceFailed = hasPrefix(codes, 'companion.')
+  const companionEvidenceStatus: ProductionControlStatus = companionEvidenceFailed || evidenceAgeUnchecked
     ? 'fail'
     : (companionEvidenceRequired || companionEvidenceChecked ? 'pass' : 'not-checked')
+  const circlePolicyFailed = hasPrefix(codes, 'circle.')
   // A malformed threshold or window, or a malformed or unused allowance, means
   // the threshold or the freshness window was not applied as the policy meant
   // it, so the control that reports them fails with it
@@ -241,10 +250,12 @@ function productionControls(result: ProductionDeploymentVerification, issues: re
     control(
       'circle-policy',
       'Accepted circle policy',
-      hasPrefix(codes, 'circle.') ? 'fail' : 'pass',
-      hasPrefix(codes, 'circle.')
+      circlePolicyFailed || manifestExpiryUnchecked ? 'fail' : 'pass',
+      circlePolicyFailed
         ? 'The assertion used a circle that is missing, malformed, expired, revoked, superseded, unaccepted, or not allowed for this profile.'
-        : 'The assertion was produced by a circle accepted by the deployment policy.',
+        : manifestExpiryUnchecked
+          ? 'The verification time cannot be compared, so no circle manifest was checked for expiry.'
+          : 'The assertion was produced by a circle accepted by the deployment policy.',
     ),
     control(
       'profile-subject',
@@ -292,7 +303,9 @@ function productionControls(result: ProductionDeploymentVerification, issues: re
         ? 'Configured companion evidence passed for the same subject inside the deployment freshness window.'
         : companionEvidenceStatus === 'not-checked'
           ? 'This deployment policy did not require companion evidence checks outside the nostr-veil proof.'
-          : 'A required companion evidence check is missing, failed, stale, malformed, or for the wrong subject.',
+          : companionEvidenceFailed
+            ? 'A required companion evidence check is missing, failed, stale, malformed, or for the wrong subject.'
+            : 'The verification time cannot be compared, so no companion evidence was checked for age.',
     ),
   ])
 }

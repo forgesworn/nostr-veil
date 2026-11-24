@@ -175,6 +175,47 @@ describe('a verification time that cannot be compared', () => {
     expect(status('proof-threshold')).toBe('fail')
   })
 
+  // No manifest expiry and no evidence age was compared, so the controls that
+  // report them cannot read pass
+  it('fails the circle and evidence controls of the report where they depend on the time', () => {
+    const statusAt = (now: number) => {
+      const controls = createProductionDecisionReport(production(now)).controls
+      return (id: string) => controls.find(item => item.id === id)?.status
+    }
+
+    expect(statusAt(NOW)('circle-policy')).toBe('pass')
+    expect(statusAt(NOW)('companion-evidence')).toBe('pass')
+    expect(statusAt(Number.NaN)('circle-policy')).toBe('fail')
+    expect(statusAt(Number.NaN)('companion-evidence')).toBe('fail')
+  })
+
+  it('leaves those controls as they were where nothing is compared against the time', () => {
+    // Circle ids with no manifest, and evidence with no window
+    const timeless = (companionEvidence: Array<{ id: string }> | undefined) => {
+      const timelessBundle = createSignedDeploymentBundle(
+        createDeploymentPolicy(profile, { ...gate, companionEvidence, requireNostrSignature: true }),
+        { expiresAt: NOW + 600, id: 'timeless', issuedAt: NOW - 10, privateKey: OPERATOR_KEY },
+      )
+      const result = verifyProductionDeployment(signedAssertion, timelessBundle, {
+        companionEvidence: companionEvidence === undefined ? undefined : freshEvidence,
+        now: Number.NaN,
+        trustedPublishers: [timelessBundle.signer],
+      })
+      const controls = createProductionDecisionReport(result).controls
+      return { result, status: (id: string) => controls.find(item => item.id === id)?.status }
+    }
+
+    const withEvidence = timeless([{ id: 'check' }])
+    expect(withEvidence.result.decision).toBe('reject')
+    expect(withEvidence.result.errors).toEqual([TIME])
+    expect(withEvidence.status('circle-policy')).toBe('pass')
+    expect(withEvidence.status('companion-evidence')).toBe('pass')
+    expect(withEvidence.status('bundle-freshness')).toBe('fail')
+    expect(withEvidence.status('proof-threshold')).toBe('fail')
+
+    expect(timeless(undefined).status('companion-evidence')).toBe('not-checked')
+  })
+
   it('is reported once by a whole admission call, which denies', () => {
     const result = admission(Number.NaN)
 
