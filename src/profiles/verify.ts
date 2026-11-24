@@ -26,6 +26,28 @@ function nowSeconds(): number {
 }
 
 /**
+ * The freshness window in seconds: the caller's option, or else the profile's.
+ * `maxAgeSeconds > 0` is false for a word, an object or a negative number, so
+ * a malformed value read as it stands would switch the window off, and the
+ * future bound inside it, without a word. It is reported instead, and
+ * undefined comes back so that no date is compared against it. Only an absent
+ * option is unset: null is what NaN becomes in JSON. The profile is checked
+ * too, because the one inside a bundle arrives as JSON.
+ */
+function maxAgeSecondsFrom(
+  profile: UseCaseProfile,
+  options: VerifyUseCaseProfileOptions,
+  errors: string[],
+): number | undefined {
+  const value: unknown = options.maxAgeSeconds === undefined ? profile.maxAgeSeconds : options.maxAgeSeconds
+  if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < 0) {
+    errors.push('maxAgeSeconds must be a non-negative integer')
+    return undefined
+  }
+  return value
+}
+
+/**
  * The allowance for a `created_at` ahead of `now`. A value that is not a
  * non-negative integer is an error and allows nothing: compared as it stands,
  * a string or NaN would make the test false and take the bound away. That
@@ -34,16 +56,21 @@ function nowSeconds(): number {
  *
  * The allowance is the upper end of the freshness window. With the window off
  * no date is checked, so a value set beside it would be read and then dropped.
- * That is an error too.
+ * That is an error too. A malformed window has already been reported and is
+ * not reported again here.
  */
-function maxFutureSecondsFrom(options: VerifyUseCaseProfileOptions, windowOn: boolean, errors: string[]): number {
+function maxFutureSecondsFrom(
+  options: VerifyUseCaseProfileOptions,
+  maxAgeSeconds: number | undefined,
+  errors: string[],
+): number {
   const value: unknown = options.maxFutureSeconds
   if (value === undefined) return DEFAULT_MAX_FUTURE_SECONDS
   if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < 0) {
     errors.push('maxFutureSeconds must be a non-negative integer')
     return 0
   }
-  if (!windowOn) {
+  if (maxAgeSeconds === 0) {
     errors.push('maxFutureSeconds is set while maxAgeSeconds turns the freshness window off')
   }
   return value
@@ -115,6 +142,7 @@ function verifyEvent(
   index: number,
   options: VerifyUseCaseProfileOptions,
   acceptedCircles: Set<string> | undefined,
+  maxAgeSeconds: number | undefined,
   maxFutureSeconds: number,
   errors: string[],
 ): VerifiedProfileEvent {
@@ -161,8 +189,8 @@ function verifyEvent(
     errors.push(`${prefix} has fewer than ${minDistinctSigners} distinct signers`)
   }
 
-  const maxAgeSeconds = options.maxAgeSeconds ?? profile.maxAgeSeconds
-  if (maxAgeSeconds > 0) {
+  // Undefined when the window is malformed, which is reported once for the run
+  if (maxAgeSeconds !== undefined && maxAgeSeconds > 0) {
     const now = options.now ?? nowSeconds()
     const createdAt: unknown = event.created_at
     if (createdAt === undefined) {
@@ -246,10 +274,10 @@ export function verifyUseCaseProfile(
     }
   }
 
-  const windowOn = (options.maxAgeSeconds ?? profile.maxAgeSeconds) > 0
-  const maxFutureSeconds = maxFutureSecondsFrom(options, windowOn, errors)
+  const maxAgeSeconds = maxAgeSecondsFrom(profile, options, errors)
+  const maxFutureSeconds = maxFutureSecondsFrom(options, maxAgeSeconds, errors)
   const verifiedEvents = eventList.map((event, index) =>
-    verifyEvent(profile, event, index, options, acceptedCircles, maxFutureSeconds, errors),
+    verifyEvent(profile, event, index, options, acceptedCircles, maxAgeSeconds, maxFutureSeconds, errors),
   )
 
   const federation = profile.federation === undefined

@@ -45,6 +45,7 @@ export type VerificationIssueCode =
   | 'metric.unknown'
   | 'nip85.syntax_invalid'
   | 'policy.accepted_publishers_invalid'
+  | 'policy.max_age_seconds_invalid'
   | 'policy.max_future_seconds_invalid'
   | 'policy.nostr_signature_not_required'
   | 'profile.event_count_invalid'
@@ -304,6 +305,11 @@ const VERIFICATION_ISSUE_EXPLANATION_INPUTS = {
     'Re-issue the policy with acceptedPublishers as one or more 64-character lowercase hex pubkeys. Every assertion is rejected until then.',
     'operator-action',
   ),
+  'policy.max_age_seconds_invalid': explanation(
+    'maxAgeSeconds is not a non-negative integer.',
+    'Correct maxAgeSeconds where it is set: in the verifier option, the profile, or the deployment policy, reissuing its bundle. A malformed window cannot be applied, so every assertion is rejected until then. Use 0 only to switch the freshness window off on purpose.',
+    'operator-action',
+  ),
   'policy.max_future_seconds_invalid': explanation(
     'maxFutureSeconds is not a non-negative integer, or is set while the freshness window is off.',
     'Correct maxFutureSeconds where it is set: in the verifier option, or in the deployment policy, reissuing its bundle. With maxAgeSeconds 0 no date is checked, so leave maxFutureSeconds out or give the policy a window. Every assertion is rejected until then.',
@@ -401,6 +407,7 @@ function codeFromError(message: string): VerificationIssueCode {
   if (/^event\[\d+\] assertion created_at is not a Unix timestamp$/u.test(message)) {
     return 'assertion.created_at_invalid'
   }
+  if (message === 'maxAgeSeconds must be a non-negative integer') return 'policy.max_age_seconds_invalid'
   if (
     message === 'maxFutureSeconds must be a non-negative integer'
     || message === 'maxFutureSeconds is set while maxAgeSeconds turns the freshness window off'

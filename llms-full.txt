@@ -716,7 +716,12 @@ not a whole number of seconds (a string, `NaN`, a fraction) fails with
 `assertion.created_at_invalid`: it cannot be placed in the window, so it must
 not pass as fresh. With `maxAgeSeconds` 0 none of this is checked, and setting
 `maxFutureSeconds` beside it is an error (`policy.max_future_seconds_invalid`):
-the allowance is the upper end of a window that is off.
+the allowance is the upper end of a window that is off. A `maxAgeSeconds` that
+is not a non-negative integer (a word, a negative number, `null`) fails every
+event with `policy.max_age_seconds_invalid`, whether it comes from the option,
+the profile or a policy read from a bundle; read as it stands it would switch
+the window off. A companion evidence requirement's own `maxAgeSeconds` is
+checked the same way and fails with `companion.invalid`.
 
 #### `createCircleManifest(options) → CircleManifest`
 

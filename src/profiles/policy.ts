@@ -502,6 +502,13 @@ function verifyCompanionEvidence(
     if (requirement.expectedSubject !== undefined && evidence.subject !== requirement.expectedSubject) {
       errors.push(`companion evidence "${requirement.id}" subject does not match expected subject`)
     }
+    // The requirement arrives as JSON inside a bundle. `> 0` is false for a
+    // word or a negative number, which would switch this window off unnoticed.
+    const window: unknown = requirement.maxAgeSeconds
+    if (window !== undefined && (typeof window !== 'number' || !Number.isSafeInteger(window) || window < 0)) {
+      errors.push(`companion evidence "${requirement.id}" maxAgeSeconds must be a non-negative integer`)
+      continue
+    }
     if ((requirement.maxAgeSeconds ?? 0) > 0) {
       if (evidence.checkedAt === undefined) {
         errors.push(`companion evidence "${requirement.id}" missing checkedAt for freshness check`)

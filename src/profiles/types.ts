@@ -98,6 +98,11 @@ export interface VerifyUseCaseProfileOptions {
   contributionBounds?: ContributionBounds
   expectedSubject?: string
   expectedSubjectTagValue?: string
+  /**
+   * Freshness window in seconds, in place of the profile's. 0 switches the
+   * window off. A value that is not a non-negative integer is an error: read
+   * as it stands, a word or a negative number would switch the window off too.
+   */
   maxAgeSeconds?: number
   /**
    * How far ahead of `now` an assertion's `created_at` may be, in seconds,
