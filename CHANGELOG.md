@@ -1,3 +1,11 @@
+## 0.37.0 (2026-11-24)
+
+### Features
+
+- accept assertions only from named publisher keys and add verify --aggregate (#69)
+
+
+
 ## 0.36.0 (2026-11-24)
 
 ### Features
