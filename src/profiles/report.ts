@@ -174,6 +174,12 @@ function productionControls(result: ProductionDeploymentVerification, issues: re
   const companionEvidenceStatus: ProductionControlStatus = hasPrefix(codes, 'companion.')
     ? 'fail'
     : (companionEvidenceRequired || companionEvidenceChecked ? 'pass' : 'not-checked')
+  // A malformed or unused allowance means the freshness window was not applied
+  // as the policy meant it, so the control that reports freshness fails with it
+  const proofOrFreshnessFailed = hasPrefix(codes, 'proof.')
+    || hasPrefix(codes, 'federation.')
+    || hasPrefix(codes, 'assertion.')
+    || codes.has('policy.max_future_seconds_invalid')
 
   return Object.freeze([
     control(
@@ -257,10 +263,8 @@ function productionControls(result: ProductionDeploymentVerification, issues: re
     control(
       'proof-threshold',
       'Proof and threshold',
-      hasPrefix(codes, 'proof.') || hasPrefix(codes, 'federation.') || hasPrefix(codes, 'assertion.')
-        ? 'fail'
-        : 'pass',
-      hasPrefix(codes, 'proof.') || hasPrefix(codes, 'federation.') || hasPrefix(codes, 'assertion.')
+      proofOrFreshnessFailed ? 'fail' : 'pass',
+      proofOrFreshnessFailed
         ? 'The proof, federation, threshold, or assertion freshness check failed.'
         : 'The nostr-veil proof, signer threshold, federation policy, and assertion freshness checks passed.',
     ),

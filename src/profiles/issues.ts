@@ -305,8 +305,8 @@ const VERIFICATION_ISSUE_EXPLANATION_INPUTS = {
     'operator-action',
   ),
   'policy.max_future_seconds_invalid': explanation(
-    'The deployment policy maxFutureSeconds is not a non-negative integer.',
-    'Correct maxFutureSeconds in the deployment policy and reissue the bundle. A malformed allowance allows nothing, so every assertion is rejected until then.',
+    'maxFutureSeconds is not a non-negative integer, or is set while the freshness window is off.',
+    'Correct maxFutureSeconds where it is set: in the verifier option, or in the deployment policy, reissuing its bundle. With maxAgeSeconds 0 no date is checked, so leave maxFutureSeconds out or give the policy a window. Every assertion is rejected until then.',
     'operator-action',
   ),
   'policy.nostr_signature_not_required': explanation(
@@ -401,7 +401,12 @@ function codeFromError(message: string): VerificationIssueCode {
   if (/^event\[\d+\] assertion created_at is not a Unix timestamp$/u.test(message)) {
     return 'assertion.created_at_invalid'
   }
-  if (message === 'maxFutureSeconds must be a non-negative integer') return 'policy.max_future_seconds_invalid'
+  if (
+    message === 'maxFutureSeconds must be a non-negative integer'
+    || message === 'maxFutureSeconds is set while maxAgeSeconds turns the freshness window off'
+  ) {
+    return 'policy.max_future_seconds_invalid'
+  }
 
   if (lower.includes('production verifier requires policy.requirenostrsignature')) {
     return 'policy.nostr_signature_not_required'

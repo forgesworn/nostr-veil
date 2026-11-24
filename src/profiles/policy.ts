@@ -100,7 +100,9 @@ export interface CreateDeploymentPolicyOptions {
    * How far ahead of the verifier's clock an assertion's `created_at` may be,
    * in seconds, before it is rejected. Only the signer sets `created_at`, and
    * an event dated ahead stays inside the freshness window until that date
-   * plus the window. Zero allows no skew. Default: `DEFAULT_MAX_FUTURE_SECONDS`.
+   * plus the window. Zero allows no skew. It is the upper end of the freshness
+   * window, so setting it while `maxAgeSeconds` is 0 throws. Default:
+   * `DEFAULT_MAX_FUTURE_SECONDS`.
    */
   maxFutureSeconds?: number
   metricPolicies?: Readonly<Record<string, DeploymentMetricPolicy>>
@@ -384,7 +386,14 @@ export function createDeploymentPolicy(
   const maxAgeSeconds = options.maxAgeSeconds ?? profile.maxAgeSeconds
   const minDistinctSigners = options.minDistinctSigners ?? profile.minDistinctSigners
   assertNonNegativeInteger(maxAgeSeconds, 'maxAgeSeconds')
-  if (options.maxFutureSeconds !== undefined) assertNonNegativeInteger(options.maxFutureSeconds, 'maxFutureSeconds')
+  if (options.maxFutureSeconds !== undefined) {
+    assertNonNegativeInteger(options.maxFutureSeconds, 'maxFutureSeconds')
+    // The allowance is the upper end of the freshness window. With the window
+    // off no date is checked, so the value would be stored and never used.
+    if (maxAgeSeconds === 0) {
+      throw new Error('maxFutureSeconds is set while maxAgeSeconds turns the freshness window off')
+    }
+  }
   assertPositiveInteger(minDistinctSigners, 'minDistinctSigners')
   const rawCircleIds = optionalAcceptedCircleIds(options.acceptedCircleIds)
   const circleManifests = Object.freeze([...(options.circleManifests ?? [])])

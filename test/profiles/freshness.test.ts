@@ -6,10 +6,13 @@ import {
   classifyVerificationError,
   contributeAssertion,
   createDeploymentPolicy,
+  createProductionDecisionReport,
+  createSignedDeploymentBundle,
   createTrustCircle,
   explainVerificationIssue,
   signEvent,
   verifyDeploymentPolicy,
+  verifyProductionDeployment,
   verifyUseCaseProfile,
 } from '../../src/index.js'
 import type { EventTemplate, UseCaseDeploymentPolicy } from '../../src/index.js'
@@ -110,6 +113,59 @@ describe('an assertion dated in the future', () => {
     expect(errorsFor(dated(TEN_YEARS), { maxAgeSeconds: 0 })).toEqual([])
     expect(errorsFor(dated(-TEN_YEARS), { maxAgeSeconds: 0 })).toEqual([])
   })
+
+  // The stale check subtracts from now, which reads a numeric string as a
+  // number. Adding to it joins two strings, and the upper end is gone.
+  it('reads a now passed as a numeric string alike at both ends', () => {
+    const now = String(NOW) as unknown as number
+    const errors = (event: EventTemplate): string[] => verifyUseCaseProfile(event, profile, { ...gate, now }).errors
+
+    expect(errors(dated(0))).toEqual([])
+    expect(errors(dated(DEFAULT_MAX_FUTURE_SECONDS))).toEqual([])
+    expect(errors(dated(DEFAULT_MAX_FUTURE_SECONDS + 1))).toEqual([FUTURE])
+    expect(errors(dated(TEN_YEARS))).toEqual([FUTURE])
+    expect(errors(dated(-TEN_YEARS))).toEqual([STALE])
+    expect(verifyDeploymentPolicy(dated(TEN_YEARS), policy, { now }).decision).toBe('reject')
+  })
+})
+
+// The allowance is the upper end of the freshness window. With the window off
+// no date is checked, so an allowance set beside it would be read and dropped.
+describe('an allowance set while the freshness window is off', () => {
+  const UNUSED = 'maxFutureSeconds is set while maxAgeSeconds turns the freshness window off'
+
+  it('is refused when a policy is created', () => {
+    for (const maxFutureSeconds of [0, 60, 3600]) {
+      expect(
+        () => createDeploymentPolicy(profile, { ...gate, maxAgeSeconds: 0, maxFutureSeconds }),
+        String(maxFutureSeconds),
+      ).toThrow(UNUSED)
+    }
+  })
+
+  it('is refused by the verifier, from its own options or from a policy built by hand', () => {
+    expect(errorsFor(dated(0), { maxAgeSeconds: 0, maxFutureSeconds: 0 })).toEqual([UNUSED])
+    expect(errorsFor(dated(TEN_YEARS), { maxAgeSeconds: 0, maxFutureSeconds: 0 })).toEqual([UNUSED])
+
+    const handBuilt = {
+      ...(JSON.parse(JSON.stringify(policy)) as UseCaseDeploymentPolicy),
+      maxAgeSeconds: 0,
+      maxFutureSeconds: 60,
+    }
+    for (const event of [dated(0), dated(TEN_YEARS)]) {
+      const result = verifyDeploymentPolicy(event, handBuilt, { now: NOW })
+      expect(result.decision).toBe('reject')
+      expect(result.errors).toEqual([UNUSED])
+      expect(codes(result)).toEqual(['policy.max_future_seconds_invalid'])
+    }
+  })
+
+  it('leaves a policy with the window off and no allowance as it was', () => {
+    const windowOff = createDeploymentPolicy(profile, { ...gate, maxAgeSeconds: 0 })
+
+    expect('maxFutureSeconds' in windowOff).toBe(false)
+    expect(verifyDeploymentPolicy(dated(TEN_YEARS), windowOff, { now: NOW }).decision).toBe('accept')
+  })
 })
 
 describe('an assertion whose created_at is not a Unix timestamp', () => {
@@ -189,6 +245,8 @@ describe('a malformed future allowance', () => {
     ['an object', {}],
     ['a list', []],
     ['true', true],
+    // What NaN and Infinity become in JSON. A well-formed policy never holds it.
+    ['null', null],
   ])('fails closed on %s in a policy read from JSON', (_name, value) => {
     const tampered = {
       ...(JSON.parse(JSON.stringify(policy)) as UseCaseDeploymentPolicy),
@@ -203,19 +261,41 @@ describe('a malformed future allowance', () => {
     }
   })
 
-  it('reads null as unset, and applies the default', () => {
-    const tampered = {
-      ...(JSON.parse(JSON.stringify(policy)) as UseCaseDeploymentPolicy),
-      maxFutureSeconds: null as unknown as number,
-    }
+  it('reads the same malformed value the same way before and after JSON', () => {
+    const handBuilt = { ...policy, maxFutureSeconds: Number.NaN }
+    const parsed = JSON.parse(JSON.stringify(handBuilt)) as UseCaseDeploymentPolicy
 
-    expect(verifyDeploymentPolicy(dated(0), tampered, { now: NOW }).decision).toBe('accept')
-    expect(verifyDeploymentPolicy(dated(TEN_YEARS), tampered, { now: NOW }).errors).toEqual([FUTURE])
+    expect(verifyDeploymentPolicy(dated(0), handBuilt, { now: NOW }).errors).toEqual([MALFORMED])
+    expect(verifyDeploymentPolicy(dated(0), parsed, { now: NOW }).errors).toEqual([MALFORMED])
   })
 
-  it('fails closed on NaN passed straight to the verifier', () => {
+  it('fails closed on NaN or null passed straight to the verifier', () => {
     expect(errorsFor(dated(0), { maxFutureSeconds: Number.NaN })).toEqual([MALFORMED])
     expect(errorsFor(dated(TEN_YEARS), { maxFutureSeconds: Number.NaN })).toEqual([MALFORMED, FUTURE])
+    expect(errorsFor(dated(0), { maxFutureSeconds: null as unknown as number })).toEqual([MALFORMED])
+  })
+
+  // The proof-threshold control is the one that says the freshness checks passed
+  it('fails the freshness control of the production report', () => {
+    const tampered = {
+      ...(JSON.parse(JSON.stringify(createDeploymentPolicy(profile, { ...gate, requireNostrSignature: true }))) as UseCaseDeploymentPolicy),
+      maxFutureSeconds: '60' as unknown as number,
+    }
+    const bundle = createSignedDeploymentBundle(tampered, {
+      expiresAt: NOW + 600,
+      id: 'malformed-allowance',
+      issuedAt: NOW,
+      privateKey: '44'.repeat(32),
+    })
+    const result = verifyProductionDeployment(signEvent(dated(0), '55'.repeat(32)), bundle, {
+      now: NOW,
+      trustedPublishers: [bundle.signer],
+    })
+    const control = createProductionDecisionReport(result).controls.find(item => item.id === 'proof-threshold')
+
+    expect(result.decision).toBe('reject')
+    expect(result.errors).toEqual([MALFORMED])
+    expect(control?.status).toBe('fail')
   })
 })
 
@@ -228,6 +308,10 @@ describe('the issue codes for a future date', () => {
     expect(explainVerificationIssue('assertion.created_at_future').action).toBe('reject')
     expect(explainVerificationIssue('assertion.created_at_future').remediation).toContain('maxFutureSeconds')
     expect(explainVerificationIssue('policy.max_future_seconds_invalid').action).toBe('operator-action')
+    // The value can come from a verifier option, with no policy or bundle involved
+    expect(explainVerificationIssue('policy.max_future_seconds_invalid').remediation).toContain('verifier option')
+    expect(classifyVerificationError('maxFutureSeconds is set while maxAgeSeconds turns the freshness window off').code)
+      .toBe('policy.max_future_seconds_invalid')
   })
 
   // The syntax and metric messages quote tag names taken from the event

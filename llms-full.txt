@@ -714,7 +714,9 @@ allows no skew). Only the signer sets `created_at`, and an event dated ahead
 stays inside the window until that date plus the window. A `created_at` that is
 not a whole number of seconds (a string, `NaN`, a fraction) fails with
 `assertion.created_at_invalid`: it cannot be placed in the window, so it must
-not pass as fresh. With `maxAgeSeconds` 0 none of this is checked.
+not pass as fresh. With `maxAgeSeconds` 0 none of this is checked, and setting
+`maxFutureSeconds` beside it is an error (`policy.max_future_seconds_invalid`):
+the allowance is the upper end of a window that is off.
 
 #### `createCircleManifest(options) → CircleManifest`
 
@@ -733,9 +735,9 @@ profile pins, and `contributionBounds` (`{ [metric]: { min?, max?, integer?, req
 bounds what one member may sign; both are left off the policy when not set, and
 a malformed value throws. `maxFutureSeconds` sets how far ahead of the
 verifier's clock an assertion may be dated; it too is left off when not set,
-and a value that is not a non-negative integer throws here and, in a policy
-read from a bundle, rejects every event with
-`policy.max_future_seconds_invalid`. A signed bundle embeds the profile it was issued
+and a value that is not a non-negative integer, or one set while
+`maxAgeSeconds` is 0, throws here and, in a policy read from a bundle, rejects
+every event with `policy.max_future_seconds_invalid`. A signed bundle embeds the profile it was issued
 with, so a bundle issued by a release that did not pin aggregates does not
 carry the check: re-issue it.
 

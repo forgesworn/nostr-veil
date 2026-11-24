@@ -28,15 +28,23 @@ function nowSeconds(): number {
 /**
  * The allowance for a `created_at` ahead of `now`. A value that is not a
  * non-negative integer is an error and allows nothing: compared as it stands,
- * a string or NaN would make the test false and take the bound away. Null is
- * read as unset, which is how a missing field can come back from JSON.
+ * a string or NaN would make the test false and take the bound away. That
+ * includes null, which is what NaN becomes in JSON; only an absent value is
+ * unset.
+ *
+ * The allowance is the upper end of the freshness window. With the window off
+ * no date is checked, so a value set beside it would be read and then dropped.
+ * That is an error too.
  */
-function maxFutureSecondsFrom(options: VerifyUseCaseProfileOptions, errors: string[]): number {
+function maxFutureSecondsFrom(options: VerifyUseCaseProfileOptions, windowOn: boolean, errors: string[]): number {
   const value: unknown = options.maxFutureSeconds
-  if (value === undefined || value === null) return DEFAULT_MAX_FUTURE_SECONDS
+  if (value === undefined) return DEFAULT_MAX_FUTURE_SECONDS
   if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < 0) {
     errors.push('maxFutureSeconds must be a non-negative integer')
     return 0
+  }
+  if (!windowOn) {
+    errors.push('maxFutureSeconds is set while maxAgeSeconds turns the freshness window off')
   }
   return value
 }
@@ -166,10 +174,14 @@ function verifyEvent(
       errors.push(`${prefix} assertion created_at is not a Unix timestamp`)
     } else if (createdAt < now - maxAgeSeconds) {
       errors.push(`${prefix} assertion is outside the accepted freshness window`)
-    } else if (createdAt > now + maxFutureSeconds) {
+    } else if (createdAt - maxFutureSeconds > now) {
       // Only the signer sets created_at, and an event dated ahead stays inside
       // the window until that date plus the window. Without this bound the
       // publisher chooses how long an assertion counts as fresh.
+      //
+      // Written as a subtraction, like the test above it: a caller who passes
+      // now as a numeric string then gets a number at both ends. `now + ...`
+      // would join two strings and take this end away.
       errors.push(`${prefix} assertion created_at is in the future`)
     }
   }
@@ -234,7 +246,8 @@ export function verifyUseCaseProfile(
     }
   }
 
-  const maxFutureSeconds = maxFutureSecondsFrom(options, errors)
+  const windowOn = (options.maxAgeSeconds ?? profile.maxAgeSeconds) > 0
+  const maxFutureSeconds = maxFutureSecondsFrom(options, windowOn, errors)
   const verifiedEvents = eventList.map((event, index) =>
     verifyEvent(profile, event, index, options, acceptedCircles, maxFutureSeconds, errors),
   )
