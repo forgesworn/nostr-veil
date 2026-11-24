@@ -10,6 +10,7 @@ import {
   buildProviderDeclaration,
 } from '../dist/nip85/builders.js'
 import { verifyProof } from '../dist/proof/verify.js'
+import { AGGREGATES, isAggregateName } from '../dist/proof/aggregate.js'
 
 const USAGE = `nostr-veil — anonymous trust assertions for Nostr
 
@@ -19,9 +20,14 @@ Usage:
   nostr-veil assert address <address> [--json metrics]     Build kind 30384 addressable assertion
   nostr-veil assert identifier <id> <k-tag> [--json metrics]  Build kind 30385 identifier assertion
   nostr-veil provider-declare [--json entries]             Build kind 10040 provider declaration
-  nostr-veil verify <event-json> [--kind n]                Verify veil ring proof, print result
+  nostr-veil verify <event-json> [--kind n] [--aggregate fn]
+                                                           Verify veil ring proof, print result
                                                            (--kind binds the expected NIP-85 kind; recommended
-                                                            for v1 proofs, which are not kind-bound)
+                                                            for v1 proofs, which are not kind-bound.
+                                                            --aggregate requires that aggregate function: median,
+                                                            mean, sum, min or max. The publisher chooses it and
+                                                            the circle does not sign it, so without the flag the
+                                                            same signatures also verify as a max or a min)
   nostr-veil --help                                        Show this message
 
 Environment:
@@ -121,6 +127,19 @@ function extractKindFlag(args) {
   return kind
 }
 
+/** Extract --aggregate value from args (the next arg after --aggregate), as a built-in aggregate name. */
+function extractAggregateFlag(args) {
+  const idx = args.indexOf('--aggregate')
+  if (idx === -1) return undefined
+  const name = args[idx + 1]
+  if (name === undefined || !isAggregateName(name)) {
+    const names = Object.keys(AGGREGATES)
+    console.error(`Error: --aggregate must be one of ${names.slice(0, -1).join(', ')} or ${names.at(-1)}`)
+    process.exit(1)
+  }
+  return name
+}
+
 function cmdVerify(args) {
   const eventJson = args[0]
   if (!eventJson) {
@@ -128,6 +147,7 @@ function cmdVerify(args) {
     process.exit(1)
   }
   const expectedKind = extractKindFlag(args)
+  const requireAggregate = extractAggregateFlag(args)
 
   let event
   try {
@@ -140,7 +160,12 @@ function cmdVerify(args) {
     console.error('Error: event must be a JSON object with a "tags" array')
     process.exit(1)
   }
-  const result = verifyProof(event, expectedKind === undefined ? undefined : { expectedKind })
+  const options = {
+    ...(expectedKind === undefined ? {} : { expectedKind }),
+    ...(requireAggregate === undefined ? {} : { requireAggregate }),
+  }
+  // With neither flag the call is the same bare verifyProof(event) as before
+  const result = verifyProof(event, Object.keys(options).length === 0 ? undefined : options)
   console.log(JSON.stringify(result, null, 2))
 }
 

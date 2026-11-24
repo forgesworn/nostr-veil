@@ -197,11 +197,11 @@ nostr-veil assert event <event-id> [--json '<metrics>']
 nostr-veil assert address <address> [--json '<metrics>']
 nostr-veil assert identifier <id> <k-tag> [--json '<metrics>']
 nostr-veil provider-declare [--json '<entries>']
-nostr-veil verify '<event-json>' [--kind <n>]
+nostr-veil verify '<event-json>' [--kind <n>] [--aggregate <fn>]
 nostr-veil --help
 ```
 
-`assert` and `provider-declare` build plain NIP-85 events (kinds 30382 to 30385 and 10040), not ring-signed ones, sign them with the key in `NOSTR_SECRET_KEY` (64-char hex) or the file named by `NOSTR_SECRET_KEY_FILE` (takes precedence), and print the signed event as JSON on stdout. `--json` takes a JSON object of metrics (`provider-declare`: an array of `{ kind, metric, servicePubkey, relayHint }`). `verify` needs no key: `<event-json>` is an inline JSON string, not a file path, and must come first (`nostr-veil verify "$(cat event.json)" --kind 30382`). `--kind` takes a non-negative integer and applies `expectedKind`. It prints the `verifyProof` result as JSON and exits 0 even when `valid` is false, so read `valid` rather than the exit code.
+`assert` and `provider-declare` build plain NIP-85 events (kinds 30382 to 30385 and 10040), not ring-signed ones, sign them with the key in `NOSTR_SECRET_KEY` (64-char hex) or the file named by `NOSTR_SECRET_KEY_FILE` (takes precedence), and print the signed event as JSON on stdout. `--json` takes a JSON object of metrics (`provider-declare`: an array of `{ kind, metric, servicePubkey, relayHint }`). `verify` needs no key: `<event-json>` is an inline JSON string, not a file path, and must come first (`nostr-veil verify "$(cat event.json)" --kind 30382`). `--kind` takes a non-negative integer and applies `expectedKind`. `--aggregate` takes `median`, `mean`, `sum`, `min` or `max` and applies `requireAggregate`; without it `verify` accepts whichever function the event names. It prints the `verifyProof` result as JSON and exits 0 even when `valid` is false, so read `valid` rather than the exit code.
 
 ## Limits
 
