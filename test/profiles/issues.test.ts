@@ -45,6 +45,25 @@ describe('verification issue explanations', () => {
     expect(explainVerificationIssue('proof.contribution_out_of_bounds').action).toBe('reject')
   })
 
+  it('classifies a publisher the policy does not accept and a malformed publisher list', () => {
+    expect(classifyVerificationError('event[1] publisher is not accepted by deployment policy'))
+      .toMatchObject({ code: 'event.publisher_unaccepted', path: 'event[1]' })
+    expect(classifyVerificationError('acceptedPublishers[2] must be a 64-character lowercase hex string'))
+      .toMatchObject({ code: 'policy.accepted_publishers_invalid', path: 'acceptedPublishers[2]' })
+    expect(classifyVerificationError('acceptedPublishers must be a list of at least one publisher key').code)
+      .toBe('policy.accepted_publishers_invalid')
+
+    // The bundle's own publisher list keeps its separate codes
+    expect(classifyVerificationError('trustedPublishers[0] must be a 64-character lowercase hex string').code)
+      .toBe('bundle.trusted_publisher_invalid')
+    expect(classifyVerificationError('event[0] circle is not accepted by deployment policy').code)
+      .toBe('circle.unaccepted')
+
+    expect(explainVerificationIssue('event.publisher_unaccepted').action).toBe('reject')
+    expect(explainVerificationIssue('event.publisher_unaccepted').remediation).toContain('acceptedPublishers')
+    expect(explainVerificationIssue('policy.accepted_publishers_invalid').action).toBe('operator-action')
+  })
+
   it('keeps remediation lookup entries immutable', () => {
     expect(Object.isFrozen(VERIFICATION_ISSUE_EXPLANATIONS)).toBe(true)
     expect(Object.isFrozen(VERIFICATION_ISSUE_EXPLANATIONS['proof.invalid'])).toBe(true)

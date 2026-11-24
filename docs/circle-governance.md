@@ -36,6 +36,11 @@ to act on. Production deployments need an explicit circle policy.
   package review may tolerate longer windows for immutable releases.
 - Publish correction assertions when a subject is cleared, remediated, or
   re-reviewed.
+- Decide who publishes the circle's assertions, and have verifiers name that
+  key in the deployment policy (`acceptedPublishers`). The ring signatures are
+  public and carry no time. Without the list, anyone can republish an old proof
+  under a new timestamp, so a correction can be followed by the score it
+  replaced.
 - Have a recovery path for compromised contributors, bad evidence, or mistaken
   scores.
 
@@ -61,11 +66,12 @@ Use `createDeploymentPolicy()` and `verifyProductionDeployment()` with:
 - metric bounds and required metrics;
 - per-contribution bounds for any aggregate but `median`;
 - Nostr event signature verification for relay-fetched events;
+- the accepted publisher keys, where the circle has a designated publisher;
 - federation scope policy, when applicable.
 
 Use the returned `issues[].code` values for operational handling, for example
-`circle.revoked`, `circle.superseded`, `circle.unaccepted`, and
-`event.signature_invalid`.
+`circle.revoked`, `circle.superseded`, `circle.unaccepted`,
+`event.signature_invalid`, and `event.publisher_unaccepted`.
 
 Use `createCircleManifest()` for production circles. A manifest binds the
 circle ID to the member list and records the allowed profile IDs, issue/expiry

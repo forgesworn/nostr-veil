@@ -727,6 +727,23 @@ a malformed value throws. A signed bundle embeds the profile it was issued
 with, so a bundle issued by a release that did not pin aggregates does not
 carry the check: re-issue it.
 
+`acceptedPublishers` names the keys that may sign the assertion events, as
+64-character lowercase hex pubkeys. A proof does not say who published it or
+when: the ring signatures are public and carry no time, so without the list
+anyone can republish a favourable subset of them, or an old proof under a new
+`created_at`, with their own key, and `maxAgeSeconds` reads the timestamp that
+key set. `createDeploymentPolicy` throws on an empty, malformed or repeated
+list. Naming publishers turns `requireNostrSignature` on (passing `false`
+with the list throws), and `verifyDeploymentPolicy` then checks every event's
+Nostr id and signature whatever the policy says. An event signed by another key
+fails with `event.publisher_unaccepted`; an empty or malformed list in a policy
+read from JSON rejects every event with `policy.accepted_publishers_invalid`.
+The result carries `publishers: { checked, valid }` beside `nostrSignatures`.
+The list does not stop a named publisher leaving signatures out, or a relay
+serving that publisher's earlier event inside the freshness window. It is not `trustedPublishers`, which
+names who may sign a deployment bundle. The field is left off the policy when
+not set, and a verifier on an earlier release ignores it in a bundle.
+
 #### Companion evidence helper pairs
 
 Use requirement helpers when building the deployment policy, then pass resolver
@@ -818,7 +835,8 @@ Convert a `verifyProductionDeployment()` result into an audit- and UI-ready
 report. The report keeps the accept/reject decision, adds `recommendedAction`,
 expands every issue with summary and remediation text, lists unique
 remediations, and reports whether production controls passed, failed, or were
-explicitly relaxed.
+explicitly relaxed. The `event-publisher` control reads `not-checked` when the
+policy names no accepted publishers.
 
 #### `verifyProductionDeploymentReport(events, bundle, options) → ProductionDecisionReport`
 
@@ -965,6 +983,7 @@ const event = signEvent(
 const policy = createDeploymentPolicy(USER_REPUTATION_ABUSE_REPORTING_PROFILE, {
   acceptedCircleIds: [circle.circleId],
   expectedSubject: subjectPubkey,
+  acceptedPublishers: [aggregator.pubkey], // nobody else may republish the circle's signatures
   requireNostrSignature: true,       // verifyProductionDeployment rejects a policy without this
 })
 const now = Math.floor(Date.now() / 1000)
@@ -976,7 +995,8 @@ const bundle = createSignedDeploymentBundle(policy, {
 })
 
 const verdict = verifyProductionDeployment([event], bundle, { trustedPublishers: [operator.pubkey] })
-// verdict.decision === 'accept'; a bundle signed by another key fails with `bundle.signer_untrusted`
+// verdict.decision === 'accept'; a bundle signed by another key fails with `bundle.signer_untrusted`,
+// and an event signed by any key but the aggregator's with `event.publisher_unaccepted`
 ```
 
 See `examples/production-recipes.ts` in the repository for six production-shaped gates with companion evidence.

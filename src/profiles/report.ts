@@ -22,6 +22,7 @@ export type ProductionControlId =
   | 'bundle-signature'
   | 'bundle-freshness'
   | 'event-signatures'
+  | 'event-publisher'
   | 'circle-policy'
   | 'companion-evidence'
   | 'profile-subject'
@@ -155,6 +156,10 @@ function productionControls(result: ProductionDeploymentVerification, issues: re
   const eventSignatureStatus: ProductionControlStatus = signatureChecked
     ? (result.deployment.nostrSignatures.valid ? 'pass' : 'fail')
     : (codes.has('policy.nostr_signature_not_required') ? 'fail' : 'not-checked')
+  const publishers = result.deployment.publishers
+  const eventPublisherStatus: ProductionControlStatus = publishers.checked
+    ? (publishers.valid ? 'pass' : 'fail')
+    : 'not-checked'
   const bundleFreshnessStatus: ProductionControlStatus = bundleFreshnessFailed
     ? 'fail'
     : (bundleHasExpiry ? 'pass' : 'not-checked')
@@ -200,6 +205,16 @@ function productionControls(result: ProductionDeploymentVerification, issues: re
         : eventSignatureStatus === 'not-checked'
           ? 'Relay event signature verification was explicitly relaxed for this deployment.'
           : 'At least one relay-fetched assertion is unsigned, mutated, or the policy does not require signed events.',
+    ),
+    control(
+      'event-publisher',
+      'Accepted event publisher',
+      eventPublisherStatus,
+      eventPublisherStatus === 'pass'
+        ? 'Every checked assertion was signed by a publisher key the deployment policy accepts.'
+        : eventPublisherStatus === 'not-checked'
+          ? 'This deployment policy names no accepted publishers, so anyone can republish a subset of a proof\'s signatures, or an old proof under a new timestamp, with their own key.'
+          : 'At least one assertion was not signed by an accepted publisher key, or the policy\'s list of accepted publishers is malformed.',
     ),
     control(
       'circle-policy',

@@ -60,6 +60,7 @@ const commonProofLimitations = [
   'It does not prove the circle is socially legitimate or Sybil-resistant.',
   'It does not replace deployment policy, freshness, revocation, or evidence handling.',
   'It does not show that every contribution the circle made is included: the signatures are public, so any publisher can republish a subset of them.',
+  'It does not show when the circle signed: the ring signatures carry no time, so the freshness window reads a timestamp the publisher sets.',
 ]
 
 const commonRequiredControls = [
@@ -76,8 +77,8 @@ const commonRequiredControls = [
     control: 'Gate application decisions with metric bounds, freshness, thresholds, audit logs, and manual-review fallbacks.',
   },
   {
-    risk: 'A publisher republishing a favourable subset of the signatures, or the same signatures under another aggregate function.',
-    control: 'Keep the aggregate the profile pins, set minDistinctSigners to a turnout that matters for the circle size, and where the circle has a designated publisher accept assertions only from that key.',
+    risk: 'A publisher republishing a favourable subset of the signatures, the same signatures under another aggregate function, or an old proof under a new timestamp.',
+    control: 'Keep the aggregate the profile pins, set minDistinctSigners to a turnout that matters for the circle size, and where the circle has a designated publisher name its key in the deployment policy (acceptedPublishers) so that no other key can republish the circle\'s signatures.',
   },
 ]
 

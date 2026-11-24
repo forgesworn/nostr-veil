@@ -27,7 +27,9 @@ function tagValue(event: EventTemplate, name: string): string {
   return value
 }
 
-function policy(options: { requireNostrSignature?: boolean } = {}): UseCaseDeploymentPolicy {
+function policy(
+  options: { acceptedPublishers?: readonly string[]; requireNostrSignature?: boolean } = {},
+): UseCaseDeploymentPolicy {
   const manifest = createCircleManifest({
     issuedAt: packageAssertion.created_at ?? 0,
     expiresAt: (packageAssertion.created_at ?? 0) + 900,
@@ -38,6 +40,7 @@ function policy(options: { requireNostrSignature?: boolean } = {}): UseCaseDeplo
   })
 
   return createDeploymentPolicy(RELEASE_PACKAGE_MAINTAINER_REPUTATION_PROFILE, {
+    ...(options.acceptedPublishers === undefined ? {} : { acceptedPublishers: options.acceptedPublishers }),
     circleManifests: [manifest],
     companionEvidence: [
       {
@@ -194,8 +197,9 @@ describe('production deployment verifier', () => {
   })
 
   it('summarises a valid deployment as an accept report', () => {
-    const signedBundle = bundle()
     const signedAssertion = signEvent(packageAssertion, RELAY_PUBLISHER_KEY)
+    // Every control passes only when the policy also names who may publish
+    const signedBundle = bundle(policy({ acceptedPublishers: [signedAssertion.pubkey] }))
     const result = verifyProductionDeployment(signedAssertion, signedBundle, {
       companionEvidence: [
         {

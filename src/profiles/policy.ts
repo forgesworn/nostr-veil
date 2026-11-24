@@ -61,6 +61,22 @@ export interface CompanionEvidenceVerification {
 export interface CreateDeploymentPolicyOptions {
   acceptedCircleIds?: readonly string[]
   /**
+   * Accept assertion events only from these publisher keys: the pubkeys that
+   * sign the outer Nostr event, as 64-character lowercase hex. Naming them
+   * turns `requireNostrSignature` on, because an unsigned event has no
+   * publisher.
+   *
+   * A proof's ring signatures are public and carry no time. Without this list
+   * anyone can republish a favourable subset of them, or an old proof under a
+   * new `created_at`, with their own key. The list stops a third party doing
+   * that. It does not stop a named publisher leaving signatures out, or a
+   * relay serving that publisher's earlier event.
+   *
+   * Not the same as `trustedPublishers`, which names who may sign a
+   * deployment bundle.
+   */
+  acceptedPublishers?: readonly string[]
+  /**
    * Require this aggregate function in place of the one the profile pins. Use
    * it when the deployment publishes with `mean`, say, under a built-in profile
    * that pins `median`. Set `contributionBounds` as well for anything but
@@ -94,6 +110,8 @@ export interface CreateDeploymentPolicyOptions {
 
 export interface UseCaseDeploymentPolicy {
   acceptedCircleIds: readonly string[]
+  /** Present only when the deployment names the keys that may publish its assertions. */
+  acceptedPublishers?: readonly string[]
   /** Present only when the deployment overrides the aggregate the profile pins. */
   aggregate?: AggregateTagValue
   allowSupersededCircleIds: boolean
@@ -129,6 +147,15 @@ export interface DeploymentPolicyVerification {
     valid: boolean
   }
   policy: UseCaseDeploymentPolicy
+  /**
+   * `checked` is true when the policy names its accepted publishers. `valid`
+   * is then true only if every event carries a sound Nostr signature from one
+   * of them.
+   */
+  publishers: {
+    checked: boolean
+    valid: boolean
+  }
   profileVerification: UseCaseProfileVerification
   revokedCircleIds: string[]
   supersededCircleIds: string[]
@@ -233,6 +260,38 @@ function assertHex64(value: string, label: string): void {
   }
 }
 
+/**
+ * Problems with a list of accepted publisher keys. Used when a policy is
+ * created and again when one is verified, because a policy inside a signed
+ * bundle arrives as JSON and nothing has checked its shape.
+ */
+function acceptedPublisherProblems(publishers: unknown): string[] {
+  if (!Array.isArray(publishers) || publishers.length === 0) {
+    return ['acceptedPublishers must be a list of at least one publisher key']
+  }
+
+  const problems: string[] = []
+  publishers.forEach((publisher: unknown, index: number) => {
+    if (typeof publisher !== 'string' || !/^[0-9a-f]{64}$/.test(publisher)) {
+      problems.push(`acceptedPublishers[${index}] must be a 64-character lowercase hex string`)
+    }
+  })
+  return problems
+}
+
+function checkedAcceptedPublishers(publishers: readonly string[] | undefined): readonly string[] | undefined {
+  if (publishers === undefined) return undefined
+  const problems = acceptedPublisherProblems(publishers)
+  if (problems.length > 0) throw new Error(problems.join('; '))
+
+  const seen = new Set<string>()
+  for (const [index, publisher] of publishers.entries()) {
+    if (seen.has(publisher)) throw new Error(`acceptedPublishers[${index}] is duplicated`)
+    seen.add(publisher)
+  }
+  return Object.freeze([...publishers])
+}
+
 function acceptedCircleIds(ids: readonly string[]): readonly string[] {
   if (ids.length === 0) {
     throw new Error('acceptedCircleIds must contain at least one circle id')
@@ -334,9 +393,14 @@ export function createDeploymentPolicy(
   const companionEvidence = cloneCompanionEvidenceRequirements(options.companionEvidence)
   const aggregate = checkedAggregate(options.aggregate)
   const contributionBounds = cloneContributionBounds(options.contributionBounds)
+  const acceptedPublishers = checkedAcceptedPublishers(options.acceptedPublishers)
+  if (acceptedPublishers !== undefined && options.requireNostrSignature === false) {
+    throw new Error('requireNostrSignature cannot be false when acceptedPublishers is set: an unsigned event has no publisher')
+  }
 
   return Object.freeze({
     acceptedCircleIds: rawCircleIds,
+    ...(acceptedPublishers === undefined ? {} : { acceptedPublishers }),
     ...(aggregate === undefined ? {} : { aggregate }),
     allowSupersededCircleIds,
     circleManifests,
@@ -350,7 +414,7 @@ export function createDeploymentPolicy(
     minDistinctSigners,
     profile,
     rejectUnknownMetrics: options.rejectUnknownMetrics ?? false,
-    requireNostrSignature: options.requireNostrSignature ?? false,
+    requireNostrSignature: acceptedPublishers !== undefined || (options.requireNostrSignature ?? false),
   })
 }
 
@@ -514,27 +578,60 @@ function isSignedEvent(event: EventTemplate): event is SignedEvent {
     && typeof candidate.created_at === 'number'
 }
 
-function verifyNostrSignatures(events: EventTemplate[], policy: UseCaseDeploymentPolicy): {
-  checked: boolean
+/**
+ * Check each event's Nostr signature and, where the policy names its
+ * publishers, that one of them signed it.
+ *
+ * Naming publishers forces the signature check whatever
+ * `requireNostrSignature` says: the `pubkey` field of an unsigned event is a
+ * claim anyone can make. `verifySignedEvent` recomputes the event id from the
+ * event body, so a named publisher's id and signature cannot be moved onto
+ * other tags.
+ */
+function verifyPublishers(events: EventTemplate[], policy: UseCaseDeploymentPolicy): {
   errors: string[]
-  valid: boolean
+  nostrSignatures: { checked: boolean; valid: boolean }
+  publishers: { checked: boolean; valid: boolean }
 } {
-  if (!policy.requireNostrSignature) {
-    return { checked: false, errors: [], valid: true }
+  const listed: unknown = policy.acceptedPublishers
+  const named = listed !== undefined
+  if (!named && !policy.requireNostrSignature) {
+    return {
+      errors: [],
+      nostrSignatures: { checked: false, valid: true },
+      publishers: { checked: false, valid: true },
+    }
   }
 
-  const errors: string[] = []
+  // A malformed list accepts nobody. It never falls back to accepting anyone.
+  const listProblems = named ? acceptedPublisherProblems(listed) : []
+  const accepted = named && listProblems.length === 0 ? new Set(listed as string[]) : undefined
+  const errors = [...listProblems]
+  let signaturesValid = true
+  let publishersAccepted = listProblems.length === 0
+
   for (const [index, event] of events.entries()) {
     if (!isSignedEvent(event)) {
       errors.push(`event[${index}] is not a fully signed Nostr event`)
+      signaturesValid = false
       continue
     }
     if (!verifySignedEvent(event)) {
       errors.push(`event[${index}] Nostr event signature is invalid`)
+      signaturesValid = false
+      continue
+    }
+    if (accepted !== undefined && !accepted.has(event.pubkey)) {
+      errors.push(`event[${index}] publisher is not accepted by deployment policy`)
+      publishersAccepted = false
     }
   }
 
-  return { checked: true, errors, valid: errors.length === 0 }
+  return {
+    errors,
+    nostrSignatures: { checked: true, valid: signaturesValid },
+    publishers: { checked: named, valid: !named || (signaturesValid && publishersAccepted) },
+  }
 }
 
 export function verifyDeploymentPolicy(
@@ -563,13 +660,13 @@ export function verifyDeploymentPolicy(
   })
   const metricVerification = verifyMetricPolicies(eventList, policy)
   const companionEvidence = verifyCompanionEvidence(policy, options)
-  const nostrSignatures = verifyNostrSignatures(eventList, policy)
+  const publisherVerification = verifyPublishers(eventList, policy)
   const errors = [
     ...circleResolution.errors,
     ...profileVerification.errors,
     ...metricVerification.errors,
     ...companionEvidence.errors,
-    ...nostrSignatures.errors,
+    ...publisherVerification.errors,
   ]
   const valid = errors.length === 0
 
@@ -579,12 +676,10 @@ export function verifyDeploymentPolicy(
     errors,
     issues: issuesFromErrors(errors),
     metrics: metricVerification.metrics,
-    nostrSignatures: {
-      checked: nostrSignatures.checked,
-      valid: nostrSignatures.valid,
-    },
+    nostrSignatures: publisherVerification.nostrSignatures,
     policy,
     profileVerification,
+    publishers: publisherVerification.publishers,
     revokedCircleIds: circleResolution.revokedCircleIds,
     supersededCircleIds: circleResolution.supersededCircleIds,
     valid,

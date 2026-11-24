@@ -541,6 +541,9 @@ signature (k-LRS) construction the current primitive does not implement. See
   aggregate but `median`, bound each contribution with `contributionBounds`.
 - Set the signer threshold to a turnout that matters for the circle. The
   signatures are public, so any publisher can republish a subset of them.
+- Where the circle has a designated publisher, name its key in the deployment
+  policy (`acceptedPublishers`). The signatures carry no time either, so an old
+  proof can be republished under a new timestamp.
 - Keep trust-circle admission, revocation, and rotation policies explicit.
 - Treat identifiers as application-profiled strings, not as global truth.
 - Avoid sensitive collection workflows that expose contributor IP, timing, or
