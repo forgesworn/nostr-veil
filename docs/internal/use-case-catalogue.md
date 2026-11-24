@@ -205,25 +205,37 @@ application lands in. "Run" means the behaviour was reproduced for this note.
    carry them. `median` needs half the signers to move it, which is why it is
    the default.
 
-5. **Any publisher chooses what to include and how to aggregate it.** The
-   `veil-agg` tag and the choice of signatures are the publisher's. The circle
-   signs neither, and the signatures are public. So anyone, member or not, can
-   take a published event and republish a subset of its signatures, or the
-   same set under another function, under their own key.
+5. **Any publisher chooses what to include, how to aggregate it and how to
+   date it.** The `veil-agg` tag, the choice of signatures and the event's
+   `created_at` are the publisher's. The circle signs none of them, and the
+   signatures are public. So anyone, member or not, can take a published event
+   and republish a subset of its signatures, the same set under another
+   function, or the whole proof under a new timestamp, with their own key.
    - Run: scores `[20, 20, 95]` read as 20 under `median` and 95 under `max`.
      The `max` event passed a deployment policy requiring a `rank` of at least
      70, which the honest event failed.
    - Run: four contributions `[90, 90, 20, 20]` gave a median of 55. Publishing
      only the first two gave 90, with a valid proof and an honest
      `veil-threshold` of 2 of 5.
+   - Run: a proof dated a year back failed a one-hour freshness window. The
+     same signatures, signed again as a Nostr event by an outside key with
+     today's `created_at`, passed it. The ring signatures carry no time, so
+     `maxAgeSeconds` reads whatever the publisher wrote.
 
    Every built-in profile now pins its aggregate (`requireAggregate` in
-   `verifyProof`), which closes the first. The second remains. A dropped
-   contributor can see their key image is missing, and can give the same
-   contribution to another publisher or publish it alone (P10), but a reader of
-   one event cannot tell. Verifiers that care should require a turnout that
-   matters, accept only the circle's designated publisher where there is one,
-   or count across several publishers under a shared scope.
+   `verifyProof`), which closes the first. A deployment policy can name the
+   keys that may publish (`acceptedPublishers`), which closes the second and
+   third against a third party: an event signed by any other key is rejected.
+   Two things remain. A named publisher can still leave signatures out. A
+   dropped contributor can see their key image is missing, and can give the
+   same contribution to another publisher or publish it alone (P10), but a
+   reader of one event cannot tell. And where nobody can be named, as when
+   members publish for themselves under throwaway keys, nothing in the proof
+   says when it was signed unless the subject carries the period (P9, P11).
+   Verifiers that care should require a turnout that matters, name the
+   circle's designated publisher where there is one, put the period in the
+   subject where the route allows it, or count across several publishers under
+   a shared scope.
 
 6. **Whoever holds a member's key can find that member's contributions.** The
    key image depends only on the private key and the election id. Run:
@@ -518,7 +530,7 @@ see that one contributor signed in several circles.
 | Cross-faction agreement: a threshold from each of two or more circles that usually disagree | One circle per viewpoint | Ready. Verify each circle's event alone, then require all of them. No shared scope is needed unless overlap matters | curation: who defines the factions |
 | Rolling rosters: members join and the one-per-member rule survives | Successive rosters under one scope | Ready (run) | Old and new rosters are both public |
 | Sharded counts: several events, each under the relay limit | One scoped circle with several publishers | Ready (run) | size: total verification time is unchanged. Splitting into sub-circles instead shrinks the anonymity set to the shard |
-| Self-published contributions: each member publishes a one-signer event and there is no aggregator | One scoped circle | Ready for counting (run). Extension to combine the values | Each event repeats the ring, so the total size grows. It removes limit 5 |
+| Self-published contributions: each member publishes a one-signer event and there is no aggregator | One scoped circle | Ready for counting (run). Extension to combine the values | Each event repeats the ring, so the total size grows. Nobody chooses what to include, which removes that part of limit 5; anyone can still republish an event under a new timestamp |
 
 ### P11. Periodic liveness and canaries
 
@@ -583,7 +595,7 @@ Changes to nostr-veil that need no new cryptography:
 
 | Change | Unlocks |
 | --- | --- |
-| A policy option that accepts assertions only from named publisher keys | Closes subset republication for a circle with a designated aggregator (limit 5) |
+| A verifier option that requires one `veil-scope` value | A proof bound to a period where the subject cannot carry one, as with a pubkey or an event id: an old proof then fails without naming a publisher (limit 5) |
 | A rule across the metrics of one contribution, such as "these sum to at most 1" | Plurality ballots in one event (P4) |
 | A signed payload that is not part of the election id: sign an event id or a public key under an election id built from the scope alone | Passes bound to a session or a payout key, one pseudonym per member, rate-limited posting, question caps (P6, P9) |
 | An external-signer interface here, and LSAG in a signer people use | Ordinary users without pasted secret keys, and rings over main Nostr keys (limit 8) |
