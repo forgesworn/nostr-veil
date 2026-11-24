@@ -111,43 +111,79 @@ function cmdProviderDeclare(args) {
   console.log(JSON.stringify(signed, null, 2))
 }
 
-/** Extract --kind value from args (the next arg after --kind), as a number. */
-function extractKindFlag(args) {
-  const idx = args.indexOf('--kind')
-  if (idx === -1) return undefined
-  if (idx + 1 >= args.length) {
-    console.error('Error: --kind requires a value')
-    process.exit(1)
-  }
-  const kind = Number(args[idx + 1])
-  if (!Number.isInteger(kind) || kind < 0) {
-    console.error('Error: --kind must be a non-negative integer')
-    process.exit(1)
-  }
-  return kind
-}
+const VERIFY_OPTIONS = new Set(['--kind', '--aggregate'])
 
-/** Extract --aggregate value from args (the next arg after --aggregate), as a built-in aggregate name. */
-function extractAggregateFlag(args) {
-  const idx = args.indexOf('--aggregate')
-  if (idx === -1) return undefined
-  const name = args[idx + 1]
-  if (name === undefined || !isAggregateName(name)) {
-    const names = Object.keys(AGGREGATES)
-    console.error(`Error: --aggregate must be one of ${names.slice(0, -1).join(', ')} or ${names.at(-1)}`)
+/**
+ * Split verify's arguments into the event JSON and its options. Every argument
+ * has to be accounted for: both options make the check stricter, so one that
+ * was mistyped and dropped in silence would let the proof verify without the
+ * check the caller asked for. An option is `--name value` or `--name=value`,
+ * before or after the event.
+ */
+function parseVerifyArgs(args) {
+  const options = new Map()
+  const positionals = []
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i]
+    // An event is a JSON object, so nothing that starts with a dash is one
+    if (!arg.startsWith('-')) {
+      positionals.push(arg)
+      continue
+    }
+    const equals = arg.indexOf('=')
+    const name = equals === -1 ? arg : arg.slice(0, equals)
+    if (!VERIFY_OPTIONS.has(name)) {
+      console.error(`Error: unknown option ${name}. Run nostr-veil --help for usage.`)
+      process.exit(1)
+    }
+    if (options.has(name)) {
+      console.error(`Error: ${name} given more than once`)
+      process.exit(1)
+    }
+    // The value is undefined when the option came last with no value
+    options.set(name, equals === -1 ? args[++i] : arg.slice(equals + 1))
+  }
+
+  if (positionals.length > 1) {
+    console.error(`Error: verify takes one <event-json>, not ${positionals.length}`)
     process.exit(1)
   }
-  return name
+
+  let expectedKind
+  if (options.has('--kind')) {
+    const value = options.get('--kind')
+    if (value === undefined) {
+      console.error('Error: --kind requires a value')
+      process.exit(1)
+    }
+    // Decimal digits only: Number() also reads '', ' ', '0x10' and '3e4' as integers
+    if (!/^(0|[1-9]\d*)$/.test(value) || !Number.isSafeInteger(Number(value))) {
+      console.error('Error: --kind must be a non-negative integer')
+      process.exit(1)
+    }
+    expectedKind = Number(value)
+  }
+
+  let requireAggregate
+  if (options.has('--aggregate')) {
+    const name = options.get('--aggregate')
+    if (name === undefined || !isAggregateName(name)) {
+      const names = Object.keys(AGGREGATES)
+      console.error(`Error: --aggregate must be one of ${names.slice(0, -1).join(', ')} or ${names.at(-1)}`)
+      process.exit(1)
+    }
+    requireAggregate = name
+  }
+
+  return { eventJson: positionals[0], expectedKind, requireAggregate }
 }
 
 function cmdVerify(args) {
-  const eventJson = args[0]
+  const { eventJson, expectedKind, requireAggregate } = parseVerifyArgs(args)
   if (!eventJson) {
     console.error('Error: verify requires <event-json>')
     process.exit(1)
   }
-  const expectedKind = extractKindFlag(args)
-  const requireAggregate = extractAggregateFlag(args)
 
   let event
   try {

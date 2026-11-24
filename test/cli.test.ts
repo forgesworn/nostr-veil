@@ -94,3 +94,72 @@ describe('nostr-veil verify --aggregate', () => {
     expect(stdout).toContain('[--aggregate fn]')
   })
 })
+
+// Both options make the check stricter. An argument the command dropped in
+// silence would let the proof verify without the check the caller asked for.
+describe('nostr-veil verify arguments', () => {
+  const asMax = published('max')
+  const medianRequired = ['veil-agg is "max" but "median" is required']
+
+  it('refuses an option it does not know', () => {
+    for (const option of ['--agregate', '--Aggregate', '--aggregates', '-a', '--strict']) {
+      const { status, stderr, stdout } = cli('verify', asMax, option, 'median')
+
+      expect(status, option).toBe(1)
+      expect(stderr, option).toContain(`Error: unknown option ${option}`)
+      expect(stdout, option).toBe('')
+    }
+  })
+
+  it('reads --aggregate=fn and --kind=n as it reads the spaced forms', () => {
+    const { result, status } = cli('verify', asMax, '--aggregate=median')
+
+    expect(status).toBe(0)
+    expect(result.valid).toBe(false)
+    expect(result.errors).toEqual(medianRequired)
+    expect(cli('verify', asMax, '--aggregate=max', '--kind=30382').result.valid).toBe(true)
+    expect(cli('verify', asMax, '--aggregate=max', '--kind=30383').result.valid).toBe(false)
+  })
+
+  it('takes the options before the event as well as after it', () => {
+    const { result, status } = cli('verify', '--aggregate', 'median', asMax)
+
+    expect(status).toBe(0)
+    expect(result.errors).toEqual(medianRequired)
+    expect(cli('verify', '--kind', '30382', asMax, '--aggregate', 'max').result.valid).toBe(true)
+    expect(cli('verify', '--kind', '30383', asMax, '--aggregate', 'max').result.valid).toBe(false)
+  })
+
+  it('refuses an option given twice', () => {
+    for (const options of [
+      ['--aggregate', 'max', '--aggregate', 'median'],
+      ['--aggregate=median', '--aggregate', 'median'],
+      ['--kind', '30382', '--kind=30383'],
+    ]) {
+      const { status, stderr, stdout } = cli('verify', asMax, ...options)
+
+      expect(status, options.join(' ')).toBe(1)
+      expect(stderr, options.join(' ')).toMatch(/Error: --(aggregate|kind) given more than once/)
+      expect(stdout, options.join(' ')).toBe('')
+    }
+  })
+
+  it('refuses a second argument that is not an option', () => {
+    const { status, stderr, stdout } = cli('verify', asMax, 'median')
+
+    expect(status).toBe(1)
+    expect(stderr).toContain('Error: verify takes one <event-json>')
+    expect(stdout).toBe('')
+  })
+
+  it('refuses a --kind that is not written as a non-negative integer', () => {
+    for (const kind of ['', ' ', '-1', '30382.5', 'abc', '0x7676', '3e4']) {
+      const { status, stderr, stdout } = cli('verify', asMax, '--kind', kind)
+
+      expect(status, kind).toBe(1)
+      expect(stderr, kind).toContain('Error: --kind must be a non-negative integer')
+      expect(stdout, kind).toBe('')
+    }
+    expect(cli('verify', asMax, '--kind').stderr).toContain('Error: --kind requires a value')
+  })
+})
