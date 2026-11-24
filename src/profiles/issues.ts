@@ -1,5 +1,6 @@
 export type VerificationIssueCode =
   | 'assertion.created_at_future'
+  | 'assertion.created_at_invalid'
   | 'assertion.created_at_missing'
   | 'assertion.stale'
   | 'bundle.expired'
@@ -90,6 +91,10 @@ const VERIFICATION_ISSUE_EXPLANATION_INPUTS = {
   'assertion.created_at_future': explanation(
     'The assertion is dated further ahead of the verifier clock than the deployment allows.',
     'Reject the assertion. Only its signer sets created_at, and an event dated ahead stays inside the freshness window until that date plus the window. If the verifier clock is right and the publisher is known to run ahead, raise maxFutureSeconds in the deployment policy.',
+  ),
+  'assertion.created_at_invalid': explanation(
+    'The assertion created_at is not a whole number of seconds.',
+    'Reject the assertion. A value that is not a Unix timestamp cannot be placed inside the freshness window, so it must not pass as fresh.',
   ),
   'assertion.created_at_missing': explanation(
     'The assertion has no Nostr created_at timestamp.',
@@ -391,8 +396,11 @@ function codeFromError(message: string): VerificationIssueCode {
 
   // Matched against the whole message, ahead of the fragment rules below. The
   // syntax, proof and metric messages quote tag names taken from the event,
-  // and an event must not be able to name its way into either of these codes.
+  // and an event must not be able to name its way into any of these codes.
   if (/^event\[\d+\] assertion created_at is in the future$/u.test(message)) return 'assertion.created_at_future'
+  if (/^event\[\d+\] assertion created_at is not a Unix timestamp$/u.test(message)) {
+    return 'assertion.created_at_invalid'
+  }
   if (message === 'maxFutureSeconds must be a non-negative integer') return 'policy.max_future_seconds_invalid'
 
   if (lower.includes('production verifier requires policy.requirenostrsignature')) {

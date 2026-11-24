@@ -112,6 +112,63 @@ describe('an assertion dated in the future', () => {
   })
 })
 
+describe('an assertion whose created_at is not a Unix timestamp', () => {
+  const INVALID = 'event[0] assertion created_at is not a Unix timestamp'
+
+  // Compared as it stands, a word or NaN is neither older than the window nor
+  // ahead of it, so the assertion would pass both ends and never go stale
+  it.each([
+    ['a word', 'abc'],
+    ['a numeric string', String(NOW)],
+    ['an object', {}],
+    ['a list', []],
+    ['true', true],
+    ['null', null],
+    ['NaN', Number.NaN],
+    ['infinity', Number.POSITIVE_INFINITY],
+    ['a fraction', NOW + 0.5],
+  ])('rejects %s', (_name, value) => {
+    const event = { ...dated(0), created_at: value as unknown as number }
+
+    expect(errorsFor(event)).toEqual([INVALID])
+    const result = verifyDeploymentPolicy(event, policy, { now: NOW })
+    expect(result.decision).toBe('reject')
+    expect(codes(result)).toEqual(['assertion.created_at_invalid'])
+  })
+
+  // NaN is a number, so it passes the signed-event shape check, and it signs
+  it('rejects NaN on a signed event when the policy requires signatures', () => {
+    const signedPolicy = createDeploymentPolicy(profile, { ...gate, requireNostrSignature: true })
+    const event = signEvent({ ...dated(0), created_at: Number.NaN }, '55'.repeat(32))
+
+    expect(verifyDeploymentPolicy(event, signedPolicy, { now: NOW }).errors).toEqual([INVALID])
+  })
+
+  it('still reads a whole number of seconds, before 1970 included, as a date', () => {
+    expect(errorsFor(dated(0))).toEqual([])
+    expect(errorsFor({ ...dated(0), created_at: -5 })).toEqual([STALE])
+  })
+
+  it('keeps its own message for an assertion with no created_at', () => {
+    const { created_at: _absent, ...undated } = dated(0)
+
+    expect(errorsFor(undated)).toEqual(['event[0] missing created_at for freshness check'])
+  })
+
+  // With the window off there is no time check at all, as before
+  it('is not checked when the freshness window is off', () => {
+    expect(errorsFor({ ...dated(0), created_at: 'abc' as unknown as number }, { maxAgeSeconds: 0 })).toEqual([])
+  })
+
+  it('has its own code, read only from the whole message', () => {
+    expect(classifyVerificationError('event[3] assertion created_at is not a Unix timestamp'))
+      .toMatchObject({ code: 'assertion.created_at_invalid', path: 'event[3]' })
+    expect(explainVerificationIssue('assertion.created_at_invalid').action).toBe('reject')
+    expect(classifyVerificationError('event[0] syntax: Unknown metric tag "assertion created_at is not a Unix timestamp" for kind 30382.').code)
+      .toBe('nip85.syntax_invalid')
+  })
+})
+
 describe('a malformed future allowance', () => {
   it('is refused when a policy is created', () => {
     for (const value of [-1, 1.5, Number.NaN, Number.POSITIVE_INFINITY, '60']) {

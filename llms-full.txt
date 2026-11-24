@@ -711,8 +711,10 @@ ends: an assertion older than `maxAgeSeconds` fails with `assertion.stale`, and
 one dated more than `maxFutureSeconds` ahead of `now` fails with
 `assertion.created_at_future` (default `DEFAULT_MAX_FUTURE_SECONDS`, 60; `0`
 allows no skew). Only the signer sets `created_at`, and an event dated ahead
-stays inside the window until that date plus the window. With `maxAgeSeconds`
-0 neither end is checked.
+stays inside the window until that date plus the window. A `created_at` that is
+not a whole number of seconds (a string, `NaN`, a fraction) fails with
+`assertion.created_at_invalid`: it cannot be placed in the window, so it must
+not pass as fresh. With `maxAgeSeconds` 0 none of this is checked.
 
 #### `createCircleManifest(options) → CircleManifest`
 

@@ -156,11 +156,17 @@ function verifyEvent(
   const maxAgeSeconds = options.maxAgeSeconds ?? profile.maxAgeSeconds
   if (maxAgeSeconds > 0) {
     const now = options.now ?? nowSeconds()
-    if (event.created_at === undefined) {
+    const createdAt: unknown = event.created_at
+    if (createdAt === undefined) {
       errors.push(`${prefix} missing created_at for freshness check`)
-    } else if (event.created_at < now - maxAgeSeconds) {
+    } else if (typeof createdAt !== 'number' || !Number.isSafeInteger(createdAt)) {
+      // Compared as it stands, a word or NaN is neither older than the window
+      // nor ahead of it, so the assertion would pass both ends and never go
+      // stale. An event that arrives as JSON can carry anything here.
+      errors.push(`${prefix} assertion created_at is not a Unix timestamp`)
+    } else if (createdAt < now - maxAgeSeconds) {
       errors.push(`${prefix} assertion is outside the accepted freshness window`)
-    } else if (event.created_at > now + maxFutureSeconds) {
+    } else if (createdAt > now + maxFutureSeconds) {
       // Only the signer sets created_at, and an event dated ahead stays inside
       // the window until that date plus the window. Without this bound the
       // publisher chooses how long an assertion counts as fresh.
