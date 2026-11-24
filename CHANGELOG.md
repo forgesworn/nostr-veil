@@ -1,3 +1,11 @@
+## 0.35.0 (2026-11-24)
+
+### Features
+
+- pin the aggregate function and bound each contribution (#67) (security)
+
+
+
 ## 0.34.1 (2026-11-23)
 
 ### Bug Fixes
