@@ -112,6 +112,11 @@ export interface VerifyUseCaseProfileOptions {
    * date plus the window. Default: `DEFAULT_MAX_FUTURE_SECONDS`.
    */
   maxFutureSeconds?: number
+  /**
+   * Distinct signers required, in place of the profile's. A value that is not
+   * a positive integer is an error: read as it stands, a word or 0 would let a
+   * single signer through.
+   */
   minDistinctSigners?: number
   now?: number
   requireKnownCircle?: boolean

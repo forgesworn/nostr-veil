@@ -49,6 +49,7 @@ export type VerificationIssueCode =
   | 'policy.accepted_publishers_invalid'
   | 'policy.max_age_seconds_invalid'
   | 'policy.max_future_seconds_invalid'
+  | 'policy.min_distinct_signers_invalid'
   | 'policy.nostr_signature_not_required'
   | 'profile.event_count_invalid'
   | 'profile.kind_mismatch'
@@ -318,6 +319,11 @@ const VERIFICATION_ISSUE_EXPLANATION_INPUTS = {
     'Correct maxFutureSeconds where it is set: in the verifier option, or in the deployment policy, reissuing its bundle. With maxAgeSeconds 0 no date is checked, so leave maxFutureSeconds out or give the policy a window. Every assertion is rejected until then.',
     'operator-action',
   ),
+  'policy.min_distinct_signers_invalid': explanation(
+    'minDistinctSigners is not a positive integer.',
+    'Correct minDistinctSigners where it is set: in the verifier option, the profile, or the deployment policy, reissuing its bundle. A malformed threshold cannot be applied, so every assertion is rejected until then.',
+    'operator-action',
+  ),
   'policy.nostr_signature_not_required': explanation(
     'The production bundle policy would allow unsigned relay events.',
     'Set requireNostrSignature: true in createDeploymentPolicy() for production relay-fetched assertions.',
@@ -416,6 +422,7 @@ function codeFromError(message: string): VerificationIssueCode {
     return 'assertion.created_at_invalid'
   }
   if (message === NOW_INVALID) return 'verification.now_invalid'
+  if (message === 'minDistinctSigners must be a positive integer') return 'policy.min_distinct_signers_invalid'
   if (message === 'maxAgeSeconds must be a non-negative integer') return 'policy.max_age_seconds_invalid'
   if (
     message === 'maxFutureSeconds must be a non-negative integer'

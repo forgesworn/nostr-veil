@@ -23,6 +23,31 @@ import type {
 export const DEFAULT_MAX_FUTURE_SECONDS = 60
 
 /**
+ * The signer threshold: the caller's option, or else the profile's.
+ * `signers < threshold` is false for a word or an object, and nothing is below
+ * zero, so a malformed value read as it stands would let a single signer
+ * through. It is reported instead, and undefined comes back so that no count
+ * is compared against it. The rule is the one `createDeploymentPolicy` and the
+ * profile definition apply: a positive integer. Only an absent option is
+ * unset, and the profile is checked too, because the one inside a bundle
+ * arrives as JSON.
+ */
+function minDistinctSignersFrom(
+  profile: UseCaseProfile,
+  options: VerifyUseCaseProfileOptions,
+  errors: string[],
+): number | undefined {
+  const value: unknown = options.minDistinctSigners === undefined
+    ? profile.minDistinctSigners
+    : options.minDistinctSigners
+  if (typeof value !== 'number' || !Number.isSafeInteger(value) || value <= 0) {
+    errors.push('minDistinctSigners must be a positive integer')
+    return undefined
+  }
+  return value
+}
+
+/**
  * The freshness window in seconds: the caller's option, or else the profile's.
  * `maxAgeSeconds > 0` is false for a word, an object or a negative number, so
  * a malformed value read as it stands would switch the window off, and the
@@ -139,6 +164,7 @@ function verifyEvent(
   index: number,
   options: VerifyUseCaseProfileOptions,
   acceptedCircles: Set<string> | undefined,
+  minDistinctSigners: number | undefined,
   now: number | undefined,
   maxAgeSeconds: number | undefined,
   maxFutureSeconds: number,
@@ -182,8 +208,12 @@ function verifyEvent(
     errors.push(...proof.errors.map(error => `${prefix} proof: ${error}`))
   }
 
-  const minDistinctSigners = options.minDistinctSigners ?? profile.minDistinctSigners
-  if (profile.federation === undefined && proof.distinctSigners < minDistinctSigners) {
+  // Undefined when the threshold is malformed, which is reported once for the run
+  if (
+    profile.federation === undefined
+    && minDistinctSigners !== undefined
+    && proof.distinctSigners < minDistinctSigners
+  ) {
     errors.push(`${prefix} has fewer than ${minDistinctSigners} distinct signers`)
   }
 
@@ -273,11 +303,21 @@ export function verifyUseCaseProfile(
   // compared against it, here or for NIP-40 expiry, and the run fails for that.
   const now = verificationTime(options.now)
   if (now === undefined) errors.push(NOW_INVALID)
+  const minDistinctSigners = minDistinctSignersFrom(profile, options, errors)
   const maxAgeSeconds = maxAgeSecondsFrom(profile, options, errors)
   const maxFutureSeconds = maxFutureSecondsFrom(options, maxAgeSeconds, errors)
-  const verifiedEvents = eventList.map((event, index) =>
-    verifyEvent(profile, event, index, options, acceptedCircles, now, maxAgeSeconds, maxFutureSeconds, errors),
-  )
+  const verifiedEvents = eventList.map((event, index) => verifyEvent(
+    profile,
+    event,
+    index,
+    options,
+    acceptedCircles,
+    minDistinctSigners,
+    now,
+    maxAgeSeconds,
+    maxFutureSeconds,
+    errors,
+  ))
 
   const federation = profile.federation === undefined
     ? undefined
@@ -286,8 +326,7 @@ export function verifyUseCaseProfile(
     if (!federation.valid) {
       errors.push(...federation.errors.map(error => `federation: ${error}`))
     }
-    const minDistinctSigners = options.minDistinctSigners ?? profile.minDistinctSigners
-    if (federation.distinctSigners < minDistinctSigners) {
+    if (minDistinctSigners !== undefined && federation.distinctSigners < minDistinctSigners) {
       errors.push(`federation has fewer than ${minDistinctSigners} distinct signers`)
     }
   }

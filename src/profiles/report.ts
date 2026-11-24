@@ -176,12 +176,13 @@ function productionControls(result: ProductionDeploymentVerification, issues: re
   const companionEvidenceStatus: ProductionControlStatus = hasPrefix(codes, 'companion.')
     ? 'fail'
     : (companionEvidenceRequired || companionEvidenceChecked ? 'pass' : 'not-checked')
-  // A malformed window, or a malformed or unused allowance, means the freshness
-  // window was not applied as the policy meant it, so the control that reports
-  // freshness fails with it
+  // A malformed threshold or window, or a malformed or unused allowance, means
+  // the threshold or the freshness window was not applied as the policy meant
+  // it, so the control that reports them fails with it
   const proofOrFreshnessFailed = hasPrefix(codes, 'proof.')
     || hasPrefix(codes, 'federation.')
     || hasPrefix(codes, 'assertion.')
+    || codes.has('policy.min_distinct_signers_invalid')
     || codes.has('policy.max_age_seconds_invalid')
     || codes.has('policy.max_future_seconds_invalid')
     || codes.has('verification.now_invalid')

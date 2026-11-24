@@ -721,7 +721,10 @@ is not a non-negative integer (a word, a negative number, `null`) fails every
 event with `policy.max_age_seconds_invalid`, whether it comes from the option,
 the profile or a policy read from a bundle; read as it stands it would switch
 the window off. A companion evidence requirement's own `maxAgeSeconds` is
-checked the same way and fails with `companion.invalid`.
+checked the same way and fails with `companion.invalid`. A `minDistinctSigners`
+that is not a positive integer (a word, 0, `null`) fails every event with
+`policy.min_distinct_signers_invalid`, for a single assertion and for a
+federation; read as it stands it would let a single signer through.
 
 #### `createCircleManifest(options) → CircleManifest`
 
