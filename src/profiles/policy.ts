@@ -178,18 +178,30 @@ function normaliseEvents(events: EventTemplate | readonly EventTemplate[]): Even
   return Array.isArray(events) ? [...events] : [events as EventTemplate]
 }
 
-function assertFinite(value: number | undefined, label: string): void {
-  if (value !== undefined && !Number.isFinite(value)) {
-    throw new Error(`${label} must be a finite number`)
+/**
+ * Problems with the bounds of one metric policy. Used when a policy is created
+ * and again when one is verified, because a policy inside a signed bundle
+ * arrives as JSON and nothing has checked its shape. `value < min` is false
+ * for a word, an object or null, so a malformed bound compared as it stands
+ * would let any value through the gate it was written for.
+ */
+function metricPolicyProblems(name: string, policy: DeploymentMetricPolicy): string[] {
+  const problems: string[] = []
+  const min: unknown = policy.min
+  const max: unknown = policy.max
+  const minFinite = typeof min === 'number' && Number.isFinite(min)
+  const maxFinite = typeof max === 'number' && Number.isFinite(max)
+  if (min !== undefined && !minFinite) problems.push(`metricPolicies.${name}.min must be a finite number`)
+  if (max !== undefined && !maxFinite) problems.push(`metricPolicies.${name}.max must be a finite number`)
+  if (minFinite && maxFinite && (min as number) > (max as number)) {
+    problems.push(`metricPolicies.${name}.min must be <= max`)
   }
+  return problems
 }
 
 function assertMetricPolicy(name: string, policy: DeploymentMetricPolicy): void {
-  assertFinite(policy.min, `metricPolicies.${name}.min`)
-  assertFinite(policy.max, `metricPolicies.${name}.max`)
-  if (policy.min !== undefined && policy.max !== undefined && policy.min > policy.max) {
-    throw new Error(`metricPolicies.${name}.min must be <= max`)
-  }
+  const problems = metricPolicyProblems(name, policy)
+  if (problems.length > 0) throw new Error(problems[0])
 }
 
 function cloneMetricPolicies(
@@ -558,6 +570,17 @@ function verifyMetricPolicies(
   const metrics: Record<string, number[]> = {}
   const allowedMetricNames = new Set(Object.keys(policy.metricPolicies))
 
+  // A malformed bound is reported once, here, and its metric is then left
+  // alone: nothing is compared against a bound that is not a number.
+  const malformed = new Set<string>()
+  for (const [name, metricPolicy] of Object.entries(policy.metricPolicies)) {
+    const problems = metricPolicyProblems(name, metricPolicy)
+    if (problems.length > 0) {
+      errors.push(...problems)
+      malformed.add(name)
+    }
+  }
+
   for (const [index, event] of events.entries()) {
     const published = metricTags(event)
 
@@ -570,6 +593,7 @@ function verifyMetricPolicies(
     }
 
     for (const [name, metricPolicy] of Object.entries(policy.metricPolicies)) {
+      if (malformed.has(name)) continue
       const raw = published.get(name)
       if (raw === undefined) {
         if (metricPolicy.required === true) {

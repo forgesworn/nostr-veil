@@ -49,6 +49,7 @@ export type VerificationIssueCode =
   | 'policy.accepted_publishers_invalid'
   | 'policy.max_age_seconds_invalid'
   | 'policy.max_future_seconds_invalid'
+  | 'policy.metric_policy_invalid'
   | 'policy.min_distinct_signers_invalid'
   | 'policy.nostr_signature_not_required'
   | 'profile.event_count_invalid'
@@ -319,6 +320,11 @@ const VERIFICATION_ISSUE_EXPLANATION_INPUTS = {
     'Correct maxFutureSeconds where it is set: in the verifier option, or in the deployment policy, reissuing its bundle. With maxAgeSeconds 0 no date is checked, so leave maxFutureSeconds out or give the policy a window. Every assertion is rejected until then.',
     'operator-action',
   ),
+  'policy.metric_policy_invalid': explanation(
+    'A metric bound in the deployment policy is not a finite number, or its minimum is above its maximum.',
+    'Correct the min and max of that entry in metricPolicies and reissue the bundle. A bound that is not a number cannot be applied, so every assertion is rejected until then.',
+    'operator-action',
+  ),
   'policy.min_distinct_signers_invalid': explanation(
     'minDistinctSigners is not a positive integer.',
     'Correct minDistinctSigners where it is set: in the verifier option, the profile, or the deployment policy, reissuing its bundle. A malformed threshold cannot be applied, so every assertion is rejected until then.',
@@ -423,6 +429,13 @@ function codeFromError(message: string): VerificationIssueCode {
   }
   if (message === NOW_INVALID) return 'verification.now_invalid'
   if (message === 'minDistinctSigners must be a positive integer') return 'policy.min_distinct_signers_invalid'
+  // The metric name here comes from the policy. An event's own messages open with event[n].
+  if (
+    message.startsWith('metricPolicies.')
+    && (message.endsWith(' must be a finite number') || message.endsWith('.min must be <= max'))
+  ) {
+    return 'policy.metric_policy_invalid'
+  }
   if (message === 'maxAgeSeconds must be a non-negative integer') return 'policy.max_age_seconds_invalid'
   if (
     message === 'maxFutureSeconds must be a non-negative integer'

@@ -186,6 +186,8 @@ function productionControls(result: ProductionDeploymentVerification, issues: re
     || codes.has('policy.max_age_seconds_invalid')
     || codes.has('policy.max_future_seconds_invalid')
     || codes.has('verification.now_invalid')
+  // A bound that is not a number was not applied, so its metric was not checked
+  const metricPolicyFailed = hasPrefix(codes, 'metric.') || codes.has('policy.metric_policy_invalid')
 
   return Object.freeze([
     control(
@@ -277,9 +279,9 @@ function productionControls(result: ProductionDeploymentVerification, issues: re
     control(
       'metric-policy',
       'Metric policy',
-      hasPrefix(codes, 'metric.') ? 'fail' : 'pass',
-      hasPrefix(codes, 'metric.')
-        ? 'At least one metric is missing, unexpected, non-numeric, non-integer, or outside the deployment bounds.'
+      metricPolicyFailed ? 'fail' : 'pass',
+      metricPolicyFailed
+        ? 'At least one metric is missing, unexpected, non-numeric, non-integer, or outside the deployment bounds, or a bound in the policy is malformed.'
         : 'The published metrics satisfy the deployment metric policy.',
     ),
     control(

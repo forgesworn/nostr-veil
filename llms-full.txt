@@ -724,7 +724,11 @@ the window off. A companion evidence requirement's own `maxAgeSeconds` is
 checked the same way and fails with `companion.invalid`. A `minDistinctSigners`
 that is not a positive integer (a word, 0, `null`) fails every event with
 `policy.min_distinct_signers_invalid`, for a single assertion and for a
-federation; read as it stands it would let a single signer through.
+federation; read as it stands it would let a single signer through. A
+`metricPolicies` `min` or `max` that is not a finite number, or a `min` above
+its `max`, fails with `policy.metric_policy_invalid`, once for the run, by the
+same check `createDeploymentPolicy` applies; read as it stands it would let
+any value through that bound.
 
 #### `createCircleManifest(options) → CircleManifest`
 
