@@ -71,10 +71,11 @@ function maxAgeSecondsFrom(
 
 /**
  * The allowance for a `created_at` ahead of `now`. A value that is not a
- * non-negative integer is an error and allows nothing: compared as it stands,
- * a string or NaN would make the test false and take the bound away. That
- * includes null, which is what NaN becomes in JSON; only an absent value is
- * unset.
+ * non-negative integer is an error: compared as it stands, a string or NaN
+ * would make the test false and take the bound away. It is reported once for
+ * the run and undefined comes back, so that no date is compared against it and
+ * no event is called future-dated for a fault in the policy. That includes
+ * null, which is what NaN becomes in JSON; only an absent value is unset.
  *
  * The allowance is the upper end of the freshness window. With the window off
  * no date is checked, so a value set beside it would be read and then dropped.
@@ -85,12 +86,12 @@ function maxFutureSecondsFrom(
   options: VerifyUseCaseProfileOptions,
   maxAgeSeconds: number | undefined,
   errors: string[],
-): number {
+): number | undefined {
   const value: unknown = options.maxFutureSeconds
   if (value === undefined) return DEFAULT_MAX_FUTURE_SECONDS
   if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < 0) {
     errors.push('maxFutureSeconds must be a non-negative integer')
-    return 0
+    return undefined
   }
   if (maxAgeSeconds === 0) {
     errors.push('maxFutureSeconds is set while maxAgeSeconds turns the freshness window off')
@@ -167,7 +168,7 @@ function verifyEvent(
   minDistinctSigners: number | undefined,
   now: number | undefined,
   maxAgeSeconds: number | undefined,
-  maxFutureSeconds: number,
+  maxFutureSeconds: number | undefined,
   errors: string[],
 ): VerifiedProfileEvent {
   const prefix = `event[${index}]`
@@ -217,9 +218,9 @@ function verifyEvent(
     errors.push(`${prefix} has fewer than ${minDistinctSigners} distinct signers`)
   }
 
-  // The window is undefined when it is malformed, and now is undefined when it
-  // cannot be compared. Each is reported once for the run, and nothing is
-  // compared against either.
+  // The window and the allowance are undefined when malformed, and now is
+  // undefined when it cannot be compared. Each is reported once for the run,
+  // and nothing is compared against any of them.
   if (maxAgeSeconds !== undefined && maxAgeSeconds > 0) {
     const createdAt: unknown = event.created_at
     if (createdAt === undefined) {
@@ -231,7 +232,7 @@ function verifyEvent(
       errors.push(`${prefix} assertion created_at is not a Unix timestamp`)
     } else if (now !== undefined && createdAt < now - maxAgeSeconds) {
       errors.push(`${prefix} assertion is outside the accepted freshness window`)
-    } else if (now !== undefined && createdAt - maxFutureSeconds > now) {
+    } else if (now !== undefined && maxFutureSeconds !== undefined && createdAt - maxFutureSeconds > now) {
       // Only the signer sets created_at, and an event dated ahead stays inside
       // the window until that date plus the window. Without this bound the
       // publisher chooses how long an assertion counts as fresh.

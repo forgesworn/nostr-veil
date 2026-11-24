@@ -261,6 +261,22 @@ describe('a malformed future allowance', () => {
     }
   })
 
+  // The policy is at fault, not the publisher's clock. Nothing is compared
+  // against a malformed allowance, so no event is called future-dated for it.
+  it('is the only error for a malformed allowance, however far ahead the event is dated', () => {
+    const tampered = {
+      ...(JSON.parse(JSON.stringify(policy)) as UseCaseDeploymentPolicy),
+      maxFutureSeconds: '60' as unknown as number,
+    }
+
+    for (const event of [dated(0), dated(30), dated(TEN_YEARS)]) {
+      const result = verifyDeploymentPolicy(event, tampered, { now: NOW })
+      expect(result.decision).toBe('reject')
+      expect(result.errors).toEqual([MALFORMED])
+      expect(codes(result)).toEqual(['policy.max_future_seconds_invalid'])
+    }
+  })
+
   it('reads the same malformed value the same way before and after JSON', () => {
     const handBuilt = { ...policy, maxFutureSeconds: Number.NaN }
     const parsed = JSON.parse(JSON.stringify(handBuilt)) as UseCaseDeploymentPolicy
@@ -271,7 +287,8 @@ describe('a malformed future allowance', () => {
 
   it('fails closed on NaN or null passed straight to the verifier', () => {
     expect(errorsFor(dated(0), { maxFutureSeconds: Number.NaN })).toEqual([MALFORMED])
-    expect(errorsFor(dated(TEN_YEARS), { maxFutureSeconds: Number.NaN })).toEqual([MALFORMED, FUTURE])
+    // Nothing is compared against a malformed allowance, so the date is not judged
+    expect(errorsFor(dated(TEN_YEARS), { maxFutureSeconds: Number.NaN })).toEqual([MALFORMED])
     expect(errorsFor(dated(0), { maxFutureSeconds: null as unknown as number })).toEqual([MALFORMED])
   })
 
