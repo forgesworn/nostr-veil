@@ -36,6 +36,7 @@ describe('verification issue explanations', () => {
       'event[0] proof: Signature at index 2 metric "rank" value 3 is above the contribution maximum 1',
       'event[0] proof: Signature at index 1 metric "rank" value -2 is below the contribution minimum 0',
       'event[1] proof: Signature at index 1 metric "rank" value 0.5 is not an integer, as the contribution bounds require',
+      'event[0] proof: Signature at index 2 metric "rank" is missing, as the contribution bounds require',
     ]) {
       expect(classifyVerificationError(message).code, message).toBe('proof.contribution_out_of_bounds')
     }

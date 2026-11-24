@@ -594,7 +594,7 @@ Validates all ring signatures and checks for duplicate contributors before aggre
 - **`circle`** `TrustCircle` — The trust circle the contributions belong to
 - **`subject`** `string` — The d-tag value (must match what contributors signed)
 - **`contributions`** `Contribution[]` — Array of contributions from circle members
-- **`options`** `AggregateFn | { aggregateFn?: AggregateFn; aggregate?: AggregateName; kind?: number; proofVersion?: ProofVersion; expiration?: number; alt?: string; contributionBounds?: ContributionBounds }` -- `contributionBounds` (`Record<string, { min?: number; max?: number; integer?: boolean }>`) makes aggregation throw on a contribution whose value for a named metric is outside the bounds (`Contribution index 2 metric "rank" value 3 is above the contribution maximum 1`); use the bounds your verifiers apply, and `contributionBoundViolations(metrics, bounds)` to find and leave out a bad contribution first. Pass a function for custom aggregation (default: median), or an options object with a built-in aggregate name (`'median' | 'mean' | 'sum' | 'min' | 'max'`; `aggregate` wins over `aggregateFn`). A built-in name is recorded in the `veil-agg` tag and `verifyProof` reads it from there; a custom function is recorded as `veil-agg: custom` and must also be passed to `verifyProof`. `median` and `mean` round to integers; `sum`, `min` and `max` do not. The legacy `kind` option is kept for compatibility and still emits a user-style `p` subject tag. `proofVersion: 'v2'` requires matching v2 contributions. `expiration` (a non-negative safe integer, unix seconds) and `alt` (a non-empty string) emit NIP-40 `expiration` and NIP-31 `alt` tags. The circle does not sign them; the publisher's Nostr signature covers them, as it covers `content`.
+- **`options`** `AggregateFn | { aggregateFn?: AggregateFn; aggregate?: AggregateName; kind?: number; proofVersion?: ProofVersion; expiration?: number; alt?: string; contributionBounds?: ContributionBounds }` -- `contributionBounds` (`Record<string, { min?: number; max?: number; integer?: boolean; required?: boolean }>`) makes aggregation throw on a contribution whose value for a named metric is outside the bounds (`Contribution index 2 metric "rank" value 3 is above the contribution maximum 1`); use the bounds your verifiers apply, and `contributionBoundViolations(metrics, bounds)` to find and leave out a bad contribution first. Pass a function for custom aggregation (default: median), or an options object with a built-in aggregate name (`'median' | 'mean' | 'sum' | 'min' | 'max'`; `aggregate` wins over `aggregateFn`). A built-in name is recorded in the `veil-agg` tag and `verifyProof` reads it from there; a custom function is recorded as `veil-agg: custom` and must also be passed to `verifyProof`. `median` and `mean` round to integers; `sum`, `min` and `max` do not. The legacy `kind` option is kept for compatibility and still emits a user-style `p` subject tag. `proofVersion: 'v2'` requires matching v2 contributions. `expiration` (a non-negative safe integer, unix seconds) and `alt` (a non-empty string) emit NIP-40 `expiration` and NIP-31 `alt` tags. The circle does not sign them; the publisher's Nostr signature covers them, as it covers `content`.
 - **Returns** `EventTemplate` with `veil-ring`, `veil-threshold`, and `veil-sig` tags
 - **Throws** if any ring signature is invalid, duplicate contributors are detected, or a contribution uses a reserved metric name (the error names the contribution index)
 
@@ -701,7 +701,8 @@ Verify NIP-85 syntax, proof version, expected kind and subject tag, freshness,
 threshold, accepted circles, expected subject, the aggregate function,
 per-contribution bounds, and federation policy. Every built-in profile pins
 `aggregate`: `median`, and `sum` for `anonymous-group-decisions`, whose `rank`
-metric also carries `contribution: { min: 0, max: 1, integer: true }`. An event
+metric also carries `contribution: { min: 0, max: 1, integer: true, required: true }`
+(`required` rejects a signer who left the ballot out). An event
 published under another function fails with issue code
 `proof.aggregate_mismatch`; a contribution outside the bounds fails with
 `proof.contribution_out_of_bounds`. Options `aggregate` and
@@ -720,7 +721,7 @@ expected subject, optional subject-tag value, freshness, signer threshold,
 metric bounds, unknown-metric handling, optional companion evidence
 requirements, and optional Nostr event signature requirements. `metricPolicies`
 bound the published aggregate. `aggregate` replaces the aggregate function the
-profile pins, and `contributionBounds` (`{ [metric]: { min?, max?, integer? } }`)
+profile pins, and `contributionBounds` (`{ [metric]: { min?, max?, integer?, required? } }`)
 bounds what one member may sign; both are left off the policy when not set, and
 a malformed value throws. A signed bundle embeds the profile it was issued
 with, so a bundle issued by a release that did not pin aggregates does not

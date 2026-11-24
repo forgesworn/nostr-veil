@@ -76,6 +76,12 @@ export interface ContributionBound {
   max?: number
   /** Require an integer value. */
   integer?: boolean
+  /**
+   * Require every contribution to carry this metric. Without it, a member who
+   * leaves the metric out still counts as a signer, so a value can be backed by
+   * fewer contributions than `distinctSigners` reports.
+   */
+  required?: boolean
 }
 
 /**
@@ -84,7 +90,8 @@ export interface ContributionBound {
  * A key image stops a member contributing twice. It does not stop a member
  * contributing one large value, and under `sum`, `mean`, `min` or `max` one
  * contribution can move the published value. A tally whose ballots must be 0
- * or 1 needs `{ rank: { min: 0, max: 1, integer: true } }`. A metric with no
+ * or 1 needs `{ rank: { min: 0, max: 1, integer: true, required: true } }`,
+ * where `required` also rejects a signer who cast no ballot. A metric with no
  * entry is not bounded.
  */
 export type ContributionBounds = Readonly<Record<string, ContributionBound>>

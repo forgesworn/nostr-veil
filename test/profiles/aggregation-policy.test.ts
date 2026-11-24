@@ -127,6 +127,29 @@ describe('anonymous tally profile', () => {
     expect(result.issues?.map(issue => issue.code)).toContain('proof.contribution_out_of_bounds')
   })
 
+  it('rejects a signer who cast no ballot', () => {
+    const metrics = [{ rank: 1 }, { rank: 1 }, { comment_cnt: 1 }]
+    const contributions = metrics.map((ballot, index) => contributeEventAssertion(
+      circle,
+      motion,
+      ballot,
+      members[index].priv,
+      circle.members.indexOf(members[index].pub),
+      { proofVersion: 'v2' },
+    ))
+    const event = {
+      ...aggregateEventContributions(circle, motion, contributions, { aggregate: 'sum', proofVersion: 'v2' }),
+      created_at: NOW,
+    }
+    const result = verifyUseCaseProfile(event, decisions, decisionOptions)
+
+    expect(result.valid).toBe(false)
+    expect(result.errors).toContain(
+      'event[0] proof: Signature at index 2 metric "rank" is missing, as the contribution bounds require',
+    )
+    expect(result.issues?.map(issue => issue.code)).toContain('proof.contribution_out_of_bounds')
+  })
+
   it('rejects the same ballots published under any aggregate but sum', () => {
     for (const aggregate of ['min', 'max', 'median', 'mean'] as const) {
       const result = verifyUseCaseProfile(tally([1, 1, 0], aggregate), decisions, decisionOptions)
@@ -222,6 +245,23 @@ describe('signed bundle aggregate and contribution bounds', () => {
     const asMax = verifyProductionDeployment([signEvent(tally([1, 1, 0], 'max'), PUBLISHER_KEY)], bundle, options)
     expect(asMax.decision).toBe('reject')
     expect(asMax.issues.map(issue => issue.code)).toContain('proof.aggregate_mismatch')
+  })
+
+  it('carries the required flag on the ballot bound through the signed bundle', () => {
+    expect(bundle.policy.profile.metrics.find(metric => metric.name === 'rank')?.contribution)
+      .toEqual({ min: 0, max: 1, integer: true, required: true })
+
+    const explicit = createSignedDeploymentBundle(
+      createDeploymentPolicy(decisions, {
+        acceptedCircleIds: [circle.circleId],
+        expectedSubject: motion,
+        contributionBounds: { rank: { min: 0, max: 1, required: true } },
+      }),
+      { expiresAt: NOW + 600, id: 'motion-2', issuedAt: NOW, privateKey: OPERATOR_KEY },
+    )
+    const roundTripped = JSON.parse(JSON.stringify(explicit)) as typeof explicit
+    expect(roundTripped.policy.contributionBounds).toEqual({ rank: { min: 0, max: 1, required: true } })
+    expect(verifySignedDeploymentBundle(roundTripped, { now: NOW, trustedPublishers: [explicit.signer] }).valid).toBe(true)
   })
 
   it('signs the pinned aggregate and the bounds with the rest of the policy', () => {

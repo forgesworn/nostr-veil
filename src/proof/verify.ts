@@ -95,7 +95,7 @@ export type VerifyOptions = AggregateFn | {
    * Reject the event if any contribution carries a value outside these bounds.
    * A key image stops a member contributing twice, not contributing one large
    * value, so a tally read from `sum` needs each ballot bounded, for example
-   * `{ rank: { min: 0, max: 1, integer: true } }`.
+   * `{ rank: { min: 0, max: 1, integer: true, required: true } }`.
    */
   contributionBounds?: ContributionBounds
   /**
