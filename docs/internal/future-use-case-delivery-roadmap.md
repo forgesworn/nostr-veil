@@ -214,10 +214,13 @@ Current state: a NEW pattern dimension, not a new subject. Every shipped use cas
 scores a subject; the same circle + LSAG + key-image machinery also tallies a
 *decision*. The one-vote-per-member tally already works: `{ aggregate: 'sum' }`
 over a `rank` ballot via `aggregateEventContributions`, with duplicate key images
-rejected and `verifyProof` reporting `distinctSigners` as turnout. The summed
-`rank` is validated as 0–100, so the sum tally is bounded to small electorates
-(≤100 ayes); petitions instead count distinct signatories with `distinctSigners`,
-bounded only by the ring size. Multi-choice and ranked/score (Borda) ballots do
+rejected and `verifyProof` reporting `distinctSigners` as turnout. The profile
+pins the `sum` aggregate and bounds each ballot to 0 or 1, because a key image
+stops a second ballot, not a ballot worth more than one. The summed `rank` is
+validated as 0–100, so the sum tally is bounded to small electorates (≤100
+ayes); petitions instead count distinct signatories with `distinctSigners`. Both
+are bounded by event size, which grows with ring size times signers: a ring of
+100 with 10 signers is about 80 KiB. Multi-choice and ranked/score (Borda) ballots do
 NOT work yet — custom per-option metric keys fail strict validation, and bounded
 multi-vote needs a k-LRS construction. The worked page is at
 [anonymous-group-decisions.md](../use-case-pages/anonymous-group-decisions.md).

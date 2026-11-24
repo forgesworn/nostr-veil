@@ -137,6 +137,10 @@ For any supported use case:
    `independentSigners` rather than `distinctSigners` against your threshold, or
    pass `rejectSubjectInRing: true`: a subject inside its own ring may have
    signed for itself, and the proof cannot say.
+7. Name the aggregate function you expect with `requireAggregate`. The publisher
+   chooses the `veil-agg` tag and the circle does not sign it, so the same
+   signatures can be republished as a `max` or a `min` and still verify. The
+   built-in profiles pin it for you: `median`, and `sum` for a tally.
 
 Use proof v2 for new non-user workflows:
 
@@ -149,7 +153,7 @@ const assertion = aggregateIdentifierContributions(
   { proofVersion: 'v2' },
 )
 
-const proof = verifyProof(assertion, { requireProofVersion: 'v2' })
+const proof = verifyProof(assertion, { requireProofVersion: 'v2', requireAggregate: 'median' })
 ```
 
 `rank` is the safest cross-kind metric today. In strict validation it must be a
@@ -173,7 +177,9 @@ strict validation and `aggregateIdentifierContributions` accept any `k` of 1 to
 v2 binds it. The built-in profiles in `nostr-veil/profiles` use decimal values instead
 (`k = 0` for application-private identifiers, `k = 10002` for relays and
 services). That is a nostr-veil profile convention for subjects NIP-73 has no
-type for, not a NIP-73 type and not a Nostr-wide registry.
+type for, not a NIP-73 type and not a Nostr-wide registry. A custom profile for
+a subject NIP-73 does have a type for names that type, for example
+`subjectTagValue: 'doi'`.
 
 Use the canonical subject helpers from `nostr-veil/profiles` where one exists.
 They keep package, repository, maintainer, service, NIP-05, LNURLp, NIP-96,
@@ -504,10 +510,15 @@ machinery also tallies a *decision*: a vote, a board or committee resolution, or
 a petition. Today, a circle can already produce a verifiable, one-vote-per-member
 tally — `{ aggregate: 'sum' }` over a `rank` ballot via
 `aggregateEventContributions`, with duplicate key images rejected and
-`verifyProof` reporting `distinctSigners` as turnout. The summed `rank` is
-validated as 0–100, so the tally suits small electorates (boards, committees,
-panels); a petition instead counts distinct signatories with `distinctSigners`,
-bounded only by the ring size.
+`verifyProof` reporting `distinctSigners` as turnout. A key image stops a second
+ballot, not a ballot worth more than one, so verify through the profile or pass
+`requireAggregate: 'sum'` and `contributionBounds` of 0 to 1 to `verifyProof`.
+The summed `rank` is validated as 0–100, so the tally suits small electorates
+(boards, committees, panels); a petition instead counts distinct signatories
+with `distinctSigners`. Either way the event grows with ring size times
+signers, because each signature carries one response per ring member: a ring of
+100 with 10 signers is about 80 KiB, above the 64 KiB default event limit of a
+stock strfry relay.
 
 This stays a future profile because a binding voting workflow needs more than the
 tally: a defined ballot/motion format, a coercion-resistance decision (LSAG alone
@@ -526,6 +537,10 @@ signature (k-LRS) construction the current primitive does not implement. See
   with older extension tags is not required.
 - Use `verifyProof(event, { requireProofVersion: 'v2' })` when replay across
   assertion classes would matter.
+- Pin the aggregate with `requireAggregate`, or a profile's `aggregate`. For any
+  aggregate but `median`, bound each contribution with `contributionBounds`.
+- Set the signer threshold to a turnout that matters for the circle. The
+  signatures are public, so any publisher can republish a subset of them.
 - Keep trust-circle admission, revocation, and rotation policies explicit.
 - Treat identifiers as application-profiled strings, not as global truth.
 - Avoid sensitive collection workflows that expose contributor IP, timing, or

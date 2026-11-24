@@ -17,18 +17,22 @@ profile.
   addressable motion, or 30385 for an app-private ballot identifier.
 - Subject: the motion, proposal, or petition id. Never a voter.
 - Helpers: `contributeEventAssertion`, then `aggregateEventContributions` with
-  `{ aggregate: 'sum' }`, then `verifyProof`. Use `verifyFederation` to count
-  distinct voters across sub-circles that share a `scope`.
+  `{ aggregate: 'sum' }`, then `verifyUseCaseProfile`, or `verifyProof` with
+  `requireAggregate: 'sum'` and `contributionBounds` for the ballot. Use
+  `verifyFederation` to count distinct voters across sub-circles that share a
+  `scope`.
 - Proof version: v2, so the ballot is bound to the motion kind and id and cannot
   be replayed onto another motion.
 - Useful metric: `rank` as the ballot — 1 for aye, 0 against, summed into the
   count of ayes. Because `rank` is validated as 0–100, the aye-count must stay
   within 100, so the sum tally suits boards, committees, and panels (the
   small-electorate boardroom setting) rather than mass ballots.
-- For a petition or approval count, read `distinctSigners` — the number of
-  distinct signatories, bounded only by the ring size — instead of a summed
-  `rank`, so the count is not limited to the 0–100 range. Multi-choice and ranked
-  ballots are not supported yet; see *What a full profile still needs*.
+- For a petition or approval count, read `distinctSigners`, the number of
+  distinct signatories, instead of a summed `rank`, so the count is not limited
+  to the 0–100 range. It is still limited by event size: each signature carries
+  one response per ring member, so an event grows with ring size times signers
+  (see *Operational requirements*). Multi-choice and ranked ballots are not
+  supported yet; see *What a full profile still needs*.
 
 ## Subject design
 
@@ -59,10 +63,12 @@ profile.
 3. Collect one anonymous ballot per member: `{ rank: 1 }` for aye, `{ rank: 0 }`
    against.
 4. Aggregate with `{ aggregate: 'sum' }` so the published `rank` tag is the count
-   of ayes.
+   of ayes. Pass the ballot bounds as `contributionBounds` too, so a ballot that
+   is not 0 or 1 is refused before you publish.
 5. Sign and publish the aggregate as a standard Nostr event.
-6. Verify with `verifyProof(event, { requireProofVersion: 'v2' })`; read
-   `distinctSigners` as turnout and the `rank` tag as ayes.
+6. Verify with `verifyUseCaseProfile`, or with `verifyProof(event, {
+   requireProofVersion: 'v2', requireAggregate: 'sum', contributionBounds })`;
+   read `distinctSigners` as turnout and the `rank` tag as ayes.
 
 ## Worked example
 
@@ -73,8 +79,12 @@ profile.
 - Strict syntax and a valid proof v2.
 - The kind matches the motion route, `d` equals the exact motion id, and the `e`
   subject hint matches.
-- `veil-agg` is the agreed tally rule and the `rank` tag matches the recomputed
-  sum of the signed ballots.
+- `veil-agg` is `sum`, and the `rank` tag matches the recomputed sum of the
+  signed ballots. The publisher chooses that tag, so require it: the same
+  ballots published as a `max` or a `median` verify as a proof and read as a
+  different result.
+- Every ballot is 0 or 1. A key image stops a second ballot, not a ballot worth
+  more than one.
 - The ring is the accepted electorate, and `veil-threshold` meets the quorum the
   governance policy requires.
 - The motion id is not reused from an earlier decision.
@@ -103,6 +113,11 @@ profile.
   per member is enforced.
 - Do not claim the proof establishes eligibility, quorum legitimacy, or that the
   motion is well-formed.
+- Do not treat a bare `verifyProof(event)` as a tally check. It confirms the
+  published value matches the signed ballots under whichever aggregate the
+  publisher named. It does not bound a ballot or require `sum`.
+- Do not claim every ballot cast is in the tally. The signatures are public, so
+  any publisher can republish a subset of them; compare turnout with the quorum.
 
 ## What a full profile still needs
 
@@ -121,6 +136,8 @@ profile.
   version does not match the decision policy.
 - Reject a tally whose `rank` tag does not match the recomputed sum, and a
   turnout below the required quorum.
+- Reject a tally that holds a ballot outside 0 or 1. The aggregator should leave
+  that ballot out and publish again.
 - Treat a missing coercion-resistance control as a profile limitation to disclose
   for any decision where coercion is plausible.
 - Publish a fresh tally for re-votes or corrected motions instead of mutating an
@@ -134,6 +151,8 @@ profile.
 | Ballot values are public, only anonymous. | A small or lopsided electorate can leak the ballot distribution; size the electorate to the risk and publish only the aggregate where the profile allows. |
 | The `rank` sum tally is capped at 100. | The aye-count rides on the 0–100 `rank` metric, so an event with more than 100 ayes fails NIP-85 validation. Keep the electorate's aye-count within 100 (boards, committees, panels); for larger approval counts read `distinctSigners` instead of a summed `rank`. |
 | A scoped petition reveals cross-circle overlap. | Use a `scope` only when federated counting across sub-circles is worth exposing that one signatory appears in several of them; omit it for petition circles where overlap must stay hidden. |
+| A member signs a ballot worth more than one, or the tally is republished under another aggregate. | Verify through the profile, or pass `contributionBounds` and `requireAggregate: 'sum'` to `verifyProof`. A signed deployment bundle embeds the profile it was issued with, so re-issue any bundle created before these checks existed. |
+| The event grows with ring size times ballots. | Each ballot carries one response per ring member. A ring of 100 with 10 ballots is about 80 KiB, above the 64 KiB default event limit of a stock strfry relay. Keep the electorate small, or check the limits of the relays in use. |
 | A ballot could be replayed onto another motion. | Require proof v2, bind kind and motion id, and use one election id per decision. |
 | Weighted or cumulative voting is not supported. | Keep one ballot per member; defer cumulative rules to a k-linkable ring-signature construction. |
 | Eligibility and quorum are governance policy. | Publish electorate admission, quorum, and tally rules, and verify `veil-threshold` against them. |

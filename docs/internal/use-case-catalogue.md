@@ -8,7 +8,9 @@ Promotion to a public page still goes through the gates in the
 [future use-case delivery roadmap](./future-use-case-delivery-roadmap.md).
 
 Checked on 2026-11-23 against nostr-veil 0.34.1 and `@forgesworn/ring-sig`
-3.0.4. The [appendix](#appendix-what-was-run) lists what was run.
+3.0.4. The [appendix](#appendix-what-was-run) lists what was run. Limits 4, 5
+and 9 were revised on 2026-11-24, after the aggregate pin, the contribution
+bounds and NIP-73 types in profile definitions were added in response to them.
 
 ## How to read it
 
@@ -41,8 +43,8 @@ to stop it. The words used are:
 | roster | The member list is visible to every verifier. | 1 |
 | values | Each contributed value is public. | 2 |
 | size | Ring size times signer count must fit a relay event and a verifier's patience. | 3 |
-| bounds | One member can skew `sum`, `mean`, `min` or `max`. | 4 |
-| omission | The aggregator chooses which contributions to publish. | 5 |
+| bounds | One member can skew `sum`, `mean`, `min` or `max` unless each contribution is bounded. | 4 |
+| omission | Any publisher chooses which contributions to publish. | 5 |
 | coercion | A key holder can prove, or be made to prove, what they signed. | 6 |
 | raw key | Members need the private key in the signing process. | 8 |
 | metric | Strict NIP-85 metric names, and `rank` from 0 to 100. | 9 |
@@ -90,12 +92,15 @@ Seven questions. A strong fit answers yes to all of them.
 | --- | --- | --- |
 | `median` (default) | The circle's consensus score. | Half the signers. |
 | `mean` | An average. | Any one signer, by the size of their value. |
-| `sum` | A tally, if every ballot is 0 or 1. | Any one signer. Nothing checks a ballot's range (limit 4). |
+| `sum` | A tally, if every ballot is 0 or 1. | Any one signer, unless each ballot is bounded (limit 4). |
 | `min` | A veto or weakest link: one low value wins. | Any one signer, by design. |
 | `max` | An alarm: one high value wins. | Any one signer, by design. |
 | Custom function | A trimmed mean and the like. | Depends on the function. The verifier must be given the same one. |
 | Ignore the metric and read `distinctSigners` | A head-count: a quorum, a petition, a co-signature. | Nobody. It is the count of distinct key images. |
 | One signer | "A member of this ring stands behind this." | Not applicable. |
+
+The publisher picks the function, not the circle. A verifier has to pin it
+(limit 5).
 
 ### Key-image scope
 
@@ -185,24 +190,40 @@ application lands in. "Run" means the behaviour was reproduced for this note.
    verification, because a 64 KiB event costs seconds of CPU and anyone can post
    one. Sharding (P10) eases the event size, not the total verification cost.
 
-4. **One member controls `sum`, `mean`, `min` and `max`.** Key images stop a
-   member signing twice. Nothing stops a member signing one large value. Run:
-   five ballots `[1, 0, 0, 0, 3]` summed to a `rank` of 4 with 5 distinct
-   signers, and passed `verifyProof` and strict validation. A deployment policy
-   bounding `rank` to 0 to 5 accepted it too, because `metricPolicies` bound the
-   published aggregate, not each contribution. Until
-   the verifier checks each contribution's range, a tally consumer has to parse
-   the signed messages and check every ballot, or count `distinctSigners` on an
-   assertion that only supporters sign. `median` needs half the signers to move
-   it, which is why it is the default.
+4. **One member controls `sum`, `mean`, `min` and `max` unless contributions
+   are bounded.** Key images stop a member signing twice. They do not stop a
+   member signing one large value. Run: five ballots `[1, 0, 0, 0, 3]` summed
+   to a `rank` of 4 with 5 distinct signers, and passed a bare `verifyProof`,
+   strict validation, and a deployment policy bounding `rank` to 0 to 5,
+   because `metricPolicies` bound the published aggregate, not each
+   contribution.
 
-5. **The aggregator can leave contributions out.** Run: four contributions
-   `[90, 90, 20, 20]` gave a median of 55. Publishing only the first two gave
-   90, with a valid proof and an honest `veil-threshold` of 2 of 5. A dropped
+   `contributionBounds` now closes this. `verifyProof` and aggregation reject a
+   contribution outside per-metric bounds, and the tally profile bounds each
+   ballot to 0 or 1. Two gaps remain: a bare `verifyProof` call checks nothing
+   of the kind, and a signed bundle issued before the bounds existed does not
+   carry them. `median` needs half the signers to move it, which is why it is
+   the default.
+
+5. **Any publisher chooses what to include and how to aggregate it.** The
+   `veil-agg` tag and the choice of signatures are the publisher's. The circle
+   signs neither, and the signatures are public. So anyone, member or not, can
+   take a published event and republish a subset of its signatures, or the
+   same set under another function, under their own key.
+   - Run: scores `[20, 20, 95]` read as 20 under `median` and 95 under `max`.
+     The `max` event passed a deployment policy requiring a `rank` of at least
+     70, which the honest event failed.
+   - Run: four contributions `[90, 90, 20, 20]` gave a median of 55. Publishing
+     only the first two gave 90, with a valid proof and an honest
+     `veil-threshold` of 2 of 5.
+
+   Every built-in profile now pins its aggregate (`requireAggregate` in
+   `verifyProof`), which closes the first. The second remains. A dropped
    contributor can see their key image is missing, and can give the same
-   contribution to another publisher or publish it alone (P10). A reader of one
-   event cannot tell. Verifiers that care should require a minimum turnout, or
-   count across several publishers under a shared scope.
+   contribution to another publisher or publish it alone (P10), but a reader of
+   one event cannot tell. Verifiers that care should require a turnout that
+   matters, accept only the circle's designated publisher where there is one,
+   or count across several publishers under a shared scope.
 
 6. **Whoever holds a member's key can find that member's contributions.** The
    key image depends only on the private key and the election id. Run:
@@ -225,14 +246,14 @@ application lands in. "Run" means the behaviour was reproduced for this note.
    against a named accuser need something else.
 
 8. **Signing needs the raw private key.** `contributeAssertion` takes the key as
-   a hex string, and nostr-veil has no way to call an external signer. Browser
-   extensions, generic remote signers and Android signers offer event signing
-   and encryption, not the scalar arithmetic LSAG needs. Heartwood's changelog
-   lists a `heartwood_lsag_sign` NIP-46 method (0.6.0), which is the exception
-   and is not wired in here. So a member either pastes a secret key into the app
-   or enrols a per-circle key the app holds. The second is the practical route,
-   and it means rings over people's main Nostr keys are mostly out of reach for
-   ordinary users today.
+   a hex string, and nostr-veil has no way to call an external signer. Nor is
+   there a signer to call: the NIP-07, NIP-46 and NIP-55 signer interfaces
+   define event signing and encryption, and no LSAG method. Heartwood's soft
+   signer had a `heartwood_lsag_sign` NIP-46 method from 0.6.0 until that
+   signer was retired in July 2026. So a member either pastes a secret key into
+   the app or enrols a per-circle key the app holds. The second is the
+   practical route, and it means rings over people's main Nostr keys are mostly
+   out of reach for ordinary users today.
 
 9. **Strict NIP-85 allows few metric names, and `rank` runs from 0 to 100.**
    Kind 30385 accepts `rank`, `comment_cnt` and `reaction_cnt` only. Any other
@@ -241,14 +262,13 @@ application lands in. "Run" means the behaviour was reproduced for this note.
    that is not a 0 to 100 score is therefore Loose, and a `sum` over `rank`
    stops at 100.
 
-   The `k` tag has a narrower version of the same gap. A NIP-73 typed
-   identifier (`doi`, `geo`, `web`, a blockchain address) passes strict
-   validation, `verifyProof` and `verifyUseCaseProfile` (run). But
-   `validateUseCaseProfileDefinition` rejects a kind 30385 profile whose
-   `subjectTagValue` is not decimal, and every atlas page has to pass that
-   check. So a row below that names a NIP-73 type works today, and to become an
-   atlas page it either uses the `k = 0` convention with the type inside the
-   identifier string, or waits for that rule to be relaxed.
+   The `k` tag had a narrower version of the same gap. A NIP-73 typed
+   identifier (`doi`, `geo`, `web`, a blockchain address) passed strict
+   validation, `verifyProof` and `verifyUseCaseProfile` (run), but
+   `validateUseCaseProfileDefinition` rejected a kind 30385 profile whose
+   `subjectTagValue` was not decimal, and every atlas page has to pass that
+   check. The definition check now accepts a NIP-73 type, so a row below that
+   names one can become an atlas page as it stands.
 
 10. **One live event per publisher, kind and subject.** Assertions are
     addressable, so a publisher's new event for a subject replaces the old one
@@ -377,17 +397,18 @@ though not who sent them. Removing that trust is Research.
 ### P4. Tally a decision
 
 Settings: event or identifier route, `sum` or `distinctSigners`, circle scope.
-Every `sum` row carries limit 4. For an election that needs ballots encrypted
+Every `sum` row needs the ballot bounds from limit 4, which the tally profile
+sets. For an election that needs ballots encrypted
 until the close, use a dedicated protocol such as `nostr-anon-vote` instead of
 stretching NIP-85.
 
 | Application | Circle | Subject | Why hide the contributor | Tier | Binding constraint |
 | --- | --- | --- | --- | --- | --- |
-| Board, committee and maintainer resolutions | The body | The motion event | Pressure on individual members | Atlas, as a building block | bounds; coercion |
+| Board, committee and maintainer resolutions | The body | The motion event | Pressure on individual members | Atlas, as a building block | coercion |
 | Jury and arbitration verdicts: market disputes, moderation appeals, anti-cheat review, mutual-aid claims | A panel | A case identifier | Retaliation from the losing side | Companion | Needs a case format, a deadline and a quorum rule. coercion: a juror can prove their vote |
 | Temperature checks, retrospectives and pulse polls | A team or community | An identifier with the period | Candour | Ready, as a `median` of 0 to 100 | Very small rings |
-| Approval voting among candidates | The electorate | One subject per candidate | Pressure | Ready | bounds; one-per-subject: "at most one candidate" cannot be enforced |
-| Plurality, ranked and score ballots | The electorate | One event with a metric per option | Pressure | Loose | metric; bounds |
+| Approval voting among candidates | The electorate | One subject per candidate | Pressure | Ready | one-per-subject: "at most one candidate" cannot be enforced |
+| Plurality, ranked and score ballots | The electorate | One event with a metric per option | Pressure | Loose | metric. Bounds can hold each option to 0 or 1, but not the ballot to one option |
 | Weighted votes | One circle per weight class | The motion | Pressure | Companion | It reveals each ballot's weight class. The verifier applies the weights |
 | Budget allocation and quadratic voting | | | | Research | one-per-subject |
 | Statutory or binding secret ballots | | | | Avoid | coercion |
@@ -518,8 +539,21 @@ A way of deploying the other patterns more than a pattern of its own. Any row
 above can run with the proof kept inside the group's own encryption. The roster
 is the group and the verifiers are the members. Nothing reaches a public relay,
 so limit 1 stops mattering. The proof layer does not care how an event travels,
-but there is no wrapping helper and no host integration, and nothing here was
-run, so every row is Companion.
+but no app carries or verifies these events yet, so every row is Companion.
+
+When a proof never leaves the group, the NIP-85 event shape adds little. A host
+app can call `ring-sig` directly, signing the same message and election id that
+nostr-veil's v2 contributions use, and carry only the signature. Such a
+signature is still a valid nostr-veil contribution (run), so a publishable
+assertion can be built from it later without anyone signing again. The honest
+reading is that this mode is a use of the ring-signature primitive, and
+nostr-veil earns its place only where the result is meant to be published.
+
+Two things a host app has to settle first. Its members' keys may sit behind a
+signer that cannot ring-sign,
+which leaves a separate ring key per member, published by the member, as the
+only route that treats every member alike. And a ring holds only the members
+who have published one, so the app must show the ring's size, not the roster's.
 
 | Application | Tier | Binding constraint |
 | --- | --- | --- |
@@ -549,12 +583,11 @@ Changes to nostr-veil that need no new cryptography:
 
 | Change | Unlocks |
 | --- | --- |
-| Per-contribution value bounds in `verifyProof` or deployment policy | Safe `sum` and `mean` tallies, and plurality and score ballots (P4) |
+| A policy option that accepts assertions only from named publisher keys | Closes subset republication for a circle with a designated aggregator (limit 5) |
+| A rule across the metrics of one contribution, such as "these sum to at most 1" | Plurality ballots in one event (P4) |
 | A signed payload that is not part of the election id: sign an event id or a public key under an election id built from the scope alone | Passes bound to a session or a payout key, one pseudonym per member, rate-limited posting, question caps (P6, P9) |
-| An external-signer interface here, and LSAG in more signers than Heartwood | Ordinary users without pasted secret keys, and rings over main Nostr keys (limit 8) |
-| NIP-73 `k` types accepted in profile definitions | Atlas pages for `doi`, `geo`, `web` and blockchain-address subjects without the `k = 0` convention (limit 9) |
+| An external-signer interface here, and LSAG in a signer people use | Ordinary users without pasted secret keys, and rings over main Nostr keys (limit 8) |
 | A helper that combines the values of one-signer events | Publication with no aggregator (P10) |
-| A wrap and unwrap helper for group-encrypted proofs | Private-group mode (P12) |
 | Faster verification: native code or WASM, and batching | Feeds, phones and larger rings (limit 3) |
 | A tally metric that is not `rank` | Sums above 100 (limit 9) |
 | A ballot and motion format | Already on the roadmap |
@@ -649,7 +682,8 @@ repository, so each line says enough to repeat it.
   of `doi`, a `geo` geohash, a `web` URL and a `bitcoin:address`, each scored by
   three members. All passed `validateAssertionStrict`, `verifyProof` and
   `verifyUseCaseProfile`. `validateUseCaseProfileDefinition` returned
-  `profile.kind 30385 must define a decimal subjectTagValue namespace` for each.
+  `profile.kind 30385 must define a decimal subjectTagValue namespace` for each,
+  until that rule was relaxed the next day.
 - **Shared scope (P10).** Two events from one scoped circle with disjoint
   signers, signed by different publishers, passed `verifyFederation` with 5
   distinct signers. A third event overlapping both still gave 5 distinct of 7
@@ -671,5 +705,20 @@ locked dependencies. The ballot-range policy check and the NIP-73 identifiers
 ran in a checkout with older installed dependencies (`ring-sig` 2.0.0), which
 does not affect validation or policy logic.
 
-Not run: anything under P12, the lottery idea in P9, weight classes in P4, and
-any measurement on a phone or in a browser.
+Added on 2026-11-24, with the locked dependencies:
+
+- **Aggregate swap (limit 5).** As described under the limit. Ballots
+  `[1, 1, 0]` aggregated as `min`, `max`, `median` and `mean` all passed
+  `verifyUseCaseProfile` on the tally profile before the pin.
+- **After the changes.** The swapped events and the stuffed tally are rejected
+  by the profile verifiers, and the swap is rejected for all seventeen example
+  use cases. These are now tests: `test/profiles/aggregation-policy.test.ts`,
+  `test/proof/verify.test.ts` and `test/use-cases/adversarial.test.ts`.
+- **Signing without nostr-veil.** For rings of 5 to 300, a signature made with
+  `ring-sig` alone over a hand-written v2 message and election id was
+  aggregated with `aggregateContributions` and passed `verifyProof`. Sent as a
+  NIP-59 gift wrap without the ring, one such signature with a short note was
+  4.6 KB at ring 8, 11.5 KB at 50, 27.8 KB at 150 and 55.1 KB at 300.
+
+Not run: the lottery idea in P9, weight classes in P4, anything under P12
+inside a host app, and any measurement on a phone or in a browser.

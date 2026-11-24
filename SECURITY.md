@@ -25,7 +25,7 @@ Within the supported threat model, nostr-veil provides:
 
 - Contributor anonymity within the published ring: a verifier learns that a valid member signed, not which one.
 - Duplicate detection within the same circle/scope and subject via LSAG key images.
-- Integrity for published metric tags: `verifyProof` recomputes the aggregate from the signed contribution messages.
+- Integrity for published metric tags: `verifyProof` recomputes the aggregate from the signed contribution messages, under the function the event names. Pass `requireAggregate` to fix which function that is; the built-in profiles do.
 - Optional v2 semantic binding: applications can require proof v2 so signatures cannot be replayed across assertion kinds or subject hint tags.
 - Backwards-compatible publication as NIP-85 assertion events with additive `veil-*` tags.
 
@@ -38,6 +38,10 @@ nostr-veil does not provide full traffic anonymity or a complete reputation poli
 - Relays, aggregators, and transport observers may learn timing, IP, or collection metadata unless the application protects it separately.
 - The library does not decide whether circle members are real humans, independent, or socially trustworthy.
 - Federation scopes intentionally make cross-circle overlap observable by key image, while still hiding the signer identity.
+- The publisher chooses the aggregate function and which signatures to include, and the signatures are public, so anyone can republish a subset of them or the same set under another function. Verifiers pin the function (`requireAggregate`) and set a turnout threshold; nothing shows that every contribution was included.
+- A key image limits a member to one contribution per subject, not to a sane value. Under `sum`, `mean`, `min` or `max` verifiers bound each contribution (`contributionBounds`).
+- Anonymity does not survive key disclosure. A key image depends only on the private key and the election id, so whoever holds a member's key can find that member's contributions, a member can prove what they signed, and a non-signer can prove they did not. There is no forward secrecy, receipt-freeness or coercion resistance.
+- Event size and verification time grow with ring size times signer count.
 - Proof v2 binds NIP-85 semantics; it does not independently prove that an off-chain package, domain, credential, or service identifier is socially legitimate.
 
 Treat nostr-veil as a cryptographic proof layer. Applications still need admission rules, relay/transport privacy, key-handling discipline, and a policy for circle rotation or revocation.
