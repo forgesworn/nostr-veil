@@ -12,9 +12,9 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
  * @param label - Name used in the message, for example `contributionBounds.rank`
  */
 export function contributionBoundProblem(bound: unknown, label: string): string | undefined {
-  if (!isPlainObject(bound)) return `${label} must be an object with min, max or integer`
+  if (!isPlainObject(bound)) return `${label} must be an object with min, max, integer or required`
 
-  const { min, max, integer } = bound
+  const { min, max, integer, required } = bound
   if (min !== undefined && (typeof min !== 'number' || !Number.isFinite(min))) {
     return `${label}.min must be a finite number`
   }
@@ -26,6 +26,9 @@ export function contributionBoundProblem(bound: unknown, label: string): string 
   }
   if (integer !== undefined && typeof integer !== 'boolean') {
     return `${label}.integer must be a boolean`
+  }
+  if (required !== undefined && typeof required !== 'boolean') {
+    return `${label}.required must be a boolean`
   }
 
   return undefined
@@ -67,6 +70,10 @@ export function contributionBoundsProblem(bounds: unknown, label = 'contribution
  * @example
  * contributionBoundViolations({ rank: 3 }, { rank: { min: 0, max: 1, integer: true } })
  * // ['metric "rank" value 3 is above the contribution maximum 1']
+ *
+ * @example
+ * contributionBoundViolations({}, { rank: { required: true } })
+ * // ['metric "rank" is missing, as the contribution bounds require']
  */
 export function contributionBoundViolations(
   metrics: Readonly<Record<string, number>>,
@@ -86,6 +93,13 @@ export function contributionBoundViolations(
     }
     if (bound.integer === true && !Number.isInteger(value)) {
       violations.push(`metric "${name}" value ${value} is not an integer, as the contribution bounds require`)
+    }
+  }
+
+  // A signer who leaves the metric out still counts towards the threshold
+  for (const [name, bound] of Object.entries(bounds)) {
+    if (bound.required === true && !Object.hasOwn(metrics, name)) {
+      violations.push(`metric "${name}" is missing, as the contribution bounds require`)
     }
   }
 

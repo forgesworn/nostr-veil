@@ -687,8 +687,9 @@ export const ANONYMOUS_GROUP_DECISIONS_PROFILE = profile({
       name: 'rank',
       meaning: 'Approval tally for the motion: each ballot contributes 1 (aye) or 0, sum-aggregated into the count of aye ballots. Bounded to 0-100 by rank validation, so suited to small electorates; petitions count distinct signatories instead.',
       direction: 'count',
-      // A key image stops a second ballot, not a ballot worth more than one
-      contribution: { min: 0, max: 1, integer: true },
+      // A key image stops a second ballot, not a ballot worth more than one.
+      // Required, so the signer count is the number of ballots cast.
+      contribution: { min: 0, max: 1, integer: true, required: true },
     },
   ],
   failurePolicy: [

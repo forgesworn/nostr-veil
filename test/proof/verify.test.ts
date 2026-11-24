@@ -588,11 +588,50 @@ describe('verifyProof aggregate and contribution policy', () => {
       expect(verifyProof(tally([1, 0, 3]), { contributionBounds: { comment_cnt: { max: 1 } } }).valid).toBe(true)
     })
 
+    describe('required', () => {
+      const requiredBallot = { rank: { min: 0, max: 1, integer: true, required: true } }
+
+      /** The third member signs for the motion without casting a ballot. */
+      function tallyWithAbstention() {
+        const metrics = [{ rank: 1 }, { rank: 1 }, { comment_cnt: 1 }]
+        const contributions = privKeys.map((pk, i) =>
+          contributeEventAssertion(circle, motion, metrics[i], pk, circle.members.indexOf(pubKeys[i])),
+        )
+        return { contributions, event: aggregateEventContributions(circle, motion, contributions, { aggregate: 'sum' }) }
+      }
+
+      it('counts a signer who left the metric out unless the bound requires it', () => {
+        const { event } = tallyWithAbstention()
+        const loose = verifyProof(event, { contributionBounds: ballotBounds, requireAggregate: 'sum' })
+        expect(loose.valid).toBe(true)
+        expect(loose.distinctSigners).toBe(3) // three signers, two ballots
+
+        const strict = verifyProof(event, { contributionBounds: requiredBallot, requireAggregate: 'sum' })
+        expect(strict.valid).toBe(false)
+        expect(strict.errors).toContain('Signature at index 2 metric "rank" is missing, as the contribution bounds require')
+        expect(strict.distinctSigners).toBe(2)
+      })
+
+      it('accepts a tally in which every signer cast a ballot', () => {
+        expect(verifyProof(tally([1, 1, 0]), { contributionBounds: requiredBallot, requireAggregate: 'sum' }).valid)
+          .toBe(true)
+      })
+
+      it('makes aggregation throw on the contribution that left the metric out', () => {
+        const { contributions } = tallyWithAbstention()
+        expect(() => aggregateEventContributions(circle, motion, contributions, {
+          aggregate: 'sum',
+          contributionBounds: requiredBallot,
+        })).toThrow('Contribution index 2 metric "rank" is missing, as the contribution bounds require')
+      })
+    })
+
     it('fails closed on malformed bounds', () => {
       for (const bad of [
         { rank: { min: 2, max: 1 } },
         { rank: { min: Number.NaN } },
         { rank: { integer: 'yes' } },
+        { rank: { required: 'yes' } },
         { rank: 'none' },
         'rank',
       ]) {

@@ -314,7 +314,7 @@ const VERIFICATION_ISSUE_EXPLANATION_INPUTS = {
     'Reject it. The publisher chooses the veil-agg tag, so the same signatures can be republished as a max or a min; fetch the assertion published with the expected aggregate, or change the policy aggregate only through explicit governance.',
   ),
   'proof.contribution_out_of_bounds': explanation(
-    'A contribution carries a value outside the bounds the profile or policy sets for one member.',
+    'A contribution carries a value outside the bounds the profile or policy sets for one member, or leaves out a metric those bounds require.',
     'Reject it. The aggregator should leave that contribution out and publish again; contributionBoundViolations() finds it before aggregating.',
   ),
   'proof.invalid': explanation(
