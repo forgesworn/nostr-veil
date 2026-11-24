@@ -1,6 +1,9 @@
 import type { EventTemplate, ValidationResult } from '../nip85/types.js'
 import type {
   AggregateFn,
+  AggregateTagValue,
+  ContributionBound,
+  ContributionBounds,
   FederationVerification,
   ProofVerification,
   ProofVersion,
@@ -33,6 +36,12 @@ export interface MetricProfile {
   name: string
   meaning: string
   direction: 'higher-is-better' | 'lower-is-better' | 'count' | 'application-defined'
+  /**
+   * Bounds every single contribution's value must satisfy. Set this whenever
+   * the profile's aggregate is not `median`: under `sum`, `mean`, `min` or
+   * `max` one member's value can move the published result.
+   */
+  contribution?: ContributionBound
 }
 
 export interface FederationProfile {
@@ -57,6 +66,13 @@ export interface UseCaseProfile {
   proofVersion: ProofVersion
   minDistinctSigners: number
   maxAgeSeconds: number
+  /**
+   * The aggregate function an event must be published with, read from its
+   * `veil-agg` tag. The publisher picks that tag and the circle does not sign
+   * it, so a profile that leaves this unset accepts the same signatures
+   * republished as a `max` or a `min`. Every built-in profile sets it.
+   */
+  aggregate?: AggregateTagValue
   metrics: MetricProfile[]
   federation?: FederationProfile
   failurePolicy: string[]
@@ -72,7 +88,14 @@ export interface UseCaseProfileDefinitionValidation extends ValidationResult {
 
 export interface VerifyUseCaseProfileOptions {
   acceptedCircleIds?: Iterable<string>
+  /** Require this aggregate function in place of the one the profile pins. */
+  aggregate?: AggregateTagValue
   aggregateFn?: AggregateFn
+  /**
+   * Bounds on each contribution, by metric name. An entry here replaces the
+   * profile's bound for that metric; metrics not named keep the profile's.
+   */
+  contributionBounds?: ContributionBounds
   expectedSubject?: string
   expectedSubjectTagValue?: string
   maxAgeSeconds?: number

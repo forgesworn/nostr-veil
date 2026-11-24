@@ -473,3 +473,133 @@ describe('verifyProof subject in ring', () => {
     expect(result.independentSigners).toBe(result.distinctSigners)
   })
 })
+
+describe('verifyProof aggregate and contribution policy', () => {
+  const privKeys = ['01', '02', '03'].map(b => b.repeat(32))
+  const pubKeys = privKeys.map(k => bytesToHex(schnorr.getPublicKey(hexToBytes(k))))
+  const circle = createTrustCircle(pubKeys)
+  const subject = 'dd'.repeat(32)
+
+  describe('requireAggregate', () => {
+    function eventWith(ranks: number[], aggregate: 'median' | 'mean' | 'sum' | 'min' | 'max') {
+      const contributions = privKeys.map((pk, i) =>
+        contributeAssertion(circle, subject, { rank: ranks[i] }, pk, circle.members.indexOf(pubKeys[i])),
+      )
+      return aggregateContributions(circle, subject, contributions, { aggregate })
+    }
+
+    it('accepts an event published with the required aggregate', () => {
+      expect(verifyProof(eventWith([20, 20, 95], 'median'), { requireAggregate: 'median' }).valid).toBe(true)
+      expect(verifyProof(eventWith([1, 1, 0], 'sum'), { requireAggregate: 'sum' }).valid).toBe(true)
+    })
+
+    it('rejects a valid proof republished under another aggregate', () => {
+      // One high score among three. Under max the proof is still sound, and reads as 95.
+      const swapped = eventWith([20, 20, 95], 'max')
+      expect(swapped.tags.find(t => t[0] === 'rank')?.[1]).toBe('95')
+      expect(verifyProof(swapped).valid).toBe(true)
+
+      const result = verifyProof(swapped, { requireAggregate: 'median' })
+      expect(result.valid).toBe(false)
+      expect(result.errors).toContain('veil-agg is "max" but "median" is required')
+      expect(result.distinctSigners).toBe(3)
+    })
+
+    it('reads an absent veil-agg tag as median', () => {
+      const legacy = eventWith([70, 75, 95], 'median')
+      legacy.tags = legacy.tags.filter(t => t[0] !== 'veil-agg')
+      expect(verifyProof(legacy, { requireAggregate: 'median' }).valid).toBe(true)
+      expect(verifyProof(legacy, { requireAggregate: 'sum' }).errors)
+        .toContain('veil-agg is "median" but "sum" is required')
+    })
+
+    it('recomputes with the required built-in even when the caller supplies a function', () => {
+      // A max-aggregated event with its veil-agg tag stripped reads as median.
+      // The caller's own aggregateFn must not then be used to recompute it.
+      const max = (values: number[]) => Math.max(...values)
+      const contributions = privKeys.map((pk, i) =>
+        contributeAssertion(circle, subject, { rank: [20, 20, 95][i] }, pk, circle.members.indexOf(pubKeys[i])),
+      )
+      const tagless = aggregateContributions(circle, subject, contributions, max)
+      tagless.tags = tagless.tags.filter(t => t[0] !== 'veil-agg')
+      expect(tagless.tags.find(t => t[0] === 'rank')?.[1]).toBe('95')
+
+      // Without a requirement the legacy reading stands: no tag, caller's function
+      expect(verifyProof(tagless, { aggregateFn: max }).valid).toBe(true)
+
+      const result = verifyProof(tagless, { aggregateFn: max, requireAggregate: 'median' })
+      expect(result.valid).toBe(false)
+      expect(result.errors).toContain('Published metric "rank" (95) does not match signed contributions (20)')
+    })
+
+    it('requires custom to be named as well as the function to be supplied', () => {
+      const max = (values: number[]) => Math.max(...values)
+      const contributions = privKeys.map((pk, i) =>
+        contributeAssertion(circle, subject, { rank: 85 }, pk, circle.members.indexOf(pubKeys[i])),
+      )
+      const custom = aggregateContributions(circle, subject, contributions, max)
+      expect(verifyProof(custom, { aggregateFn: max, requireAggregate: 'custom' }).valid).toBe(true)
+      expect(verifyProof(custom, { aggregateFn: max, requireAggregate: 'median' }).valid).toBe(false)
+    })
+
+    it('fails closed on an unknown required aggregate', () => {
+      const result = verifyProof(eventWith([1, 1, 0], 'sum'), { requireAggregate: 'mode' as 'sum' })
+      expect(result.valid).toBe(false)
+      expect(result.errors[0]).toBe('requireAggregate must be one of median, mean, sum, min, max or custom')
+    })
+  })
+
+  describe('contributionBounds', () => {
+    const motion = 'e1'.repeat(32)
+    const ballotBounds = { rank: { min: 0, max: 1, integer: true } }
+
+    function tally(ballots: number[]) {
+      const contributions = privKeys.map((pk, i) =>
+        contributeEventAssertion(circle, motion, { rank: ballots[i] }, pk, circle.members.indexOf(pubKeys[i])),
+      )
+      return aggregateEventContributions(circle, motion, contributions, { aggregate: 'sum' })
+    }
+
+    it('accepts a tally whose ballots are all inside the bounds', () => {
+      const result = verifyProof(tally([1, 1, 0]), { contributionBounds: ballotBounds, requireAggregate: 'sum' })
+      expect(result.valid).toBe(true)
+      expect(result.distinctSigners).toBe(3)
+    })
+
+    it('rejects a tally where one member signed a ballot worth more than one', () => {
+      const stuffed = tally([1, 0, 3])
+      expect(stuffed.tags.find(t => t[0] === 'rank')?.[1]).toBe('4')
+      expect(verifyProof(stuffed).valid).toBe(true) // the proof is sound; the ballot is not
+
+      const result = verifyProof(stuffed, { contributionBounds: ballotBounds })
+      expect(result.valid).toBe(false)
+      expect(result.errors).toContain('Signature at index 2 metric "rank" value 3 is above the contribution maximum 1')
+      expect(result.distinctSigners).toBe(2)
+    })
+
+    it('rejects a ballot below the minimum, and a fractional ballot when integers are required', () => {
+      expect(verifyProof(tally([1, -2, 0]), { contributionBounds: ballotBounds }).errors)
+        .toContain('Signature at index 1 metric "rank" value -2 is below the contribution minimum 0')
+      expect(verifyProof(tally([1, 0.5, 0]), { contributionBounds: ballotBounds }).errors)
+        .toContain('Signature at index 1 metric "rank" value 0.5 is not an integer, as the contribution bounds require')
+    })
+
+    it('leaves a metric with no bound alone', () => {
+      expect(verifyProof(tally([1, 0, 3]), { contributionBounds: { comment_cnt: { max: 1 } } }).valid).toBe(true)
+    })
+
+    it('fails closed on malformed bounds', () => {
+      for (const bad of [
+        { rank: { min: 2, max: 1 } },
+        { rank: { min: Number.NaN } },
+        { rank: { integer: 'yes' } },
+        { rank: 'none' },
+        'rank',
+      ]) {
+        const result = verifyProof(tally([1, 1, 0]), { contributionBounds: bad as never })
+        expect(result.valid, JSON.stringify(bad)).toBe(false)
+        expect(result.errors[0], JSON.stringify(bad)).toMatch(/^contributionBounds/)
+      }
+    })
+  })
+})

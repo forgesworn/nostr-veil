@@ -350,4 +350,38 @@ describe('aggregateContributions', () => {
       expect(() => aggregateIdentifierContributions(circle, 'id-1', 'web', contributions)).toThrow(/with k = isbn, but this event is kind 30385 with k = web/)
     })
   })
+
+  describe('contributionBounds', () => {
+    const ballotBounds = { rank: { min: 0, max: 1, integer: true } }
+
+    it('aggregates contributions that are inside the bounds', () => {
+      const event = aggregateContributions(circle, subject, makeContributions([1, 1, 0]), {
+        aggregate: 'sum',
+        contributionBounds: ballotBounds,
+      })
+      expect(event.tags.find(t => t[0] === 'rank')?.[1]).toBe('2')
+    })
+
+    it('throws rather than publish a tally with an out-of-range contribution', () => {
+      expect(() => aggregateContributions(circle, subject, makeContributions([1, 0, 3]), {
+        aggregate: 'sum',
+        contributionBounds: ballotBounds,
+      })).toThrow('Contribution index 2 metric "rank" value 3 is above the contribution maximum 1')
+    })
+
+    it('applies to the typed helpers too', () => {
+      const eventId = 'e1'.repeat(32)
+      const contributions = [2].map((rank, i) =>
+        contributeEventAssertion(circle, eventId, { rank }, privKeys[i], circle.members.indexOf(pubKeys[i])),
+      )
+      expect(() => aggregateEventContributions(circle, eventId, contributions, { contributionBounds: ballotBounds }))
+        .toThrow(/above the contribution maximum 1/)
+    })
+
+    it('throws on malformed bounds', () => {
+      expect(() => aggregateContributions(circle, subject, makeContributions([1, 1, 0]), {
+        contributionBounds: { rank: { min: 2, max: 1 } },
+      })).toThrow('contributionBounds.rank.min must be <= max')
+    })
+  })
 })

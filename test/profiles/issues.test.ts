@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   VERIFICATION_ISSUE_EXPLANATIONS,
+  classifyVerificationError,
   explainVerificationIssue,
   remediationForIssue,
 } from '../../src/index.js'
@@ -25,6 +26,22 @@ describe('verification issue explanations', () => {
     })
 
     expect(remediation).toContain('Reject the event')
+  })
+
+  it('classifies an aggregate mismatch and an out-of-bounds contribution', () => {
+    expect(classifyVerificationError('event[0] proof: veil-agg is "max" but "median" is required'))
+      .toMatchObject({ code: 'proof.aggregate_mismatch', path: 'event[0]' })
+
+    for (const message of [
+      'event[0] proof: Signature at index 2 metric "rank" value 3 is above the contribution maximum 1',
+      'event[0] proof: Signature at index 1 metric "rank" value -2 is below the contribution minimum 0',
+      'event[1] proof: Signature at index 1 metric "rank" value 0.5 is not an integer, as the contribution bounds require',
+    ]) {
+      expect(classifyVerificationError(message).code, message).toBe('proof.contribution_out_of_bounds')
+    }
+
+    expect(explainVerificationIssue('proof.aggregate_mismatch').remediation).toContain('aggregate')
+    expect(explainVerificationIssue('proof.contribution_out_of_bounds').action).toBe('reject')
   })
 
   it('keeps remediation lookup entries immutable', () => {

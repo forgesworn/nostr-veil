@@ -3,8 +3,10 @@ import { issuesFromErrors } from './issues.js'
 import { resolveCircleManifests } from './manifest.js'
 import { verifyUseCaseProfile } from './verify.js'
 import { PUBLISHER_TAGS } from '../nip85/tags.js'
+import { isAggregateTagValue } from '../proof/aggregate.js'
+import { contributionBoundsProblem } from '../proof/bounds.js'
 import type { EventTemplate } from '../nip85/types.js'
-import type { AggregateFn } from '../proof/types.js'
+import type { AggregateFn, AggregateTagValue, ContributionBound, ContributionBounds } from '../proof/types.js'
 import type { SignedEvent } from '../signing.js'
 import type { VerificationIssue } from './issues.js'
 import type { CircleManifest } from './manifest.js'
@@ -58,9 +60,22 @@ export interface CompanionEvidenceVerification {
 
 export interface CreateDeploymentPolicyOptions {
   acceptedCircleIds?: readonly string[]
+  /**
+   * Require this aggregate function in place of the one the profile pins. Use
+   * it when the deployment publishes with `mean`, say, under a built-in profile
+   * that pins `median`. Set `contributionBounds` as well for anything but
+   * `median`.
+   */
+  aggregate?: AggregateTagValue
   allowSupersededCircleIds?: boolean
   circleManifests?: readonly CircleManifest[]
   companionEvidence?: readonly CompanionEvidenceRequirement[]
+  /**
+   * Bounds on each contribution, by metric name. An entry replaces the
+   * profile's bound for that metric. `metricPolicies` bound the published
+   * aggregate; these bound what one member may sign.
+   */
+  contributionBounds?: ContributionBounds
   expectedSubject: string
   expectedSubjectTagValue?: string
   id?: string
@@ -79,9 +94,13 @@ export interface CreateDeploymentPolicyOptions {
 
 export interface UseCaseDeploymentPolicy {
   acceptedCircleIds: readonly string[]
+  /** Present only when the deployment overrides the aggregate the profile pins. */
+  aggregate?: AggregateTagValue
   allowSupersededCircleIds: boolean
   circleManifests: readonly CircleManifest[]
   companionEvidence?: readonly CompanionEvidenceRequirement[]
+  /** Present only when the deployment sets its own per-contribution bounds. */
+  contributionBounds?: ContributionBounds
   expectedSubject: string
   expectedSubjectTagValue?: string
   id: string
@@ -150,6 +169,25 @@ function cloneMetricPolicies(
     cloned[name] = Object.freeze({ ...policy })
   }
 
+  return Object.freeze(cloned)
+}
+
+function checkedAggregate(aggregate: AggregateTagValue | undefined): AggregateTagValue | undefined {
+  if (aggregate !== undefined && !isAggregateTagValue(aggregate)) {
+    throw new Error('aggregate must be one of median, mean, sum, min, max or custom')
+  }
+  return aggregate
+}
+
+function cloneContributionBounds(bounds: ContributionBounds | undefined): ContributionBounds | undefined {
+  if (bounds === undefined) return undefined
+  const problem = contributionBoundsProblem(bounds)
+  if (problem !== undefined) throw new Error(problem)
+
+  const cloned: Record<string, ContributionBound> = {}
+  for (const [name, bound] of Object.entries(bounds)) {
+    cloned[name] = Object.freeze({ ...bound })
+  }
   return Object.freeze(cloned)
 }
 
@@ -294,12 +332,16 @@ export function createDeploymentPolicy(
     throw new Error('acceptedCircleIds or circleManifests must supply at least one active circle')
   }
   const companionEvidence = cloneCompanionEvidenceRequirements(options.companionEvidence)
+  const aggregate = checkedAggregate(options.aggregate)
+  const contributionBounds = cloneContributionBounds(options.contributionBounds)
 
   return Object.freeze({
     acceptedCircleIds: rawCircleIds,
+    ...(aggregate === undefined ? {} : { aggregate }),
     allowSupersededCircleIds,
     circleManifests,
     ...(companionEvidence.length === 0 ? {} : { companionEvidence }),
+    ...(contributionBounds === undefined ? {} : { contributionBounds }),
     expectedSubject: options.expectedSubject,
     ...(options.expectedSubjectTagValue === undefined ? {} : { expectedSubjectTagValue: options.expectedSubjectTagValue }),
     id: options.id ?? profile.id,
@@ -510,7 +552,9 @@ export function verifyDeploymentPolicy(
   )
   const profileVerification = verifyUseCaseProfile(eventList, policy.profile, {
     acceptedCircleIds: circleResolution.acceptedCircleIds,
+    ...(policy.aggregate === undefined ? {} : { aggregate: policy.aggregate }),
     aggregateFn: options.aggregateFn,
+    ...(policy.contributionBounds === undefined ? {} : { contributionBounds: policy.contributionBounds }),
     expectedSubject: policy.expectedSubject,
     expectedSubjectTagValue: policy.expectedSubjectTagValue,
     maxAgeSeconds: policy.maxAgeSeconds,

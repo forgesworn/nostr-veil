@@ -14,6 +14,7 @@ import {
   signEvent,
   verifyDeploymentBundle,
   verifyProductionDeployment,
+  verifyProof,
   verifyUseCaseProfile,
 } from '../../src/index.js'
 import type { EventTemplate, SignedEvent } from '../../src/index.js'
@@ -242,6 +243,33 @@ function removeSigner(events: EventTemplate[]): EventTemplate[] {
   return tampered
 }
 
+/**
+ * Republish the first event's signatures under another aggregate function.
+ * Nothing is forged: the metric tags are recomputed from the signed messages,
+ * so the result is a sound proof that reads differently.
+ */
+function swapAggregate(events: EventTemplate[]): EventTemplate[] {
+  const tampered = events.map(cloneEvent)
+  const event = tampered[0]
+  const next = tagValue(event, 'veil-agg') === 'max' ? 'min' : 'max'
+  const pick = next === 'max' ? Math.max : Math.min
+  const signedMetrics = event.tags
+    .filter(tag => tag[0] === 'veil-sig')
+    .map(tag => {
+      const payload = JSON.parse(tag[1]) as { message: string }
+      return (JSON.parse(payload.message) as { metrics: Record<string, number> }).metrics
+    })
+
+  for (const tag of event.tags) {
+    const name = tag[0]
+    if (META_TAGS.has(name) || name.startsWith('veil-') || name === 'expiration' || name === 'alt') continue
+    const values = signedMetrics.map(metrics => metrics[name]).filter((value): value is number => value !== undefined)
+    tag[1] = String(pick(...values))
+  }
+  replaceFirstTagValue(event, 'veil-agg', next)
+  return tampered
+}
+
 function staleEvents(result: UseCaseResult): EventTemplate[] {
   const profile = profileFor(result)
   return cloneEvents(result).map(event => ({ ...event, created_at: nowFor(result) - profile.maxAgeSeconds - 1 }))
@@ -289,6 +317,19 @@ describe('adversarial use-case deployment checks', () => {
 
         expect(deployment.valid, `${result.slug} accepted ${name}`).toBe(false)
       }
+    }
+  })
+
+  it('rejects a sound proof republished under another aggregate function for every use case', { timeout: 30_000 }, () => {
+    for (const result of useCaseResults) {
+      const swapped = swapAggregate(eventsFor(result))
+
+      // The attack needs no key: the swapped event still carries a valid proof
+      expect(verifyProof(swapped[0]).valid, `${result.slug} swap is not a sound proof`).toBe(true)
+
+      const deployment = verifyDeployment(result, swapped)
+      expect(deployment.valid, `${result.slug} accepted a swapped aggregate`).toBe(false)
+      expect(deployment.errors.join('; '), result.slug).toContain('veil-agg is')
     }
   })
 

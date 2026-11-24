@@ -1,10 +1,13 @@
 import { NIP85_KINDS } from '../nip85/types.js'
 import { PUBLISHER_TAGS } from '../nip85/tags.js'
+import { isAggregateTagValue } from '../proof/aggregate.js'
+import { contributionBoundProblem } from '../proof/bounds.js'
 import type { SubjectFormat, UseCaseProfile, UseCaseProfileDefinitionValidation } from './types.js'
 
 const SLUG_RE = /^[a-z0-9]+(?:[._-][a-z0-9]+)*$/
 const TAG_NAME_RE = /^[A-Za-z0-9_.-]+$/
-const DECIMAL_INTEGER_RE = /^(0|[1-9]\d*)$/
+/** A NIP-73 `k` type or a decimal namespace: short printable ASCII, no spaces. */
+const K_TAG_RE = /^[\x21-\x7e]{1,64}$/
 
 const PROFILE_STATUSES = new Set(['supported', 'profile-needed'])
 const PROOF_VERSIONS = new Set(['v1', 'v2'])
@@ -211,8 +214,11 @@ function validateRoute(profile: UseCaseProfile, errors: string[]): void {
   }
 
   if (profile.kind === NIP85_KINDS.IDENTIFIER) {
-    if (profile.subjectTagValue === undefined || !DECIMAL_INTEGER_RE.test(profile.subjectTagValue)) {
-      errors.push('profile.kind 30385 must define a decimal subjectTagValue namespace')
+    // The same rule strict validation and aggregateIdentifierContributions apply
+    // to a k tag: a NIP-73 type such as doi or web, or a decimal namespace for
+    // subjects NIP-73 has no type for.
+    if (typeof profile.subjectTagValue !== 'string' || !K_TAG_RE.test(profile.subjectTagValue)) {
+      errors.push('profile.kind 30385 must define a subjectTagValue: a NIP-73 type or a decimal namespace, 1 to 64 printable ASCII characters without spaces')
     }
   } else if (profile.subjectTagValue !== undefined) {
     errors.push('profile.subjectTagValue is only supported for kind 30385 identifier profiles')
@@ -251,6 +257,32 @@ function validateMetrics(profile: UseCaseProfile, errors: string[]): void {
         errors.push(`${prefix}.name "${metric.name}" is duplicated`)
       }
       seen.add(metric.name)
+    }
+    if (metric.contribution !== undefined) {
+      const problem = contributionBoundProblem(metric.contribution, `${prefix}.contribution`)
+      if (problem !== undefined) errors.push(problem)
+    }
+  }
+}
+
+/**
+ * The aggregate function is the publisher's choice unless the profile pins it,
+ * and under anything but median a single contribution can move the result.
+ */
+function validateAggregation(profile: UseCaseProfile, errors: string[], warnings: string[]): void {
+  if (profile.aggregate === undefined) {
+    warnings.push('profile.aggregate is not set; verifiers will accept the same signatures republished under any aggregate function, such as max or min')
+    return
+  }
+  if (!isAggregateTagValue(profile.aggregate)) {
+    errors.push('profile.aggregate must be one of median, mean, sum, min, max or custom')
+    return
+  }
+  if (profile.aggregate === 'median' || !Array.isArray(profile.metrics)) return
+
+  for (const [index, metric] of profile.metrics.entries()) {
+    if (metric.contribution === undefined) {
+      warnings.push(`profile.metrics[${index}] has no contribution bounds; under ${profile.aggregate} one member's value can move the published result`)
     }
   }
 }
@@ -324,6 +356,7 @@ export function validateUseCaseProfileDefinition(profile: UseCaseProfile): UseCa
   validateCoreFields(profile, errors, warnings)
   validateRoute(profile, errors)
   validateMetrics(profile, errors)
+  validateAggregation(profile, errors, warnings)
   validateFederation(profile, errors)
   validateTextArray(profile.failurePolicy, 'profile.failurePolicy', errors)
 

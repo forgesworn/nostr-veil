@@ -7,6 +7,8 @@ import {
   verifyProof,
 } from 'nostr-veil'
 import type {
+  AggregateTagValue,
+  ContributionBounds,
   EventTemplate,
   FederationVerification,
   ProofVerification,
@@ -82,10 +84,20 @@ export function verifyUseCaseAssertion(
     circleId: string
     minDistinctSigners: number
     freshAfter?: number
+    /** The aggregate the event must be published with. Median unless the use case says otherwise. */
+    requireAggregate?: AggregateTagValue
+    /** Bounds on each contribution, for use cases where one value can move the result. */
+    contributionBounds?: ContributionBounds
   },
 ): AssertionUseCaseResult {
   const syntax = validateAssertionStrict(assertion)
-  const proof = verifyProof(assertion, { requireProofVersion: proofVersion })
+  // The publisher chooses veil-agg, so name the function this use case expects:
+  // the same signatures republished as a max would otherwise verify too.
+  const proof = verifyProof(assertion, {
+    requireProofVersion: proofVersion,
+    requireAggregate: expected.requireAggregate ?? 'median',
+    ...(expected.contributionBounds === undefined ? {} : { contributionBounds: expected.contributionBounds }),
+  })
   const errors = [...syntax.errors, ...proof.errors]
 
   if (assertion.kind !== expected.kind) {
@@ -124,7 +136,7 @@ export function verifyFederatedUseCase(
     minDistinctSigners: number
   },
 ): FederationUseCaseResult {
-  const proof = verifyFederation(events)
+  const proof = verifyFederation(events, { requireAggregate: 'median' })
   const errors = [...proof.errors]
 
   if (!events.every(event => event.kind === expected.kind)) {
