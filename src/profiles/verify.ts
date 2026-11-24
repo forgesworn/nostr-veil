@@ -5,6 +5,7 @@ import { verifyProof } from '../proof/verify.js'
 import { isUnixSecondsTagValue } from '../nip85/tags.js'
 import { subjectMatchesAnyFormat } from './canonical.js'
 import { issuesFromErrors } from './issues.js'
+import { NOW_INVALID, verificationTime } from './time.js'
 import type { EventTemplate } from '../nip85/types.js'
 import type { ContributionBound, ContributionBounds } from '../proof/types.js'
 import type {
@@ -20,10 +21,6 @@ import type {
  * and short beside the 300-second window the built-in profiles use.
  */
 export const DEFAULT_MAX_FUTURE_SECONDS = 60
-
-function nowSeconds(): number {
-  return Math.floor(Date.now() / 1000)
-}
 
 /**
  * The freshness window in seconds: the caller's option, or else the profile's.
@@ -142,6 +139,7 @@ function verifyEvent(
   index: number,
   options: VerifyUseCaseProfileOptions,
   acceptedCircles: Set<string> | undefined,
+  now: number | undefined,
   maxAgeSeconds: number | undefined,
   maxFutureSeconds: number,
   errors: string[],
@@ -189,9 +187,10 @@ function verifyEvent(
     errors.push(`${prefix} has fewer than ${minDistinctSigners} distinct signers`)
   }
 
-  // Undefined when the window is malformed, which is reported once for the run
+  // The window is undefined when it is malformed, and now is undefined when it
+  // cannot be compared. Each is reported once for the run, and nothing is
+  // compared against either.
   if (maxAgeSeconds !== undefined && maxAgeSeconds > 0) {
-    const now = options.now ?? nowSeconds()
     const createdAt: unknown = event.created_at
     if (createdAt === undefined) {
       errors.push(`${prefix} missing created_at for freshness check`)
@@ -200,16 +199,12 @@ function verifyEvent(
       // nor ahead of it, so the assertion would pass both ends and never go
       // stale. An event that arrives as JSON can carry anything here.
       errors.push(`${prefix} assertion created_at is not a Unix timestamp`)
-    } else if (createdAt < now - maxAgeSeconds) {
+    } else if (now !== undefined && createdAt < now - maxAgeSeconds) {
       errors.push(`${prefix} assertion is outside the accepted freshness window`)
-    } else if (createdAt - maxFutureSeconds > now) {
+    } else if (now !== undefined && createdAt - maxFutureSeconds > now) {
       // Only the signer sets created_at, and an event dated ahead stays inside
       // the window until that date plus the window. Without this bound the
       // publisher chooses how long an assertion counts as fresh.
-      //
-      // Written as a subtraction, like the test above it: a caller who passes
-      // now as a numeric string then gets a number at both ends. `now + ...`
-      // would join two strings and take this end away.
       errors.push(`${prefix} assertion created_at is in the future`)
     }
   }
@@ -217,8 +212,8 @@ function verifyEvent(
   // NIP-40: the publisher declared the assertion dead from this time. Many
   // relays and caches still serve expired events, so check it here too.
   const expiration = event.tags.find(tag => tag[0] === 'expiration')?.[1]
-  if (expiration !== undefined && isUnixSecondsTagValue(expiration)
-    && Number(expiration) <= (options.now ?? nowSeconds())) {
+  if (now !== undefined && expiration !== undefined && isUnixSecondsTagValue(expiration)
+    && Number(expiration) <= now) {
     errors.push(`${prefix} assertion has expired (NIP-40 expiration ${expiration})`)
   }
 
@@ -274,10 +269,14 @@ export function verifyUseCaseProfile(
     }
   }
 
+  // Undefined when the caller's now cannot be compared. Then no date is
+  // compared against it, here or for NIP-40 expiry, and the run fails for that.
+  const now = verificationTime(options.now)
+  if (now === undefined) errors.push(NOW_INVALID)
   const maxAgeSeconds = maxAgeSecondsFrom(profile, options, errors)
   const maxFutureSeconds = maxFutureSecondsFrom(options, maxAgeSeconds, errors)
   const verifiedEvents = eventList.map((event, index) =>
-    verifyEvent(profile, event, index, options, acceptedCircles, maxAgeSeconds, maxFutureSeconds, errors),
+    verifyEvent(profile, event, index, options, acceptedCircles, now, maxAgeSeconds, maxFutureSeconds, errors),
   )
 
   const federation = profile.federation === undefined

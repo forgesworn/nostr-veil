@@ -2,6 +2,7 @@ import { schnorr } from '@noble/curves/secp256k1.js'
 import { sha256 } from '@noble/hashes/sha2.js'
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js'
 import { verifyProductionDeployment } from './production.js'
+import { NOW_INVALID, verificationTime, withoutRepeatedTimeError } from './time.js'
 import type { EventTemplate } from '../nip85/types.js'
 import type { SignedDeploymentBundle } from './bundle.js'
 import type { ProductionDeploymentVerification, VerifyProductionDeploymentOptions } from './production.js'
@@ -333,8 +334,11 @@ export function verifyAdmissionPresentation(
     errors.push('admission applicant does not match expected applicant')
   }
   if (!presentationCreatedAtValid) errors.push('presentation createdAt must be a non-negative Unix timestamp')
-  const now = options.now ?? nowSeconds()
-  if (challengeIssuedAtValid && challengeExpiresAtValid) {
+  // Undefined when the caller's now cannot be compared. Then the challenge is
+  // not compared against it, and the presentation fails for that instead.
+  const now = verificationTime(options.now)
+  if (now === undefined) errors.push(NOW_INVALID)
+  if (now !== undefined && challengeIssuedAtValid && challengeExpiresAtValid) {
     if (challenge.issuedAt > now) errors.push('admission challenge issuedAt is in the future')
     if (now > challenge.expiresAt) errors.push('admission challenge is expired')
   }
@@ -392,10 +396,11 @@ export function verifyAdmissionRequest(
     usedChallengeIds: options.usedChallengeIds,
   })
   const deployment = verifyProductionDeployment(events, bundle, options)
-  const errors = [
+  // Both parts read the same now, and each reports one it cannot compare
+  const errors = withoutRepeatedTimeError([
     ...presentationVerification.errors,
     ...deployment.errors,
-  ]
+  ])
 
   if (bundle.policy.expectedSubject !== presentation.applicantPubkey) {
     errors.push('admission vouch subject does not match presentation applicant')

@@ -1,3 +1,5 @@
+import { NOW_INVALID } from './time.js'
+
 export type VerificationIssueCode =
   | 'assertion.created_at_future'
   | 'assertion.created_at_invalid'
@@ -58,6 +60,7 @@ export type VerificationIssueCode =
   | 'proof.invalid'
   | 'proof.threshold_not_met'
   | 'verification.failed'
+  | 'verification.now_invalid'
 
 export interface VerificationIssue {
   code: VerificationIssueCode
@@ -364,6 +367,11 @@ const VERIFICATION_ISSUE_EXPLANATION_INPUTS = {
     'Reject by default, inspect result.errors, and add a more specific issue mapping if this becomes a supported failure mode.',
     'manual-review',
   ),
+  'verification.now_invalid': explanation(
+    'The verifier was given a now that is not a Unix timestamp.',
+    'Pass now as Unix seconds, or leave it out to use the current time. Against a value such as NaN every time comparison is false, so nothing would expire or go stale; no time check runs and everything is rejected until it is corrected.',
+    'operator-action',
+  ),
 } satisfies Record<VerificationIssueCode, VerificationIssueExplanationInput>
 
 export const VERIFICATION_ISSUE_EXPLANATIONS = Object.freeze(
@@ -407,6 +415,7 @@ function codeFromError(message: string): VerificationIssueCode {
   if (/^event\[\d+\] assertion created_at is not a Unix timestamp$/u.test(message)) {
     return 'assertion.created_at_invalid'
   }
+  if (message === NOW_INVALID) return 'verification.now_invalid'
   if (message === 'maxAgeSeconds must be a non-negative integer') return 'policy.max_age_seconds_invalid'
   if (
     message === 'maxFutureSeconds must be a non-negative integer'

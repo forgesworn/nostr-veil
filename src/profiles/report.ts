@@ -146,12 +146,14 @@ function productionControls(result: ProductionDeploymentVerification, issues: re
   const codes = issueCodeSet(issues)
   const signatureChecked = result.deployment.nostrSignatures.checked
   const bundleHasExpiry = result.bundle.bundle.expiresAt !== undefined
+  // With a now that cannot be compared, no expiry was checked at all
   const bundleFreshnessFailed = hasAny(codes, [
     'bundle.expired',
     'bundle.expires_at_invalid',
     'bundle.expiry_required',
     'bundle.issued_at_future',
     'bundle.issued_at_invalid',
+    'verification.now_invalid',
   ])
   // The policy code comes first. Naming publishers forces the signature check,
   // so a hand-built policy can have its signatures checked without requiring
@@ -182,6 +184,7 @@ function productionControls(result: ProductionDeploymentVerification, issues: re
     || hasPrefix(codes, 'assertion.')
     || codes.has('policy.max_age_seconds_invalid')
     || codes.has('policy.max_future_seconds_invalid')
+    || codes.has('verification.now_invalid')
 
   return Object.freeze([
     control(

@@ -1,6 +1,7 @@
 import { verifySignedEvent } from '../signing.js'
 import { issuesFromErrors } from './issues.js'
 import { resolveCircleManifests } from './manifest.js'
+import { NOW_INVALID, verificationTime, withoutRepeatedTimeError } from './time.js'
 import { verifyUseCaseProfile } from './verify.js'
 import { PUBLISHER_TAGS } from '../nip85/tags.js'
 import { isAggregateTagValue } from '../proof/aggregate.js'
@@ -181,10 +182,6 @@ function assertFinite(value: number | undefined, label: string): void {
   if (value !== undefined && !Number.isFinite(value)) {
     throw new Error(`${label} must be a finite number`)
   }
-}
-
-function nowSeconds(): number {
-  return Math.floor(Date.now() / 1000)
 }
 
 function assertMetricPolicy(name: string, policy: DeploymentMetricPolicy): void {
@@ -484,7 +481,10 @@ function verifyCompanionEvidence(
   const errors: string[] = []
   const byId = companionEvidenceById(options.companionEvidence, errors)
   const missingIds: string[] = []
-  const now = options.now ?? nowSeconds()
+  // Undefined when the caller's now cannot be compared. Then no evidence is
+  // compared against it, and the evidence fails for that instead.
+  const now = verificationTime(options.now)
+  if (now === undefined) errors.push(NOW_INVALID)
 
   for (const requirement of requirements) {
     const evidence = byId.get(requirement.id)
@@ -514,9 +514,9 @@ function verifyCompanionEvidence(
         errors.push(`companion evidence "${requirement.id}" missing checkedAt for freshness check`)
       } else if (!Number.isSafeInteger(evidence.checkedAt) || evidence.checkedAt < 0) {
         errors.push(`companion evidence "${requirement.id}" checkedAt is invalid`)
-      } else if (evidence.checkedAt > now) {
+      } else if (now !== undefined && evidence.checkedAt > now) {
         errors.push(`companion evidence "${requirement.id}" checkedAt is in the future`)
-      } else if (evidence.checkedAt < now - (requirement.maxAgeSeconds ?? 0)) {
+      } else if (now !== undefined && evidence.checkedAt < now - (requirement.maxAgeSeconds ?? 0)) {
         errors.push(`companion evidence "${requirement.id}" is outside the accepted freshness window`)
       }
     }
@@ -693,13 +693,15 @@ export function verifyDeploymentPolicy(
   const metricVerification = verifyMetricPolicies(eventList, policy)
   const companionEvidence = verifyCompanionEvidence(policy, options)
   const publisherVerification = verifyPublishers(eventList, policy)
-  const errors = [
+  // The manifests, the profile and the companion evidence read the same now,
+  // and each reports one it cannot compare
+  const errors = withoutRepeatedTimeError([
     ...circleResolution.errors,
     ...profileVerification.errors,
     ...metricVerification.errors,
     ...companionEvidence.errors,
     ...publisherVerification.errors,
-  ]
+  ])
   const valid = errors.length === 0
 
   return {

@@ -3,6 +3,7 @@ import { sha256 } from '@noble/hashes/sha2.js'
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js'
 import { issuesFromErrors } from './issues.js'
 import { verifyDeploymentPolicy } from './policy.js'
+import { NOW_INVALID, verificationTime, withoutRepeatedTimeError, withoutRepeatedTimeIssue } from './time.js'
 import type { EventTemplate } from '../nip85/types.js'
 import type { VerificationIssue } from './issues.js'
 import type { DeploymentPolicyVerification, UseCaseDeploymentPolicy, VerifyDeploymentPolicyOptions } from './policy.js'
@@ -59,10 +60,6 @@ export interface DeploymentBundleVerification {
 
 const HEX64_RE = /^[0-9a-f]{64}$/
 const HEX128_RE = /^[0-9a-f]{128}$/
-
-function nowSeconds(): number {
-  return Math.floor(Date.now() / 1000)
-}
 
 function assertHex64(value: string, label: string): void {
   if (!HEX64_RE.test(value)) {
@@ -166,7 +163,10 @@ export function verifySignedDeploymentBundle(
   options: VerifySignedDeploymentBundleOptions = {},
 ): SignedDeploymentBundleVerification {
   const errors: string[] = []
-  const now = options.now ?? nowSeconds()
+  // Undefined when the caller's now cannot be compared. Then nothing below is
+  // compared against it, and the bundle fails for that instead.
+  const now = verificationTime(options.now)
+  if (now === undefined) errors.push(NOW_INVALID)
   const trustedPublishers = trustedPublisherSet(options.trustedPublishers, errors)
 
   if (bundle.version !== 1) errors.push('bundle version must be 1')
@@ -180,11 +180,11 @@ export function verifySignedDeploymentBundle(
       errors.push('bundle expiresAt must be a non-negative Unix timestamp')
     } else if (bundle.expiresAt <= bundle.issuedAt) {
       errors.push('bundle expiresAt must be greater than issuedAt')
-    } else if (now > bundle.expiresAt) {
+    } else if (now !== undefined && now > bundle.expiresAt) {
       errors.push('bundle is expired')
     }
   }
-  if (bundle.issuedAt > now) {
+  if (now !== undefined && bundle.issuedAt > now) {
     errors.push('bundle issuedAt is in the future')
   }
 
@@ -229,14 +229,15 @@ export function verifyDeploymentBundle(
 ): DeploymentBundleVerification {
   const bundleVerification = verifySignedDeploymentBundle(bundle, options)
   const deployment = verifyDeploymentPolicy(events, bundle.policy, options)
-  const errors = [
+  // Both parts read the same now, and each reports one it cannot compare
+  const errors = withoutRepeatedTimeError([
     ...bundleVerification.errors,
     ...deployment.errors,
-  ]
-  const issues = [
+  ])
+  const issues = withoutRepeatedTimeIssue([
     ...(bundleVerification.issues ?? issuesFromErrors(bundleVerification.errors)),
     ...(deployment.issues ?? issuesFromErrors(deployment.errors)),
-  ]
+  ])
 
   return {
     bundle: bundleVerification,
