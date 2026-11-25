@@ -1,3 +1,11 @@
+## 0.37.1 (2026-11-25)
+
+### Bug Fixes
+
+- reject malformed input without throwing and sign every bundle key (#71)
+
+
+
 ## 0.37.0 (2026-11-24)
 
 ### Features
