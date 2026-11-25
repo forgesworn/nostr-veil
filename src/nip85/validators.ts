@@ -1,4 +1,5 @@
 import type { ValidationResult } from './types.js'
+import { MALFORMED_EVENT, MALFORMED_TAG, isWellFormedTag } from './shape.js'
 import { NIP85_KINDS } from './types.js'
 import { GENERAL_TAGS, isUnixSecondsTagValue } from './tags.js'
 
@@ -222,6 +223,13 @@ function validateStrictMetrics(event: RawEvent, errors: string[]): void {
       errors.push(`Metric "${name}" is missing a value.`)
       continue
     }
+    // A tag value from a relay need not be a string. Both checks below call a
+    // string method on it, and would throw on a number where they should
+    // report it.
+    if (allowed.numeric.has(name) && typeof tag[1] !== 'string') {
+      errors.push(`Metric "${name}" must be a string.`)
+      continue
+    }
     if (name === 'rank') {
       validateStrictRank(tag[1], errors)
     } else if (allowed.numeric.has(name) && !isFiniteNumberTag(tag[1])) {
@@ -258,11 +266,11 @@ export function validateAssertion(input: RawEvent, options: ValidationOptions = 
 
   // Fail closed rather than throw on relay-supplied junk: drop malformed tags and report them
   if (input === null || typeof input !== 'object' || !Array.isArray(input.tags)) {
-    return { valid: false, errors: ['Malformed event: tags must be an array.'] }
+    return { valid: false, errors: [MALFORMED_EVENT] }
   }
-  const wellFormed = input.tags.filter(t => Array.isArray(t) && typeof t[0] === 'string')
+  const wellFormed = input.tags.filter(isWellFormedTag)
   if (wellFormed.length !== input.tags.length) {
-    errors.push('Malformed tag: every tag must be an array whose name is a string.')
+    errors.push(MALFORMED_TAG)
   }
   const event: RawEvent = { kind: input.kind, tags: wellFormed, content: input.content }
 
@@ -317,6 +325,11 @@ export function validateAssertionStrict(event: RawEvent): ValidationResult {
 export function validateProviderDeclarationStrict(event: RawEvent): ValidationResult {
   const errors: string[] = []
 
+  // Fail closed rather than throw on relay-supplied junk, as validateAssertion does
+  if (event === null || typeof event !== 'object' || !Array.isArray(event.tags)) {
+    return { valid: false, errors: [MALFORMED_EVENT] }
+  }
+
   if (event.kind !== NIP85_KINDS.PROVIDER) {
     errors.push(`Invalid kind: ${event.kind}. Must be 10040 for a provider declaration.`)
   }
@@ -332,7 +345,7 @@ export function validateProviderDeclarationStrict(event: RawEvent): ValidationRe
   const seen = new Set<string>()
   for (let i = 0; i < event.tags.length; i++) {
     const tag = event.tags[i]
-    const name = tag[0]
+    const name: unknown = Array.isArray(tag) ? tag[0] : undefined
     if (typeof name !== 'string' || !PROVIDER_TAG_RE.test(name)) {
       errors.push(`Provider tag at index ${i} must use kind:metric format.`)
       continue

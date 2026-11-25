@@ -1,11 +1,13 @@
 import { schnorr } from '@noble/curves/secp256k1.js'
 import { sha256 } from '@noble/hashes/sha2.js'
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js'
+import { isAuthenticBundle } from './authentic.js'
 import { issuesFromErrors } from './issues.js'
 import { verifyDeploymentPolicy } from './policy.js'
 import type { EventTemplate } from '../nip85/types.js'
 import type { VerificationIssue } from './issues.js'
 import type { DeploymentPolicyVerification, UseCaseDeploymentPolicy, VerifyDeploymentPolicyOptions } from './policy.js'
+import type { UseCaseProfile } from './types.js'
 
 export const DEPLOYMENT_BUNDLE_TYPE = 'nostr-veil-deployment-bundle'
 
@@ -162,16 +164,19 @@ export function createSignedDeploymentBundle(
 }
 
 export function verifySignedDeploymentBundle(
-  bundle: SignedDeploymentBundle,
+  given: SignedDeploymentBundle,
   options: VerifySignedDeploymentBundleOptions = {},
 ): SignedDeploymentBundleVerification {
   const errors: string[] = []
   const now = options.now ?? nowSeconds()
   const trustedPublishers = trustedPublisherSet(options.trustedPublishers, errors)
+  // A bundle is fetched, and what arrives can be anything. One that is not an
+  // object reads as one with nothing in it, and so fails every check below.
+  const bundle = (given !== null && typeof given === 'object' ? given : {}) as SignedDeploymentBundle
 
   if (bundle.version !== 1) errors.push('bundle version must be 1')
   if (bundle.type !== DEPLOYMENT_BUNDLE_TYPE) errors.push(`bundle type must be ${DEPLOYMENT_BUNDLE_TYPE}`)
-  if (bundle.id.trim() === '') errors.push('bundle id must be non-empty')
+  if (typeof bundle.id !== 'string' || bundle.id.trim() === '') errors.push('bundle id must be non-empty')
   if (!Number.isSafeInteger(bundle.issuedAt) || bundle.issuedAt < 0) {
     errors.push('bundle issuedAt must be a non-negative Unix timestamp')
   }
@@ -213,12 +218,49 @@ export function verifySignedDeploymentBundle(
   }
 
   return {
-    bundle,
+    bundle: given,
     errors,
     issues: issuesFromErrors(errors),
     publisherTrusted,
     signatureValid,
     valid: errors.length === 0,
+  }
+}
+
+/**
+ * The result for a policy that was not applied. Nothing in the policy is read:
+ * it is handed back as it was given, and no event is verified against it.
+ */
+function policyNotApplied(bundle: unknown): DeploymentPolicyVerification {
+  const policy: unknown = bundle !== null && typeof bundle === 'object' ? (bundle as { policy?: unknown }).policy : undefined
+  const profile: unknown = policy !== null && typeof policy === 'object' ? (policy as { profile?: unknown }).profile : undefined
+
+  return {
+    companionEvidence: Object.freeze({
+      evidence: Object.freeze([]),
+      errors: [],
+      missingIds: Object.freeze([]),
+      requirements: Object.freeze([]),
+      valid: false,
+    }),
+    decision: 'reject',
+    errors: [],
+    issues: [],
+    metrics: {},
+    nostrSignatures: { checked: false, valid: false },
+    policy: policy as UseCaseDeploymentPolicy,
+    profileVerification: {
+      valid: false,
+      errors: [],
+      issues: [],
+      events: [],
+      federation: undefined,
+      profile: profile as UseCaseProfile,
+    },
+    publishers: { checked: false, valid: false },
+    revokedCircleIds: [],
+    supersededCircleIds: [],
+    valid: false,
   }
 }
 
@@ -228,7 +270,13 @@ export function verifyDeploymentBundle(
   options: VerifyDeploymentBundleOptions = {},
 ): DeploymentBundleVerification {
   const bundleVerification = verifySignedDeploymentBundle(bundle, options)
-  const deployment = verifyDeploymentPolicy(events, bundle.policy, options)
+  // A policy is applied only from an authentic bundle. Anything else was
+  // written by nobody the verifier knows: applying it would let that party
+  // choose what is checked, and reading it would trust its shape. The result
+  // is a rejection either way, for the reasons the bundle check has given.
+  const deployment = isAuthenticBundle(bundleVerification)
+    ? verifyDeploymentPolicy(events, bundle.policy, options)
+    : policyNotApplied(bundle)
   const errors = [
     ...bundleVerification.errors,
     ...deployment.errors,

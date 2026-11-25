@@ -1,4 +1,5 @@
 import { verifySignedEvent } from '../signing.js'
+import { readableEvent } from '../nip85/shape.js'
 import { issuesFromErrors } from './issues.js'
 import { resolveCircleManifests } from './manifest.js'
 import { verifyUseCaseProfile } from './verify.js'
@@ -506,7 +507,9 @@ function verifyCompanionEvidence(
 
 function metricTags(event: EventTemplate): Map<string, string> {
   const metrics = new Map<string, string>()
-  for (const tag of event.tags) {
+  // Only the well-formed tags: a tag from a relay need not be a list, nor its
+  // name a string, and the profile verifier has reported any that are not
+  for (const tag of readableEvent(event).tags) {
     const name = tag[0]
     if (META_TAGS.has(name) || PUBLISHER_TAGS.has(name) || name.startsWith('veil-')) continue
     if (tag[1] !== undefined) metrics.set(name, tag[1])
@@ -573,8 +576,11 @@ function verifyMetricPolicies(
 }
 
 function isSignedEvent(event: EventTemplate): event is SignedEvent {
-  const candidate = event as Partial<SignedEvent>
-  return typeof candidate.id === 'string'
+  const candidate = event as Partial<SignedEvent> | null
+  // What a relay returns need not be an object at all
+  return candidate !== null
+    && typeof candidate === 'object'
+    && typeof candidate.id === 'string'
     && typeof candidate.pubkey === 'string'
     && typeof candidate.sig === 'string'
     && typeof candidate.created_at === 'number'

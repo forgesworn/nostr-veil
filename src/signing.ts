@@ -89,6 +89,8 @@ export function signEvent(template: UnsignedEvent, privateKey: string): SignedEv
  * relay, before acting on its proof or score.
  */
 export function verifySignedEvent(event: SignedEvent): boolean {
+  // What a relay returns can be anything, and only an object has an id to check
+  if (event === null || typeof event !== 'object') return false
   if (computeEventId(event) !== event.id) return false
   try {
     return schnorr.verify(hexToBytes(event.sig), hexToBytes(event.id), hexToBytes(event.pubkey))

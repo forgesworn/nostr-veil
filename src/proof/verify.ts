@@ -649,6 +649,12 @@ export function verifyProof(event: {
   }
   const { requireAggregate, contributionBounds } = aggregationPolicy
 
+  // An event from a relay can be anything. One that is not an object has no
+  // kind, and is turned away with the events of no NIP-85 kind below.
+  if (event === null || typeof event !== 'object') {
+    return failure(['Event kind undefined is not a NIP-85 assertion kind (30382-30385)'])
+  }
+
   // Bind the assertion class: v1 signatures are not bound to the event kind,
   // so without this check a proof can be replayed under a different NIP-85 kind
   if (expectedKind !== undefined && event.kind !== expectedKind) {

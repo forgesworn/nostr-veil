@@ -1,6 +1,7 @@
 import { schnorr } from '@noble/curves/secp256k1.js'
 import { sha256 } from '@noble/hashes/sha2.js'
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js'
+import { isAuthenticBundle } from './authentic.js'
 import { verifyProductionDeployment } from './production.js'
 import type { EventTemplate } from '../nip85/types.js'
 import type { SignedDeploymentBundle } from './bundle.js'
@@ -284,11 +285,20 @@ export function createAdmissionPresentation(
 }
 
 export function verifyAdmissionPresentation(
-  presentation: AdmissionPresentation,
-  challenge: AdmissionChallenge,
+  givenPresentation: AdmissionPresentation,
+  givenChallenge: AdmissionChallenge,
   options: VerifyAdmissionPresentationOptions = {},
 ): AdmissionPresentationVerification {
   const errors: string[] = []
+  // A presentation comes from the applicant and can be anything. One that is
+  // not an object reads as one with nothing in it, and so fails every check
+  // below. The same goes for a challenge that was read back from storage.
+  const presentation = (givenPresentation !== null && typeof givenPresentation === 'object'
+    ? givenPresentation
+    : {}) as AdmissionPresentation
+  const challenge = (givenChallenge !== null && typeof givenChallenge === 'object'
+    ? givenChallenge
+    : {}) as AdmissionChallenge
   const expectedChallengeId = admissionChallengeId(challengePayload(challenge))
   const challengeIssuedAtValid = isSafeUnix(challenge.issuedAt)
   const challengeExpiresAtValid = isSafeUnix(challenge.expiresAt)
@@ -385,28 +395,37 @@ export function verifyAdmissionRequest(
   presentation: AdmissionPresentation,
   options: VerifyAdmissionRequestOptions = {},
 ): AdmissionRequestVerification {
+  const deployment = verifyProductionDeployment(events, bundle, options)
+  // The subject the bundle vouches for is read only from an authentic bundle.
+  // The policy of any other was not applied, and vouches for nobody: the
+  // request is denied for what the bundle check has already reported.
+  const authentic = isAuthenticBundle(deployment.bundle)
+  const vouchedFor: string | undefined = authentic ? bundle.policy.expectedSubject : undefined
+  // The applicant comes from the presentation, which need not be an object
+  const applicant = (presentation !== null && typeof presentation === 'object'
+    ? presentation.applicantPubkey
+    : undefined) as string
   const presentationVerification = verifyAdmissionPresentation(presentation, challenge, {
-    expectedApplicantPubkey: bundle.policy.expectedSubject,
+    expectedApplicantPubkey: vouchedFor,
     expectedAudience: options.expectedAudience,
     now: options.now,
     usedChallengeIds: options.usedChallengeIds,
   })
-  const deployment = verifyProductionDeployment(events, bundle, options)
   const errors = [
     ...presentationVerification.errors,
     ...deployment.errors,
   ]
 
-  if (bundle.policy.expectedSubject !== presentation.applicantPubkey) {
+  if (authentic && vouchedFor !== applicant) {
     errors.push('admission vouch subject does not match presentation applicant')
   }
 
-  const revoked = revokedApplicantSet(options.revokedApplicantPubkeys).has(presentation.applicantPubkey)
+  const revoked = revokedApplicantSet(options.revokedApplicantPubkeys).has(applicant)
   if (revoked) errors.push('admission applicant is revoked')
 
   const rank = firstRank(deployment)
   const valid = presentationVerification.valid && deployment.valid && !revoked
-    && bundle.policy.expectedSubject === presentation.applicantPubkey
+    && authentic && vouchedFor === applicant
   const decision = revoked
     ? 'revoke'
     : valid
@@ -414,7 +433,7 @@ export function verifyAdmissionRequest(
       : 'deny'
 
   return {
-    applicantPubkey: presentation.applicantPubkey,
+    applicantPubkey: applicant,
     decision,
     deployment,
     errors,

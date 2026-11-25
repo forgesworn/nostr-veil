@@ -118,7 +118,10 @@ signatures for relay-fetched assertions. It does not require the policy to
 name its publishers: when the policy names none, the decision report shows the
 `event-publisher` control as `not-checked`, as it shows `companion-evidence`
 for a policy that requires none. So do not gate on every control reading
-`pass`; gate on the decision. The result is a gate, not a business
+`pass`; gate on the decision. The policy inside a bundle is applied only when
+the bundle is authentic: for a bundle with a bad signature or a signer you do
+not trust, no assertion is verified against its policy and the report shows the
+policy controls as `not-checked`. The result is a gate, not a business
 decision. After it passes, the application still decides what action is
 proportionate for that subject and score.
 
