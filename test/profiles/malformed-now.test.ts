@@ -216,6 +216,33 @@ describe('a verification time that cannot be compared', () => {
     expect(timeless(undefined).status('companion-evidence')).toBe('not-checked')
   })
 
+  // An optional requirement with a window, and no evidence supplied for it:
+  // there was nothing to age, so the control reads as it does at any other time
+  it('does not fail the evidence control when there was no evidence to age', () => {
+    const optionalBundle = createSignedDeploymentBundle(
+      createDeploymentPolicy(profile, {
+        ...gate,
+        companionEvidence: [{ id: 'check', maxAgeSeconds: 300, required: false }],
+        requireNostrSignature: true,
+      }),
+      { expiresAt: NOW + 600, id: 'optional', issuedAt: NOW - 10, privateKey: OPERATOR_KEY },
+    )
+    const statusAt = (now: number, companionEvidence?: CompanionEvidence[]) => {
+      const result = verifyProductionDeployment(signedAssertion, optionalBundle, {
+        companionEvidence,
+        now,
+        trustedPublishers: [optionalBundle.signer],
+      })
+      return createProductionDecisionReport(result).controls.find(item => item.id === 'companion-evidence')?.status
+    }
+
+    expect(statusAt(NOW)).toBe('not-checked')
+    expect(statusAt(Number.NaN)).toBe('not-checked')
+    // Once it is supplied, its age is what could not be compared
+    expect(statusAt(NOW, freshEvidence)).toBe('pass')
+    expect(statusAt(Number.NaN, freshEvidence)).toBe('fail')
+  })
+
   it('is reported once by a whole admission call, which denies', () => {
     const result = admission(Number.NaN)
 

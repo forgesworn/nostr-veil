@@ -175,10 +175,14 @@ function productionControls(result: ProductionDeploymentVerification, issues: re
   const companionEvidenceChecked = result.deployment.companionEvidence.evidence.length > 0
   // With a now that cannot be compared, no evidence age and no manifest expiry
   // was compared. A control that depends on one of them cannot read pass. One
-  // that compares nothing against the time is left as it was.
+  // that compares nothing against the time is left as it was: evidence has an
+  // age to compare only where its requirement sets a window and the evidence
+  // was supplied.
   const nowInvalid = codes.has('verification.now_invalid')
+  const suppliedEvidenceIds = new Set(result.deployment.companionEvidence.evidence.map(evidence => evidence.id))
   const evidenceAgeUnchecked = nowInvalid
-    && result.deployment.companionEvidence.requirements.some(requirement => (requirement.maxAgeSeconds ?? 0) > 0)
+    && result.deployment.companionEvidence.requirements.some(requirement =>
+      (requirement.maxAgeSeconds ?? 0) > 0 && suppliedEvidenceIds.has(requirement.id))
   const manifestExpiryUnchecked = nowInvalid && (result.deployment.policy.circleManifests ?? []).length > 0
   const companionEvidenceFailed = hasPrefix(codes, 'companion.')
   const companionEvidenceStatus: ProductionControlStatus = companionEvidenceFailed || evidenceAgeUnchecked
