@@ -1,8 +1,8 @@
 import { verifySignedEvent } from '../signing.js'
 import { readableEvent } from '../nip85/shape.js'
-import { issuesFromErrors } from './issues.js'
+import { CodedErrors, issuesOf } from './coded.js'
 import { resolveCircleManifests } from './manifest.js'
-import { NOW_INVALID, verificationTime, withoutRepeatedTimeError } from './time.js'
+import { NOW_INVALID, verificationTime, withoutRepeatedTimeIssue } from './time.js'
 import { verifyUseCaseProfile } from './verify.js'
 import { PUBLISHER_TAGS } from '../nip85/tags.js'
 import { isAggregateTagValue } from '../proof/aggregate.js'
@@ -10,7 +10,7 @@ import { contributionBoundsProblem } from '../proof/bounds.js'
 import type { EventTemplate } from '../nip85/types.js'
 import type { AggregateFn, AggregateTagValue, ContributionBound, ContributionBounds } from '../proof/types.js'
 import type { SignedEvent } from '../signing.js'
-import type { VerificationIssue } from './issues.js'
+import type { VerificationIssue, VerificationIssueCode } from './issues.js'
 import type { CircleManifest } from './manifest.js'
 import type { UseCaseProfile, UseCaseProfileVerification } from './types.js'
 
@@ -289,17 +289,18 @@ function assertHex64(value: string, label: string): void {
  * created and again when one is verified, because a policy inside a signed
  * bundle arrives as JSON and nothing has checked its shape.
  */
-function acceptedPublisherProblems(publishers: unknown): string[] {
+function acceptedPublisherProblems(publishers: unknown): Array<{ message: string; path?: string }> {
   if (!Array.isArray(publishers) || publishers.length === 0) {
-    return ['acceptedPublishers must be a list of at least one publisher key']
+    return [{ message: 'acceptedPublishers must be a list of at least one publisher key' }]
   }
 
-  const problems: string[] = []
+  const problems: Array<{ message: string; path?: string }> = []
   // By index: forEach would skip the holes of a sparse list
   for (let index = 0; index < publishers.length; index++) {
     const publisher: unknown = publishers[index]
     if (typeof publisher !== 'string' || !/^[0-9a-f]{64}$/.test(publisher)) {
-      problems.push(`acceptedPublishers[${index}] must be a 64-character lowercase hex string`)
+      const path = `acceptedPublishers[${index}]`
+      problems.push({ message: `${path} must be a 64-character lowercase hex string`, path })
     }
   }
   return problems
@@ -308,7 +309,7 @@ function acceptedPublisherProblems(publishers: unknown): string[] {
 function checkedAcceptedPublishers(publishers: readonly string[] | undefined): readonly string[] | undefined {
   if (publishers === undefined) return undefined
   const problems = acceptedPublisherProblems(publishers)
-  if (problems.length > 0) throw new Error(problems.join('; '))
+  if (problems.length > 0) throw new Error(problems.map(problem => problem.message).join('; '))
 
   const seen = new Set<string>()
   for (const [index, publisher] of publishers.entries()) {
@@ -360,6 +361,7 @@ function resolvedAcceptedCircleIds(
 ): {
   acceptedCircleIds: string[]
   errors: string[]
+  issues: readonly VerificationIssue[]
   revokedCircleIds: string[]
   supersededCircleIds: string[]
 } {
@@ -385,6 +387,7 @@ function resolvedAcceptedCircleIds(
   return {
     acceptedCircleIds: [...accepted].sort(),
     errors: manifestResolution.errors,
+    issues: issuesOf(manifestResolution),
     revokedCircleIds: manifestResolution.revokedCircleIds,
     supersededCircleIds: manifestResolution.supersededCircleIds,
   }
@@ -465,22 +468,22 @@ function cloneCompanionEvidence(evidence: CompanionEvidence): CompanionEvidence 
 
 function companionEvidenceById(
   evidence: readonly CompanionEvidence[] | undefined,
-  errors: string[],
+  found: CodedErrors,
 ): Map<string, CompanionEvidence> {
   const byId = new Map<string, CompanionEvidence>()
 
   for (const [index, item] of (evidence ?? []).entries()) {
     const id = item.id.trim()
     if (id === '') {
-      errors.push(`companion evidence[${index}] id must be non-empty`)
+      found.add('companion.invalid', `companion evidence[${index}] id must be non-empty`)
       continue
     }
     if (byId.has(id)) {
-      errors.push(`companion evidence "${id}" is duplicated`)
+      found.add('companion.invalid', `companion evidence "${id}" is duplicated`)
       continue
     }
     if (item.status !== 'pass' && item.status !== 'fail') {
-      errors.push(`companion evidence "${id}" status is invalid`)
+      found.add('companion.invalid', `companion evidence "${id}" status is invalid`)
       continue
     }
     byId.set(id, cloneCompanionEvidence({ ...item, id }))
@@ -494,13 +497,13 @@ function verifyCompanionEvidence(
   options: VerifyDeploymentPolicyOptions,
 ): CompanionEvidenceVerification {
   const requirements = Object.freeze([...(policy.companionEvidence ?? [])])
-  const errors: string[] = []
-  const byId = companionEvidenceById(options.companionEvidence, errors)
+  const found = new CodedErrors()
+  const byId = companionEvidenceById(options.companionEvidence, found)
   const missingIds: string[] = []
   // Undefined when the caller's now cannot be compared. Then no evidence is
   // compared against it, and the evidence fails for that instead.
   const now = verificationTime(options.now)
-  if (now === undefined) errors.push(NOW_INVALID)
+  if (now === undefined) found.add('verification.now_invalid', NOW_INVALID)
 
   for (const requirement of requirements) {
     // The requirement arrives as JSON inside a bundle. `> 0` is false for a
@@ -511,45 +514,45 @@ function verifyCompanionEvidence(
     const windowMalformed = window !== undefined
       && (typeof window !== 'number' || !Number.isSafeInteger(window) || window < 0)
     if (windowMalformed) {
-      errors.push(`companion evidence "${requirement.id}" maxAgeSeconds must be a non-negative integer`)
+      found.add('companion.invalid', `companion evidence "${requirement.id}" maxAgeSeconds must be a non-negative integer`)
     }
 
     const evidence = byId.get(requirement.id)
     if (evidence === undefined) {
       if (requirement.required !== false) {
         missingIds.push(requirement.id)
-        errors.push(`companion evidence "${requirement.id}" is missing`)
+        found.add('companion.missing', `companion evidence "${requirement.id}" is missing`)
       }
       continue
     }
 
     if (evidence.status !== 'pass') {
-      errors.push(`companion evidence "${requirement.id}" did not pass`)
+      found.add('companion.failed', `companion evidence "${requirement.id}" did not pass`)
     }
     if (requirement.expectedSubject !== undefined && evidence.subject !== requirement.expectedSubject) {
-      errors.push(`companion evidence "${requirement.id}" subject does not match expected subject`)
+      found.add('companion.subject_mismatch', `companion evidence "${requirement.id}" subject does not match expected subject`)
     }
     // Nothing is compared against a malformed window
     if (windowMalformed) continue
     if ((requirement.maxAgeSeconds ?? 0) > 0) {
       if (evidence.checkedAt === undefined) {
-        errors.push(`companion evidence "${requirement.id}" missing checkedAt for freshness check`)
+        found.add('companion.checked_at_missing', `companion evidence "${requirement.id}" missing checkedAt for freshness check`)
       } else if (!Number.isSafeInteger(evidence.checkedAt) || evidence.checkedAt < 0) {
-        errors.push(`companion evidence "${requirement.id}" checkedAt is invalid`)
+        found.add('companion.invalid', `companion evidence "${requirement.id}" checkedAt is invalid`)
       } else if (now !== undefined && evidence.checkedAt > now) {
-        errors.push(`companion evidence "${requirement.id}" checkedAt is in the future`)
+        found.add('companion.checked_at_future', `companion evidence "${requirement.id}" checkedAt is in the future`)
       } else if (now !== undefined && evidence.checkedAt < now - (requirement.maxAgeSeconds ?? 0)) {
-        errors.push(`companion evidence "${requirement.id}" is outside the accepted freshness window`)
+        found.add('companion.stale', `companion evidence "${requirement.id}" is outside the accepted freshness window`)
       }
     }
   }
 
   return Object.freeze({
     evidence: Object.freeze([...byId.values()]),
-    errors,
+    errors: found.errors,
     missingIds: Object.freeze(missingIds),
     requirements,
-    valid: errors.length === 0,
+    valid: found.length === 0,
   })
 }
 
@@ -577,8 +580,8 @@ function collectMetric(
 function verifyMetricPolicies(
   events: EventTemplate[],
   policy: UseCaseDeploymentPolicy,
-): { errors: string[]; metrics: Record<string, number[]> } {
-  const errors: string[] = []
+): { issues: VerificationIssue[]; metrics: Record<string, number[]> } {
+  const found = new CodedErrors()
   const metrics: Record<string, number[]> = {}
   const allowedMetricNames = new Set(Object.keys(policy.metricPolicies))
 
@@ -588,18 +591,24 @@ function verifyMetricPolicies(
   for (const [name, metricPolicy] of Object.entries(policy.metricPolicies)) {
     const problems = metricPolicyProblems(name, metricPolicy)
     if (problems.length > 0) {
-      errors.push(...problems)
+      for (const problem of problems) found.add('policy.metric_policy_invalid', problem)
       malformed.add(name)
     }
   }
 
   for (const [index, event] of events.entries()) {
     const published = metricTags(event)
+    const place = `event[${index}]`
+    // A fault in a metric is filed under the event and that tag. A tag with
+    // no name has no place of its own to point at.
+    const raise = (code: VerificationIssueCode, name: string, text: string): void => {
+      found.add(code, `${place} metric "${name}" ${text}`, name === '' ? place : `${place}.tags.${name}`)
+    }
 
     if (policy.rejectUnknownMetrics) {
       for (const name of published.keys()) {
         if (!allowedMetricNames.has(name)) {
-          errors.push(`event[${index}] metric "${name}" is not allowed by deployment policy`)
+          raise('metric.unknown', name, 'is not allowed by deployment policy')
         }
       }
     }
@@ -609,30 +618,30 @@ function verifyMetricPolicies(
       const raw = published.get(name)
       if (raw === undefined) {
         if (metricPolicy.required === true) {
-          errors.push(`event[${index}] missing required metric "${name}"`)
+          found.add('metric.required_missing', `${place} missing required metric "${name}"`, place)
         }
         continue
       }
 
       const value = Number(raw)
       if (!Number.isFinite(value)) {
-        errors.push(`event[${index}] metric "${name}" is not a finite number`)
+        raise('metric.invalid_value', name, 'is not a finite number')
         continue
       }
       if (metricPolicy.integer === true && !Number.isInteger(value)) {
-        errors.push(`event[${index}] metric "${name}" must be an integer`)
+        raise('metric.integer_required', name, 'must be an integer')
       }
       if (metricPolicy.min !== undefined && value < metricPolicy.min) {
-        errors.push(`event[${index}] metric "${name}" is below deployment minimum ${metricPolicy.min}`)
+        raise('metric.below_min', name, `is below deployment minimum ${metricPolicy.min}`)
       }
       if (metricPolicy.max !== undefined && value > metricPolicy.max) {
-        errors.push(`event[${index}] metric "${name}" is above deployment maximum ${metricPolicy.max}`)
+        raise('metric.above_max', name, `is above deployment maximum ${metricPolicy.max}`)
       }
       collectMetric(metrics, name, value)
     }
   }
 
-  return { errors, metrics }
+  return { issues: found.issues, metrics }
 }
 
 function isSignedEvent(event: EventTemplate): event is SignedEvent {
@@ -657,7 +666,7 @@ function isSignedEvent(event: EventTemplate): event is SignedEvent {
  * other tags.
  */
 function verifyPublishers(events: EventTemplate[], policy: UseCaseDeploymentPolicy): {
-  errors: string[]
+  issues: VerificationIssue[]
   nostrSignatures: { checked: boolean; valid: boolean }
   publishers: { checked: boolean; valid: boolean }
 } {
@@ -665,7 +674,7 @@ function verifyPublishers(events: EventTemplate[], policy: UseCaseDeploymentPoli
   const named = listed !== undefined
   if (!named && !policy.requireNostrSignature) {
     return {
-      errors: [],
+      issues: [],
       nostrSignatures: { checked: false, valid: true },
       publishers: { checked: false, valid: true },
     }
@@ -674,29 +683,31 @@ function verifyPublishers(events: EventTemplate[], policy: UseCaseDeploymentPoli
   // A malformed list accepts nobody. It never falls back to accepting anyone.
   const listProblems = named ? acceptedPublisherProblems(listed) : []
   const accepted = named && listProblems.length === 0 ? new Set(listed as string[]) : undefined
-  const errors = [...listProblems]
+  const found = new CodedErrors()
+  for (const problem of listProblems) found.add('policy.accepted_publishers_invalid', problem.message, problem.path)
   let signaturesValid = true
   let publishersAccepted = listProblems.length === 0
 
   for (const [index, event] of events.entries()) {
+    const place = `event[${index}]`
     if (!isSignedEvent(event)) {
-      errors.push(`event[${index}] is not a fully signed Nostr event`)
+      found.add('event.signature_missing', `${place} is not a fully signed Nostr event`, place)
       signaturesValid = false
       continue
     }
     if (!verifySignedEvent(event)) {
-      errors.push(`event[${index}] Nostr event signature is invalid`)
+      found.add('event.signature_invalid', `${place} Nostr event signature is invalid`, place)
       signaturesValid = false
       continue
     }
     if (accepted !== undefined && !accepted.has(event.pubkey)) {
-      errors.push(`event[${index}] publisher is not accepted by deployment policy`)
+      found.add('event.publisher_unaccepted', `${place} publisher is not accepted by deployment policy`, place)
       publishersAccepted = false
     }
   }
 
   return {
-    errors,
+    issues: found.issues,
     nostrSignatures: { checked: true, valid: signaturesValid },
     publishers: { checked: named, valid: !named || (signaturesValid && publishersAccepted) },
   }
@@ -733,21 +744,24 @@ export function verifyDeploymentPolicy(
   const companionEvidence = verifyCompanionEvidence(policy, options)
   const publisherVerification = verifyPublishers(eventList, policy)
   // The manifests, the profile and the companion evidence read the same now,
-  // and each reports one it cannot compare
-  const errors = withoutRepeatedTimeError([
-    ...circleResolution.errors,
-    ...profileVerification.errors,
-    ...metricVerification.errors,
-    ...companionEvidence.errors,
-    ...publisherVerification.errors,
+  // and each reports one it cannot compare. Each part hands over its issues
+  // under the codes they were raised with, and the errors are those issues'
+  // own messages, so the two lists cannot fall out of step.
+  const issues = withoutRepeatedTimeIssue([
+    ...circleResolution.issues,
+    ...issuesOf(profileVerification),
+    ...metricVerification.issues,
+    ...issuesOf(companionEvidence),
+    ...publisherVerification.issues,
   ])
+  const errors = issues.map(issue => issue.message)
   const valid = errors.length === 0
 
   return {
     companionEvidence,
     decision: valid ? 'accept' : 'reject',
     errors,
-    issues: issuesFromErrors(errors),
+    issues,
     metrics: metricVerification.metrics,
     nostrSignatures: publisherVerification.nostrSignatures,
     policy,

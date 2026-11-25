@@ -1,4 +1,5 @@
 import { isAuthenticBundle } from './authentic.js'
+import { issuesOf } from './coded.js'
 import { verificationIssue } from './issues.js'
 import { verifyDeploymentBundle } from './bundle.js'
 import type { EventTemplate } from '../nip85/types.js'
@@ -67,13 +68,11 @@ export function verifyProductionDeployment(
   const base = verifyDeploymentBundle(events, bundle, options)
   const hardeningIssues = productionHardeningIssues(bundle, isAuthenticBundle(base.bundle), options)
   const issues = [
-    ...(base.issues ?? []),
+    ...issuesOf(base),
     ...hardeningIssues,
   ]
-  const errors = [
-    ...base.errors,
-    ...hardeningIssues.map(issue => issue.message),
-  ]
+  // The errors are the issues' own messages, so the two lists cannot fall out of step
+  const errors = issues.map(issue => issue.message)
   const valid = base.valid && hardeningIssues.length === 0
 
   return {

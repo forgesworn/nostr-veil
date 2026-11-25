@@ -205,7 +205,12 @@ interface VerificationIssue {
 
 Deployment/profile verifiers keep human-readable `errors` for compatibility and
 also return stable `issues[].code` values for application policy, logging, and
-alerts. Use `explainVerificationIssue(issueOrCode)` or
+alerts. `issues[i]` is the issue for `errors[i]`. Each code is given where its
+error is raised, so text inside an event cannot change it: read codes from
+`issues`, and do not derive them from the `errors` strings, which quote tag
+names and kinds from the event. Show or log `path`, but do not parse it: a
+metric's ends with the tag name as the event wrote it. Use
+`explainVerificationIssue(issueOrCode)` or
 `remediationForIssue(issueOrCode)` to turn a stable code into the concrete next
 operator or verifier action. For production UI and audit logs,
 `verifyProductionDeploymentReport()` returns the verifier decision with expanded

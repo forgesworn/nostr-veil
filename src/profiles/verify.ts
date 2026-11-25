@@ -1,14 +1,18 @@
+import { syntaxErrorKinds } from '../nip85/error-kinds.js'
 import { validateAssertionStrict } from '../nip85/validators.js'
 import { readableEvent, shown } from '../nip85/shape.js'
 import { computeCircleId } from '../proof/circle.js'
+import { proofErrorKinds } from '../proof/error-kinds.js'
 import { verifyFederation } from '../proof/federate.js'
 import { verifyProof } from '../proof/verify.js'
 import { isUnixSecondsTagValue } from '../nip85/tags.js'
 import { subjectMatchesAnyFormat } from './canonical.js'
-import { issuesFromErrors } from './issues.js'
+import { CodedErrors } from './coded.js'
 import { NOW_INVALID, verificationTime } from './time.js'
 import type { EventTemplate } from '../nip85/types.js'
+import type { ProofErrorKind } from '../proof/error-kinds.js'
 import type { ContributionBound, ContributionBounds } from '../proof/types.js'
+import type { VerificationIssueCode } from './issues.js'
 import type {
   UseCaseProfile,
   UseCaseProfileVerification,
@@ -36,13 +40,13 @@ export const DEFAULT_MAX_FUTURE_SECONDS = 60
 function minDistinctSignersFrom(
   profile: UseCaseProfile,
   options: VerifyUseCaseProfileOptions,
-  errors: string[],
+  found: CodedErrors,
 ): number | undefined {
   const value: unknown = options.minDistinctSigners === undefined
     ? profile.minDistinctSigners
     : options.minDistinctSigners
   if (typeof value !== 'number' || !Number.isSafeInteger(value) || value <= 0) {
-    errors.push('minDistinctSigners must be a positive integer')
+    found.add('policy.min_distinct_signers_invalid', 'minDistinctSigners must be a positive integer')
     return undefined
   }
   return value
@@ -60,11 +64,11 @@ function minDistinctSignersFrom(
 function maxAgeSecondsFrom(
   profile: UseCaseProfile,
   options: VerifyUseCaseProfileOptions,
-  errors: string[],
+  found: CodedErrors,
 ): number | undefined {
   const value: unknown = options.maxAgeSeconds === undefined ? profile.maxAgeSeconds : options.maxAgeSeconds
   if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < 0) {
-    errors.push('maxAgeSeconds must be a non-negative integer')
+    found.add('policy.max_age_seconds_invalid', 'maxAgeSeconds must be a non-negative integer')
     return undefined
   }
   return value
@@ -86,16 +90,19 @@ function maxAgeSecondsFrom(
 function maxFutureSecondsFrom(
   options: VerifyUseCaseProfileOptions,
   maxAgeSeconds: number | undefined,
-  errors: string[],
+  found: CodedErrors,
 ): number | undefined {
   const value: unknown = options.maxFutureSeconds
   if (value === undefined) return DEFAULT_MAX_FUTURE_SECONDS
   if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < 0) {
-    errors.push('maxFutureSeconds must be a non-negative integer')
+    found.add('policy.max_future_seconds_invalid', 'maxFutureSeconds must be a non-negative integer')
     return undefined
   }
   if (maxAgeSeconds === 0) {
-    errors.push('maxFutureSeconds is set while maxAgeSeconds turns the freshness window off')
+    found.add(
+      'policy.max_future_seconds_invalid',
+      'maxFutureSeconds is set while maxAgeSeconds turns the freshness window off',
+    )
   }
   return value
 }
@@ -107,26 +114,38 @@ function tagValues(event: EventTemplate, name: string): string[] {
     .filter((value): value is string => typeof value === 'string')
 }
 
-function singletonTagValue(event: EventTemplate, name: string, errors: string[], prefix: string): string | null {
+function singletonTagValue(event: EventTemplate, name: string, found: CodedErrors, prefix: string): string | null {
   const values = tagValues(event, name)
   if (values.length === 0) {
-    errors.push(`${prefix} missing ${name} tag`)
+    found.add('verification.failed', `${prefix} missing ${name} tag`, prefix)
     return null
   }
   if (values.length > 1) {
-    errors.push(`${prefix} duplicate ${name} tag`)
+    found.add('verification.failed', `${prefix} duplicate ${name} tag`, prefix)
     return null
   }
   return values[0]
 }
 
-function circleId(event: EventTemplate, errors: string[], prefix: string): string | null {
+function circleId(event: EventTemplate, found: CodedErrors, prefix: string): string | null {
   const ring = event.tags.find(tag => tag[0] === 'veil-ring')?.slice(1)
   if (ring === undefined) {
-    errors.push(`${prefix} missing veil-ring tag`)
+    found.add('verification.failed', `${prefix} missing veil-ring tag`, prefix)
     return null
   }
   return computeCircleId(ring)
+}
+
+/**
+ * The code for one error of a proof. The proof verifier says which of its
+ * errors break a requirement the caller set, the aggregate or the bounds on a
+ * contribution; every other is a proof that is not sound. Nothing is read
+ * from the error's words, which quote the event.
+ */
+function proofCode(kind: ProofErrorKind | undefined): VerificationIssueCode {
+  if (kind === 'aggregate-mismatch') return 'proof.aggregate_mismatch'
+  if (kind === 'contribution-out-of-bounds') return 'proof.contribution_out_of_bounds'
+  return 'proof.invalid'
 }
 
 function acceptedCircleSet(options: VerifyUseCaseProfileOptions): Set<string> | undefined {
@@ -170,12 +189,19 @@ function verifyEvent(
   now: number | undefined,
   maxAgeSeconds: number | undefined,
   maxFutureSeconds: number | undefined,
-  errors: string[],
+  found: CodedErrors,
 ): VerifiedProfileEvent {
   const prefix = `event[${index}]`
+  // Every error of this event opens with its place and is filed under it
+  const raise = (code: VerificationIssueCode, text: string): void => found.add(code, `${prefix} ${text}`, prefix)
   const syntax = validateAssertionStrict(given)
   if (!syntax.valid) {
-    errors.push(...syntax.errors.map(error => `${prefix} syntax: ${error}`))
+    // The validator says which of its errors is a metric value that is not a
+    // number. Every other is a syntax failure, whatever it quotes from the tags.
+    syntax.errors.forEach((error, position) => {
+      const kind = syntaxErrorKinds.of(syntax.errors, position)
+      raise(kind === 'metric-not-finite' ? 'metric.invalid_value' : 'nip85.syntax_invalid', `syntax: ${error}`)
+    })
   }
   // An event from a relay can be anything. The syntax check has reported what
   // is malformed, and the reads below see only the tags that are well formed:
@@ -184,23 +210,23 @@ function verifyEvent(
   const event = readableEvent(given)
 
   if (event.kind !== profile.kind) {
-    errors.push(`${prefix} kind ${shown(event.kind)} does not match profile kind ${profile.kind}`)
+    raise('profile.kind_mismatch', `kind ${shown(event.kind)} does not match profile kind ${profile.kind}`)
   }
 
-  const subject = singletonTagValue(event, 'd', errors, prefix)
+  const subject = singletonTagValue(event, 'd', found, prefix)
   if (subject !== null && !subjectMatchesAnyFormat(subject, profile.subjectFormats)) {
-    errors.push(`${prefix} subject does not match profile formats: ${profile.subjectFormats.join(', ')}`)
+    raise('profile.subject_format_invalid', `subject does not match profile formats: ${profile.subjectFormats.join(', ')}`)
   }
   if (options.expectedSubject !== undefined && subject !== options.expectedSubject) {
-    errors.push(`${prefix} subject does not match expected subject`)
+    raise('profile.subject_mismatch', 'subject does not match expected subject')
   }
 
-  const subjectTagValue = singletonTagValue(event, profile.subjectTag, errors, prefix)
+  const subjectTagValue = singletonTagValue(event, profile.subjectTag, found, prefix)
   const expectedSubjectTagValue = options.expectedSubjectTagValue
     ?? profile.subjectTagValue
     ?? subject
   if (expectedSubjectTagValue !== null && subjectTagValue !== expectedSubjectTagValue) {
-    errors.push(`${prefix} ${profile.subjectTag} tag does not match expected subject hint`)
+    raise('profile.subject_hint_mismatch', `${profile.subjectTag} tag does not match expected subject hint`)
   }
 
   const requireAggregate = options.aggregate ?? profile.aggregate
@@ -212,7 +238,9 @@ function verifyEvent(
     ...(contributionBounds === undefined ? {} : { contributionBounds }),
   })
   if (!proof.valid) {
-    errors.push(...proof.errors.map(error => `${prefix} proof: ${error}`))
+    proof.errors.forEach((error, position) => {
+      raise(proofCode(proofErrorKinds.of(proof.errors, position)), `proof: ${error}`)
+    })
   }
 
   // Undefined when the threshold is malformed, which is reported once for the run
@@ -221,7 +249,7 @@ function verifyEvent(
     && minDistinctSigners !== undefined
     && proof.distinctSigners < minDistinctSigners
   ) {
-    errors.push(`${prefix} has fewer than ${minDistinctSigners} distinct signers`)
+    raise('proof.threshold_not_met', `has fewer than ${minDistinctSigners} distinct signers`)
   }
 
   // The window and the allowance are undefined when malformed, and now is
@@ -230,20 +258,20 @@ function verifyEvent(
   if (maxAgeSeconds !== undefined && maxAgeSeconds > 0) {
     const createdAt: unknown = event.created_at
     if (createdAt === undefined) {
-      errors.push(`${prefix} missing created_at for freshness check`)
+      raise('assertion.created_at_missing', 'missing created_at for freshness check')
     } else if (typeof createdAt !== 'number' || !Number.isSafeInteger(createdAt)) {
       // Compared as it stands, a word or NaN is neither older than the window
       // nor ahead of it, so the assertion would pass both ends and never go
       // stale, and an object or a deeply nested list would be converted first,
       // which can throw. An event that arrives as JSON can carry anything here.
-      errors.push(`${prefix} assertion created_at is not a Unix timestamp`)
+      raise('assertion.created_at_invalid', 'assertion created_at is not a Unix timestamp')
     } else if (now !== undefined && createdAt < now - maxAgeSeconds) {
-      errors.push(`${prefix} assertion is outside the accepted freshness window`)
+      raise('assertion.stale', 'assertion is outside the accepted freshness window')
     } else if (now !== undefined && maxFutureSeconds !== undefined && createdAt - maxFutureSeconds > now) {
       // Only the signer sets created_at, and an event dated ahead stays inside
       // the window until that date plus the window. Without this bound the
       // publisher chooses how long an assertion counts as fresh.
-      errors.push(`${prefix} assertion created_at is in the future`)
+      raise('assertion.created_at_future', 'assertion created_at is in the future')
     }
   }
 
@@ -252,16 +280,16 @@ function verifyEvent(
   const expiration = event.tags.find(tag => tag[0] === 'expiration')?.[1]
   if (now !== undefined && expiration !== undefined && isUnixSecondsTagValue(expiration)
     && Number(expiration) <= now) {
-    errors.push(`${prefix} assertion has expired (NIP-40 expiration ${expiration})`)
+    raise('verification.failed', `assertion has expired (NIP-40 expiration ${expiration})`)
   }
 
-  const eventCircleId = circleId(event, errors, prefix)
+  const eventCircleId = circleId(event, found, prefix)
   if (acceptedCircles === undefined || acceptedCircles.size === 0) {
     if (options.requireKnownCircle !== false) {
-      errors.push(`${prefix} no accepted circle IDs were supplied`)
+      raise('circle.accepted_missing', 'no accepted circle IDs were supplied')
     }
   } else if (eventCircleId !== null && !acceptedCircles.has(eventCircleId)) {
-    errors.push(`${prefix} circle is not accepted by deployment policy`)
+    raise('circle.unaccepted', 'circle is not accepted by deployment policy')
   }
 
   return {
@@ -284,24 +312,24 @@ export function verifyUseCaseProfile(
   options: VerifyUseCaseProfileOptions = {},
 ): UseCaseProfileVerification {
   const eventList = normaliseEvents(events)
-  const errors: string[] = []
+  const found = new CodedErrors()
   const acceptedCircles = acceptedCircleSet(options)
 
   if (eventList.length === 0) {
-    errors.push('profile verification requires at least one event')
+    found.add('profile.event_count_invalid', 'profile verification requires at least one event')
   }
 
   if (profile.federation === undefined && eventList.length !== 1) {
-    errors.push('profile expects exactly one assertion event')
+    found.add('profile.event_count_invalid', 'profile expects exactly one assertion event')
   }
   if (profile.federation !== undefined) {
     if (eventList.length < profile.federation.minCircles) {
-      errors.push(`profile federation requires at least ${profile.federation.minCircles} circles`)
+      found.add('federation.invalid', `profile federation requires at least ${profile.federation.minCircles} circles`)
     }
     if (profile.federation.requireScope) {
       for (let i = 0; i < eventList.length; i++) {
         if (tagValues(readableEvent(eventList[i]), 'veil-scope').length !== 1) {
-          errors.push(`event[${i}] federation profile requires exactly one veil-scope tag`)
+          found.add('federation.invalid', `event[${i}] federation profile requires exactly one veil-scope tag`, `event[${i}]`)
         }
       }
     }
@@ -310,10 +338,10 @@ export function verifyUseCaseProfile(
   // Undefined when the caller's now cannot be compared. Then no date is
   // compared against it, here or for NIP-40 expiry, and the run fails for that.
   const now = verificationTime(options.now)
-  if (now === undefined) errors.push(NOW_INVALID)
-  const minDistinctSigners = minDistinctSignersFrom(profile, options, errors)
-  const maxAgeSeconds = maxAgeSecondsFrom(profile, options, errors)
-  const maxFutureSeconds = maxFutureSecondsFrom(options, maxAgeSeconds, errors)
+  if (now === undefined) found.add('verification.now_invalid', NOW_INVALID)
+  const minDistinctSigners = minDistinctSignersFrom(profile, options, found)
+  const maxAgeSeconds = maxAgeSecondsFrom(profile, options, found)
+  const maxFutureSeconds = maxFutureSecondsFrom(options, maxAgeSeconds, found)
   const verifiedEvents = eventList.map((event, index) => verifyEvent(
     profile,
     event,
@@ -324,7 +352,7 @@ export function verifyUseCaseProfile(
     now,
     maxAgeSeconds,
     maxFutureSeconds,
-    errors,
+    found,
   ))
 
   const federation = profile.federation === undefined
@@ -332,17 +360,18 @@ export function verifyUseCaseProfile(
     : verifyFederation(eventList, options.aggregateFn)
   if (federation !== undefined) {
     if (!federation.valid) {
-      errors.push(...federation.errors.map(error => `federation: ${error}`))
+      // Whatever the federation check says, and it quotes the events, it is a federation failure
+      for (const error of federation.errors) found.add('federation.invalid', `federation: ${error}`)
     }
     if (minDistinctSigners !== undefined && federation.distinctSigners < minDistinctSigners) {
-      errors.push(`federation has fewer than ${minDistinctSigners} distinct signers`)
+      found.add('federation.threshold_not_met', `federation has fewer than ${minDistinctSigners} distinct signers`)
     }
   }
 
   return {
-    valid: errors.length === 0,
-    errors,
-    issues: issuesFromErrors(errors),
+    valid: found.length === 0,
+    errors: found.errors,
+    issues: found.issues,
     events: verifiedEvents,
     federation,
     profile,

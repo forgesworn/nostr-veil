@@ -3,9 +3,9 @@ import { sha256 } from '@noble/hashes/sha2.js'
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js'
 import { matches } from '../nip85/shape.js'
 import { isAuthenticBundle } from './authentic.js'
-import { issuesFromErrors } from './issues.js'
+import { CodedErrors, issuesOf } from './coded.js'
 import { verifyDeploymentPolicy } from './policy.js'
-import { NOW_INVALID, verificationTime, withoutRepeatedTimeError, withoutRepeatedTimeIssue } from './time.js'
+import { NOW_INVALID, verificationTime, withoutRepeatedTimeIssue } from './time.js'
 import type { EventTemplate } from '../nip85/types.js'
 import type { VerificationIssue } from './issues.js'
 import type { DeploymentPolicyVerification, UseCaseDeploymentPolicy, VerifyDeploymentPolicyOptions } from './policy.js'
@@ -119,9 +119,9 @@ function payloadFromBundle(bundle: SignedDeploymentBundle): DeploymentBundlePayl
   }
 }
 
-function trustedPublisherSet(publishers: Iterable<string> | undefined, errors: string[]): Set<string> {
+function trustedPublisherSet(publishers: Iterable<string> | undefined, found: CodedErrors): Set<string> {
   if (publishers === undefined) {
-    errors.push('no trusted bundle publishers configured')
+    found.add('bundle.trusted_publishers_missing', 'no trusted bundle publishers configured')
     return new Set()
   }
 
@@ -130,12 +130,13 @@ function trustedPublisherSet(publishers: Iterable<string> | undefined, errors: s
   for (const publisher of publishers) {
     count += 1
     if (!HEX64_RE.test(publisher)) {
-      errors.push(`trustedPublishers[${count - 1}] must be a 64-character lowercase hex string`)
+      const place = `trustedPublishers[${count - 1}]`
+      found.add('bundle.trusted_publisher_invalid', `${place} must be a 64-character lowercase hex string`, place)
       continue
     }
     trusted.add(publisher)
   }
-  if (count === 0) errors.push('no trusted bundle publishers configured')
+  if (count === 0) found.add('bundle.trusted_publishers_missing', 'no trusted bundle publishers configured')
   return trusted
 }
 
@@ -173,43 +174,43 @@ export function verifySignedDeploymentBundle(
   given: SignedDeploymentBundle,
   options: VerifySignedDeploymentBundleOptions = {},
 ): SignedDeploymentBundleVerification {
-  const errors: string[] = []
+  const found = new CodedErrors()
   // Undefined when the caller's now cannot be compared. Then nothing below is
   // compared against it, and the bundle fails for that instead.
   const now = verificationTime(options.now)
-  if (now === undefined) errors.push(NOW_INVALID)
-  const trustedPublishers = trustedPublisherSet(options.trustedPublishers, errors)
+  if (now === undefined) found.add('verification.now_invalid', NOW_INVALID)
+  const trustedPublishers = trustedPublisherSet(options.trustedPublishers, found)
   // A bundle is fetched, and what arrives can be anything. One that is not an
   // object reads as one with nothing in it, and so fails every check below.
   const bundle = (given !== null && typeof given === 'object' ? given : {}) as SignedDeploymentBundle
 
-  if (bundle.version !== 1) errors.push('bundle version must be 1')
-  if (bundle.type !== DEPLOYMENT_BUNDLE_TYPE) errors.push(`bundle type must be ${DEPLOYMENT_BUNDLE_TYPE}`)
-  if (typeof bundle.id !== 'string' || bundle.id.trim() === '') errors.push('bundle id must be non-empty')
+  if (bundle.version !== 1) found.add('bundle.version_invalid', 'bundle version must be 1')
+  if (bundle.type !== DEPLOYMENT_BUNDLE_TYPE) found.add('bundle.type_invalid', `bundle type must be ${DEPLOYMENT_BUNDLE_TYPE}`)
+  if (typeof bundle.id !== 'string' || bundle.id.trim() === '') found.add('bundle.id_invalid', 'bundle id must be non-empty')
   // Nothing below compares a date that is not a number, or tests a pattern
   // against a value that is not a string: either would first convert it, and
   // converting some objects throws
   const issuedAtValid = Number.isSafeInteger(bundle.issuedAt) && bundle.issuedAt >= 0
   if (!issuedAtValid) {
-    errors.push('bundle issuedAt must be a non-negative Unix timestamp')
+    found.add('bundle.issued_at_invalid', 'bundle issuedAt must be a non-negative Unix timestamp')
   }
   if (bundle.expiresAt !== undefined) {
     if (!Number.isSafeInteger(bundle.expiresAt) || bundle.expiresAt < 0) {
-      errors.push('bundle expiresAt must be a non-negative Unix timestamp')
+      found.add('bundle.expires_at_invalid', 'bundle expiresAt must be a non-negative Unix timestamp')
     } else if (issuedAtValid && bundle.expiresAt <= bundle.issuedAt) {
-      errors.push('bundle expiresAt must be greater than issuedAt')
+      found.add('bundle.expires_at_invalid', 'bundle expiresAt must be greater than issuedAt')
     } else if (now !== undefined && now > bundle.expiresAt) {
-      errors.push('bundle is expired')
+      found.add('bundle.expired', 'bundle is expired')
     }
   }
   if (now !== undefined && issuedAtValid && bundle.issuedAt > now) {
-    errors.push('bundle issuedAt is in the future')
+    found.add('bundle.issued_at_future', 'bundle issuedAt is in the future')
   }
 
   const signerShapeValid = matches(HEX64_RE, bundle.signer)
   const signatureShapeValid = matches(HEX128_RE, bundle.signature)
-  if (!signerShapeValid) errors.push('bundle signer must be a 64-character lowercase hex string')
-  if (!signatureShapeValid) errors.push('bundle signature must be a 128-character lowercase hex string')
+  if (!signerShapeValid) found.add('bundle.signer_invalid', 'bundle signer must be a 64-character lowercase hex string')
+  if (!signatureShapeValid) found.add('bundle.signature_malformed', 'bundle signature must be a 128-character lowercase hex string')
 
   let signatureValid = false
   if (signerShapeValid && signatureShapeValid) {
@@ -222,21 +223,21 @@ export function verifySignedDeploymentBundle(
     } catch {
       signatureValid = false
     }
-    if (!signatureValid) errors.push('bundle signature is invalid')
+    if (!signatureValid) found.add('bundle.signature_invalid', 'bundle signature is invalid')
   }
 
   const publisherTrusted = trustedPublishers.has(bundle.signer)
   if (!publisherTrusted && trustedPublishers.size > 0) {
-    errors.push('bundle signer is not trusted')
+    found.add('bundle.signer_untrusted', 'bundle signer is not trusted')
   }
 
   return {
     bundle: given,
-    errors,
-    issues: issuesFromErrors(errors),
+    errors: found.errors,
+    issues: found.issues,
     publisherTrusted,
     signatureValid,
-    valid: errors.length === 0,
+    valid: found.length === 0,
   }
 }
 
@@ -291,15 +292,13 @@ export function verifyDeploymentBundle(
   const deployment = isAuthenticBundle(bundleVerification)
     ? verifyDeploymentPolicy(events, bundle.policy, options)
     : policyNotApplied(bundle)
-  // Both parts read the same now, and each reports one it cannot compare
-  const errors = withoutRepeatedTimeError([
-    ...bundleVerification.errors,
-    ...deployment.errors,
-  ])
+  // Both parts read the same now, and each reports one it cannot compare. The
+  // errors are the issues' own messages, so the two lists cannot fall out of step.
   const issues = withoutRepeatedTimeIssue([
-    ...(bundleVerification.issues ?? issuesFromErrors(bundleVerification.errors)),
-    ...(deployment.issues ?? issuesFromErrors(deployment.errors)),
+    ...issuesOf(bundleVerification),
+    ...issuesOf(deployment),
   ])
+  const errors = issues.map(issue => issue.message)
 
   return {
     bundle: bundleVerification,

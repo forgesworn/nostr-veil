@@ -67,6 +67,13 @@ export type VerificationIssueCode =
 export interface VerificationIssue {
   code: VerificationIssueCode
   message: string
+  /**
+   * Where in the input the fault is, when it is in one place: such as
+   * `event[0]`, `manifest[1]`, `acceptedPublishers[2]` or `bundle.expiresAt`.
+   * A fault in a metric is at `event[0].tags.<name>`, and the name is the
+   * tag's own, as the event wrote it and unescaped. Show the path or log it;
+   * do not parse it.
+   */
   path?: string
 }
 
@@ -530,10 +537,21 @@ function codeFromError(message: string): VerificationIssueCode {
   return 'verification.failed'
 }
 
+/**
+ * Read an issue code out of the words of an error message.
+ *
+ * For a caller that holds only the strings, such as a log written before
+ * results carried `issues`. It is a reading, not a record: a message quotes
+ * text from the event, such as a tag name or a kind, and whoever wrote the
+ * event can choose words that read as another failure. The verifiers do not
+ * use it. Each gives its errors their codes where they are raised, so read
+ * `issues` on a verification result and keep this for strings that have none.
+ */
 export function classifyVerificationError(message: string): VerificationIssue {
   return verificationIssue(codeFromError(message), message, pathFromMessage(message))
 }
 
+/** {@link classifyVerificationError} for each message of a list. The same caution applies. */
 export function issuesFromErrors(errors: readonly string[]): VerificationIssue[] {
   return errors.map(error => classifyVerificationError(error))
 }

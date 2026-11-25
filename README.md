@@ -513,7 +513,8 @@ Production verifiers should prefer `verifyProductionDeployment()` over manually
 composing lower-level checks. It returns the existing human-readable `errors`
 plus stable `issues[].code` values such as `bundle.signer_untrusted`,
 `event.signature_invalid`, `event.publisher_unaccepted`, `circle.unaccepted`,
-and `metric.below_min`. Use
+and `metric.below_min`. Read the codes from `issues`, not from the `errors`
+strings, which quote text from the event. Use
 `explainVerificationIssue()` or `remediationForIssue()` to show the exact
 operator action for each failure. For application UI, audit logs, and support
 runbooks, `verifyProductionDeploymentReport()` returns the same decision with a
