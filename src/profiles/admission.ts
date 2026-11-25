@@ -148,11 +148,13 @@ function randomNonceHex(byteLength = 32): string {
 function stableStringify(value: unknown): string {
   return JSON.stringify(value, (_key, child: unknown) => {
     if (child !== null && typeof child === 'object' && !Array.isArray(child)) {
-      const sorted: Record<string, unknown> = {}
-      for (const key of Object.keys(child as Record<string, unknown>).sort()) {
-        sorted[key] = (child as Record<string, unknown>)[key]
-      }
-      return sorted
+      // Built from entries, not by assignment. Assigning to a key named
+      // `__proto__` sets a prototype and writes nothing, so that one key would
+      // never reach the digest: anything put under it in a signed value would
+      // ride along unsigned. JSON.parse makes it an ordinary key, and so
+      // does this.
+      const source = child as Record<string, unknown>
+      return Object.fromEntries(Object.keys(source).sort().map(key => [key, source[key]]))
     }
     return child
   })

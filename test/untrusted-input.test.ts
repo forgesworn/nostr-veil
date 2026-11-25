@@ -357,6 +357,43 @@ describe('a bundle that is not what it should be', () => {
     for (const id of POLICY_CONTROLS) expect(statuses[id], id).toBe('not-checked')
   })
 
+  // JSON.parse makes `__proto__` an ordinary key of the object it is in. A
+  // serialiser that copies an object by assignment loses that one key, and with
+  // it the signature's hold on whatever was put there: the bundle would still
+  // read as the operator's, with content the operator never signed.
+  it('is not authentic once a key named __proto__ is added inside its policy', () => {
+    const text = JSON.stringify(bundle)
+    /** The text with `"__proto__": value` as the first key of the object that opens at the marker. */
+    const added = (marker: string, value: string): string => {
+      const at = text.indexOf(marker)
+      expect(at, marker).toBeGreaterThan(-1)
+      const open = at + marker.length
+      return `${text.slice(0, open)}"__proto__":${value}${text[open] === '}' ? '' : ','}${text.slice(open)}`
+    }
+    const altered: Array<[string, string, (parsed: SignedDeploymentBundle) => object]> = [
+      ['the policy', added('"policy":{', '{"aggregate":"max"}'), parsed => parsed.policy],
+      ['the metric policies, as null', added('"metricPolicies":{', 'null'), parsed => parsed.policy.metricPolicies],
+      ['the metric policies, as a requirement', added('"metricPolicies":{', '{"required":true}'), parsed => parsed.policy.metricPolicies],
+      ['the profile', added('"profile":{', '{"federation":{"minCircles":1,"requireScope":false}}'), parsed => parsed.policy.profile],
+    ]
+
+    for (const [where, json, holder] of altered) {
+      const parsed = JSON.parse(json) as SignedDeploymentBundle
+      // The key is really there, as an own property, and nothing else changed
+      expect(Object.hasOwn(holder(parsed), '__proto__'), where).toBe(true)
+
+      const verification = verifySignedDeploymentBundle(parsed, trusted)
+      expect(verification.signatureValid, where).toBe(false)
+      expect(verification.errors, where).toContain('bundle signature is invalid')
+      expect(verifyProductionDeployment(signed, parsed, trusted).decision, where).toBe('reject')
+    }
+    // An ordinary key added in the same place breaks the signature too, as it always did
+    expect(verifySignedDeploymentBundle(
+      JSON.parse(text.replace('"metricPolicies":{', '"metricPolicies":{"extra":{"required":true}')) as SignedDeploymentBundle,
+      trusted,
+    ).signatureValid).toBe(false)
+  })
+
   it('still has its policy applied when it is authentic but out of date', () => {
     const result = verifyProductionDeployment(signed, bundle, { ...trusted, now: NOW + 3600 })
     const statuses = controlStatuses(result)
