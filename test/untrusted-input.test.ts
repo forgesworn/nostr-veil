@@ -1,8 +1,11 @@
+import { schnorr } from '@noble/curves/secp256k1.js'
+import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js'
 import { describe, expect, it } from 'vitest'
 import {
   FEDERATED_MODERATION_PROFILE,
   USER_REPUTATION_ABUSE_REPORTING_PROFILE,
   aggregateContributions,
+  computeEventId,
   contributeAssertion,
   createAdmissionChallenge,
   createAdmissionPresentation,
@@ -16,6 +19,7 @@ import {
   validateProviderDeclarationStrict,
   verifyAdmissionPresentation,
   verifyAdmissionRequest,
+  verifyDeploymentPolicy,
   verifyFederation,
   verifyProductionDeployment,
   verifyProof,
@@ -105,7 +109,18 @@ const POLICY_CONTROLS: ProductionControlId[] = [
 
 type Path = Array<string | number>
 const REMOVED = Symbol('removed')
-const JUNK: unknown[] = [null, 42, 'abc', true, {}, [], [null], [[42]], REMOVED]
+// JSON can carry an object whose `toString` is not a function. Putting one in a
+// template, comparing it with `<`, or testing it against a pattern throws.
+const UNPRINTABLE: unknown = JSON.parse('{"toString":1}')
+// Turning a list into a string walks every level of it, and so does
+// serialising it: ten thousand levels is about twenty kilobytes of JSON and
+// more stack than either has.
+const DEEP: unknown = (() => {
+  let value: unknown = 'x'
+  for (let level = 0; level < 10_000; level++) value = [value]
+  return value
+})()
+const JUNK: unknown[] = [null, 42, 'abc', true, {}, [], [null], [[42]], UNPRINTABLE, DEEP, REMOVED]
 
 function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T
@@ -140,7 +155,8 @@ function replaced(base: unknown, path: Path, junk: unknown): unknown {
 }
 
 function shown(path: Path, junk: unknown): string {
-  return `${path.length === 0 ? '(the whole value)' : path.join('.')} = ${junk === REMOVED ? '(removed)' : JSON.stringify(junk)}`
+  const what = junk === REMOVED ? '(removed)' : junk === DEEP ? '(a list nested 10,000 deep)' : JSON.stringify(junk)
+  return `${path.length === 0 ? '(the whole value)' : path.join('.')} = ${what}`
 }
 
 /** Every junk value at every place of the base, leaving out those that change nothing. */
@@ -149,7 +165,8 @@ function mutations(base: unknown, depth: number): Array<{ label: string; value: 
   for (const path of paths(base, depth)) {
     for (const junk of JUNK) {
       const value = replaced(base, path, junk)
-      if (JSON.stringify(value) === JSON.stringify(base)) continue
+      // The nested list cannot be serialised to compare, and is never what was there
+      if (junk !== DEEP && JSON.stringify(value) === JSON.stringify(base)) continue
       found.push({ label: shown(path, junk), value })
     }
   }
@@ -394,6 +411,70 @@ describe('a bundle that is not what it should be', () => {
     ).signatureValid).toBe(false)
   })
 
+  // The report is read by the operator. What a stranger wrote in a bundle must
+  // not be read back to them beside the rejection, as if it were their own.
+  it('has nothing of its policy repeated in the report', () => {
+    const forged = createSignedDeploymentBundle(
+      createDeploymentPolicy(
+        { ...profile, title: 'Verified by the operator', recommendedActions: ['Ban the subject immediately'] },
+        { acceptedCircleIds: [circle.circleId], expectedSubject: 'ff'.repeat(32), id: 'operator-approved-policy' },
+      ),
+      { expiresAt: NOW + 600, id: 'forged', issuedAt: NOW - 10, privateKey: STRANGER_KEY },
+    )
+    const report = createProductionDecisionReport(verifyProductionDeployment(signed, forged, trusted))
+    const text = JSON.stringify(report)
+
+    expect(report.decision).toBe('reject')
+    expect(report.policyId).toBe('')
+    expect(report.subject).toBe('')
+    expect(report.profile).toEqual({
+      id: '',
+      title: '',
+      status: '',
+      kind: 0,
+      subjectTag: '',
+      subjectFormats: [],
+      proofVersion: '',
+      proofClaims: [],
+      proofLimitations: [],
+      recommendedActions: [],
+      requiredControls: [],
+    })
+    for (const theirs of ['Verified by the operator', 'Ban the subject', 'operator-approved-policy', 'ff'.repeat(32)]) {
+      expect(text).not.toContain(theirs)
+    }
+    // The bundle's own id and signer are what was rejected, and are still shown
+    expect(report.bundle.id).toBe('forged')
+    expect(report.bundle.publisherTrusted).toBe(false)
+  })
+
+  // JSON.stringify writes a number that is not finite as null, and JSON.parse
+  // reads `1e999` as one. Signed as they stood, `null` and `1e999` would be the
+  // same value, and one could be put in place of the other after signing.
+  it('is not authentic once a null inside its policy is replaced by a number that is not finite', () => {
+    const withNull = createSignedDeploymentBundle(
+      { ...policy, companionEvidence: [{ id: 'kyc', maxAgeSeconds: null as unknown as number, required: false }] },
+      { expiresAt: NOW + 600, id: 'with-null', issuedAt: NOW - 10, privateKey: OPERATOR_KEY },
+    )
+    const text = JSON.stringify(withNull)
+
+    expect(text).toContain('"maxAgeSeconds":null')
+    expect(verifySignedDeploymentBundle(JSON.parse(text) as SignedDeploymentBundle, trusted).signatureValid).toBe(true)
+    for (const swapped of ['1e999', '-1e999']) {
+      const altered = JSON.parse(text.replace('"maxAgeSeconds":null', `"maxAgeSeconds":${swapped}`)) as SignedDeploymentBundle
+      expect(Number.isFinite(altered.policy.companionEvidence?.[0].maxAgeSeconds), swapped).toBe(false)
+      expect(verifySignedDeploymentBundle(altered, trusted).signatureValid, swapped).toBe(false)
+      expect(verifyProductionDeployment(signed, altered, trusted).decision, swapped).toBe('reject')
+    }
+  })
+
+  it('cannot be signed with a number that is not finite inside it', () => {
+    expect(() => createSignedDeploymentBundle(
+      { ...policy, maxAgeSeconds: Number.POSITIVE_INFINITY },
+      { expiresAt: NOW + 600, id: 'infinite', issuedAt: NOW - 10, privateKey: OPERATOR_KEY },
+    )).toThrow('a signed value cannot hold a number that is not finite')
+  })
+
   it('still has its policy applied when it is authentic but out of date', () => {
     const result = verifyProductionDeployment(signed, bundle, { ...trusted, now: NOW + 3600 })
     const statuses = controlStatuses(result)
@@ -402,6 +483,138 @@ describe('a bundle that is not what it should be', () => {
     expect(result.deployment.profileVerification.events).toHaveLength(1)
     expect(statuses['bundle-freshness']).toBe('fail')
     expect(statuses['event-signatures']).toBe('pass')
+  })
+})
+
+describe('a report on a check that did not run', () => {
+  it('never reads pass for the event controls when no event was supplied', () => {
+    const result = verifyProductionDeployment([], bundle, trusted)
+    const statuses = controlStatuses(result)
+
+    expect(result.decision).toBe('reject')
+    expect(result.deployment.profileVerification.events).toHaveLength(0)
+    for (const id of ['event-signatures', 'circle-policy', 'proof-threshold', 'metric-policy']) {
+      expect(statuses[id], id).toBe('not-checked')
+    }
+    expect(statuses['profile-subject']).toBe('fail')
+  })
+
+  // A policy that names its publishers checks each assertion's publisher too
+  it('never reads pass for the publisher control when no event was supplied', () => {
+    const named = createSignedDeploymentBundle(
+      createDeploymentPolicy(profile, {
+        acceptedCircleIds: [circle.circleId],
+        acceptedPublishers: [pubkey(PUBLISHER_KEY)],
+        expectedSubject: subject,
+        minDistinctSigners: 1,
+      }),
+      { expiresAt: NOW + 600, id: 'named-publishers', issuedAt: NOW - 10, privateKey: OPERATOR_KEY },
+    )
+    const options = { now: NOW, trustedPublishers: [named.signer] }
+
+    expect(controlStatuses(verifyProductionDeployment(signed, named, options))['event-publisher']).toBe('pass')
+    expect(controlStatuses(verifyProductionDeployment([], named, options))['event-publisher']).toBe('not-checked')
+  })
+
+  // The signer field of a bundle is a claim until the signature bears it out
+  it('does not say a bundle came from a trusted publisher when its signature does not verify', () => {
+    const result = verifyProductionDeployment(signed, { ...bundle, id: 'another-id' }, trusted)
+    const statuses = controlStatuses(result)
+
+    expect(result.bundle.publisherTrusted).toBe(true)
+    expect(result.bundle.signatureValid).toBe(false)
+    expect(statuses['bundle-signature']).toBe('fail')
+    expect(statuses['bundle-publisher']).toBe('fail')
+    // Nor that it is in date: no signature covers the dates it carries
+    expect(statuses['bundle-freshness']).toBe('fail')
+  })
+})
+
+// Each of these was accepted by 0.37.0 and is turned away now. None is a
+// well-formed Nostr event or declaration. They are pinned here so that each
+// change is a decision that a later edit has to make again, not an accident.
+describe('input that was let through before', () => {
+  const resigned = (tags: unknown[][]): SignedEvent => signEvent({ ...assertion, tags: tags as string[][] }, PUBLISHER_KEY)
+  const swapped = (name: string, tag: unknown[]): SignedEvent =>
+    resigned(assertion.tags.map(existing => existing[0] === name ? tag : existing))
+
+  it.each([
+    ['a number after the value of a p tag', () => swapped('p', ['p', subject, 42])],
+    ['a number after the value of an alt tag', () => resigned([...assertion.tags, ['alt', 'summary', 7]])],
+    ['a number after the value of an expiration tag', () => resigned([...assertion.tags, ['expiration', String(NOW + 600), 7]])],
+    ['a threshold given as numbers', () => swapped('veil-threshold', ['veil-threshold', 1, 3])],
+  ])('is turned away by the proof verifier, though the publisher signed it: %s', (_name, build) => {
+    const event = build()
+    const result = verifyProductionDeployment(event, bundle, trusted)
+
+    expect(verifySignedEvent(event)).toBe(true)
+    expect(result.decision).toBe('reject')
+    expect(result.errors).toContain('event[0] proof: Malformed tag: every tag element must be a string')
+  })
+
+  it('is not read as a number when a metric value is a list', () => {
+    const ranked = (value: unknown) =>
+      ({ ...assertion, tags: assertion.tags.map(tag => tag[0] === 'rank' ? ['rank', value] : tag) }) as unknown as EventTemplate
+
+    for (const value of [[85], [], [null]]) {
+      expect(validateAssertion(ranked(value)).valid, JSON.stringify(value)).toBe(false)
+    }
+    expect(validateAssertion({ kind: 30382, tags: [['d', subject], ['followers', [5]]], content: '' } as unknown as EventTemplate).valid)
+      .toBe(false)
+    // A value that is a number, as a builder outside this library might write it, still reads as one here
+    expect(validateAssertion(ranked(85)).valid).toBe(true)
+  })
+
+  it('is not read as a string when a relay hint is a list', () => {
+    const declared = (hint: unknown) =>
+      ({ kind: 10040, tags: [['30382:rank', members[0].pub, hint]], content: '' }) as unknown as EventTemplate
+
+    expect(validateProviderDeclarationStrict(declared('wss://relay.example.com')).valid).toBe(true)
+    expect(validateProviderDeclarationStrict(declared(['wss://relay.example.com'])).valid).toBe(false)
+  })
+
+  // Compared as it stood, a list of one number read as that number, and any
+  // other list or object as neither stale nor fresh, which passed
+  it('is reported as missing when created_at is a list or an object', () => {
+    const unsigned = createDeploymentPolicy(profile, {
+      acceptedCircleIds: [circle.circleId],
+      expectedSubject: subject,
+      minDistinctSigners: 1,
+    })
+
+    expect(verifyDeploymentPolicy(assertion, unsigned, { now: NOW }).decision).toBe('accept')
+    for (const createdAt of [{}, ['abc'], [NOW]]) {
+      const result = verifyDeploymentPolicy({ ...assertion, created_at: createdAt } as unknown as EventTemplate, unsigned, { now: NOW })
+
+      expect(result.decision, JSON.stringify(createdAt)).toBe('reject')
+      expect(result.errors, JSON.stringify(createdAt)).toEqual(['event[0] missing created_at for freshness check'])
+    }
+  })
+
+  // An event id is a hash of JSON, which has no form for a number that is not
+  // finite and writes it as null. An id made over a date of minus infinity is
+  // therefore the id for plus infinity too: one that is stale for ever, and
+  // one that never goes stale.
+  it('is not a signed event when its date is a number that is not finite', () => {
+    const body = {
+      pubkey: pubkey(PUBLISHER_KEY),
+      created_at: Number.NEGATIVE_INFINITY,
+      kind: assertion.kind,
+      tags: assertion.tags,
+      content: assertion.content,
+    }
+    const id = computeEventId(body)
+    const sig = bytesToHex(schnorr.sign(hexToBytes(id), hexToBytes(PUBLISHER_KEY)))
+    const text = JSON.stringify({ ...body, created_at: 0, id, sig })
+
+    expect(computeEventId({ ...body, created_at: Number.POSITIVE_INFINITY })).toBe(id)
+    for (const date of ['-1e999', '1e999']) {
+      const event = JSON.parse(text.replace('"created_at":0', `"created_at":${date}`)) as SignedEvent
+
+      expect(Number.isFinite(event.created_at), date).toBe(false)
+      expect(verifySignedEvent(event), date).toBe(false)
+      expect(verifyProductionDeployment(event, bundle, trusted).decision, date).toBe('reject')
+    }
   })
 })
 

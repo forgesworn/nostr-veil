@@ -1,5 +1,5 @@
 import { validateAssertionStrict } from '../nip85/validators.js'
-import { readableEvent } from '../nip85/shape.js'
+import { readableEvent, shown } from '../nip85/shape.js'
 import { computeCircleId } from '../proof/circle.js'
 import { verifyFederation } from '../proof/federate.js'
 import { verifyProof } from '../proof/verify.js'
@@ -99,7 +99,7 @@ function verifyEvent(
   const event = readableEvent(given)
 
   if (event.kind !== profile.kind) {
-    errors.push(`${prefix} kind ${event.kind} does not match profile kind ${profile.kind}`)
+    errors.push(`${prefix} kind ${shown(event.kind)} does not match profile kind ${profile.kind}`)
   }
 
   const subject = singletonTagValue(event, 'd', errors, prefix)
@@ -137,9 +137,12 @@ function verifyEvent(
 
   const maxAgeSeconds = options.maxAgeSeconds ?? profile.maxAgeSeconds
   if (maxAgeSeconds > 0) {
-    if (event.created_at === undefined) {
+    // A created_at that is an object is no date. Comparing it would convert it
+    // first, which throws on some objects, so it is reported as missing.
+    const createdAt: unknown = event.created_at
+    if (createdAt === undefined || (typeof createdAt === 'object' && createdAt !== null)) {
       errors.push(`${prefix} missing created_at for freshness check`)
-    } else if (event.created_at < (options.now ?? nowSeconds()) - maxAgeSeconds) {
+    } else if ((createdAt as number) < (options.now ?? nowSeconds()) - maxAgeSeconds) {
       errors.push(`${prefix} assertion is outside the accepted freshness window`)
     }
   }

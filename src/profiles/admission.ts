@@ -1,6 +1,7 @@
 import { schnorr } from '@noble/curves/secp256k1.js'
 import { sha256 } from '@noble/hashes/sha2.js'
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js'
+import { matches } from '../nip85/shape.js'
 import { isAuthenticBundle } from './authentic.js'
 import { verifyProductionDeployment } from './production.js'
 import type { EventTemplate } from '../nip85/types.js'
@@ -147,6 +148,12 @@ function randomNonceHex(byteLength = 32): string {
 
 function stableStringify(value: unknown): string {
   return JSON.stringify(value, (_key, child: unknown) => {
+    // A number that is not finite has no JSON form: JSON.stringify would write
+    // it as null, and so would sign `1e999` and `null` as the same value. One
+    // could then be put in place of the other in a signed value.
+    if (typeof child === 'number' && !Number.isFinite(child)) {
+      throw new Error('a signed value cannot hold a number that is not finite')
+    }
     if (child !== null && typeof child === 'object' && !Array.isArray(child)) {
       // Built from entries, not by assignment. Assigning to a key named
       // `__proto__` sets a prototype and writes nothing, so that one key would
@@ -301,7 +308,15 @@ export function verifyAdmissionPresentation(
   const challenge = (givenChallenge !== null && typeof givenChallenge === 'object'
     ? givenChallenge
     : {}) as AdmissionChallenge
-  const expectedChallengeId = admissionChallengeId(challengePayload(challenge))
+  // Undefined when the challenge cannot be serialised at all: a field nested
+  // thousands deep overflows the stack, and a number that is not finite has no
+  // JSON form. No id matches such a challenge.
+  let expectedChallengeId: string | undefined
+  try {
+    expectedChallengeId = admissionChallengeId(challengePayload(challenge))
+  } catch {
+    expectedChallengeId = undefined
+  }
   const challengeIssuedAtValid = isSafeUnix(challenge.issuedAt)
   const challengeExpiresAtValid = isSafeUnix(challenge.expiresAt)
   const presentationCreatedAtValid = isSafeUnix(presentation.createdAt)
@@ -310,7 +325,9 @@ export function verifyAdmissionPresentation(
   if (challenge.type !== ADMISSION_CHALLENGE_TYPE) {
     errors.push(`challenge type must be ${ADMISSION_CHALLENGE_TYPE}`)
   }
-  if (!HEX64_RE.test(challenge.applicantPubkey)) {
+  // A pattern is tested only against a string. Testing it against anything
+  // else converts that first, which can throw.
+  if (!matches(HEX64_RE, challenge.applicantPubkey)) {
     errors.push('challenge applicantPubkey must be a 64-character lowercase hex string')
   }
   if (typeof challenge.audience !== 'string' || challenge.audience.trim() === '' || /\s/.test(challenge.audience)) {
@@ -324,13 +341,13 @@ export function verifyAdmissionPresentation(
   if (challengeIssuedAtValid && challengeExpiresAtValid && challenge.expiresAt <= challenge.issuedAt) {
     errors.push('challenge expiresAt must be greater than issuedAt')
   }
-  if (!HEX64_RE.test(challenge.id)) errors.push('challenge id must be a 64-character lowercase hex string')
+  if (!matches(HEX64_RE, challenge.id)) errors.push('challenge id must be a 64-character lowercase hex string')
   if (challenge.id !== expectedChallengeId) errors.push('challenge id does not match challenge payload')
   if (presentation.version !== 1) errors.push('presentation version must be 1')
   if (presentation.type !== ADMISSION_PRESENTATION_TYPE) {
     errors.push(`presentation type must be ${ADMISSION_PRESENTATION_TYPE}`)
   }
-  if (!HEX64_RE.test(presentation.challengeId)) {
+  if (!matches(HEX64_RE, presentation.challengeId)) {
     errors.push('presentation challengeId must be a 64-character lowercase hex string')
   }
   if (presentation.challengeId !== challenge.id) errors.push('presentation challengeId does not match challenge')
@@ -360,8 +377,8 @@ export function verifyAdmissionPresentation(
   const replayed = usedChallengeSet(options.usedChallengeIds).has(challenge.id)
   if (replayed) errors.push('admission challenge has already been used')
 
-  const signatureShapeValid = HEX128_RE.test(presentation.signature)
-  const applicantShapeValid = HEX64_RE.test(presentation.applicantPubkey)
+  const signatureShapeValid = matches(HEX128_RE, presentation.signature)
+  const applicantShapeValid = matches(HEX64_RE, presentation.applicantPubkey)
   if (!signatureShapeValid) errors.push('presentation signature must be a 128-character lowercase hex string')
   if (!applicantShapeValid) errors.push('presentation applicantPubkey must be a 64-character lowercase hex string')
 

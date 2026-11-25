@@ -1,6 +1,7 @@
 import { schnorr } from '@noble/curves/secp256k1.js'
 import { sha256 } from '@noble/hashes/sha2.js'
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js'
+import { matches } from '../nip85/shape.js'
 import { isAuthenticBundle } from './authentic.js'
 import { issuesFromErrors } from './issues.js'
 import { verifyDeploymentPolicy } from './policy.js'
@@ -85,6 +86,12 @@ function assertNonEmpty(value: string, label: string): string {
 
 function stableStringify(value: unknown): string {
   return JSON.stringify(value, (_key, child: unknown) => {
+    // A number that is not finite has no JSON form: JSON.stringify would write
+    // it as null, and so would sign `1e999` and `null` as the same value. One
+    // could then be put in place of the other in a signed value.
+    if (typeof child === 'number' && !Number.isFinite(child)) {
+      throw new Error('a signed value cannot hold a number that is not finite')
+    }
     if (child !== null && typeof child === 'object' && !Array.isArray(child)) {
       // Built from entries, not by assignment. Assigning to a key named
       // `__proto__` sets a prototype and writes nothing, so that one key would
@@ -179,24 +186,28 @@ export function verifySignedDeploymentBundle(
   if (bundle.version !== 1) errors.push('bundle version must be 1')
   if (bundle.type !== DEPLOYMENT_BUNDLE_TYPE) errors.push(`bundle type must be ${DEPLOYMENT_BUNDLE_TYPE}`)
   if (typeof bundle.id !== 'string' || bundle.id.trim() === '') errors.push('bundle id must be non-empty')
-  if (!Number.isSafeInteger(bundle.issuedAt) || bundle.issuedAt < 0) {
+  // Nothing below compares a date that is not a number, or tests a pattern
+  // against a value that is not a string: either would first convert it, and
+  // converting some objects throws
+  const issuedAtValid = Number.isSafeInteger(bundle.issuedAt) && bundle.issuedAt >= 0
+  if (!issuedAtValid) {
     errors.push('bundle issuedAt must be a non-negative Unix timestamp')
   }
   if (bundle.expiresAt !== undefined) {
     if (!Number.isSafeInteger(bundle.expiresAt) || bundle.expiresAt < 0) {
       errors.push('bundle expiresAt must be a non-negative Unix timestamp')
-    } else if (bundle.expiresAt <= bundle.issuedAt) {
+    } else if (issuedAtValid && bundle.expiresAt <= bundle.issuedAt) {
       errors.push('bundle expiresAt must be greater than issuedAt')
     } else if (now > bundle.expiresAt) {
       errors.push('bundle is expired')
     }
   }
-  if (bundle.issuedAt > now) {
+  if (issuedAtValid && bundle.issuedAt > now) {
     errors.push('bundle issuedAt is in the future')
   }
 
-  const signerShapeValid = HEX64_RE.test(bundle.signer)
-  const signatureShapeValid = HEX128_RE.test(bundle.signature)
+  const signerShapeValid = matches(HEX64_RE, bundle.signer)
+  const signatureShapeValid = matches(HEX128_RE, bundle.signature)
   if (!signerShapeValid) errors.push('bundle signer must be a 64-character lowercase hex string')
   if (!signatureShapeValid) errors.push('bundle signature must be a 128-character lowercase hex string')
 

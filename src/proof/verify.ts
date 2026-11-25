@@ -1,4 +1,5 @@
 import { lsagVerify, hasDuplicateKeyImage } from '@forgesworn/ring-sig'
+import { isReadableTag, shown } from '../nip85/shape.js'
 import {
   canonicalMessage,
   canonicalMessageV2,
@@ -658,7 +659,7 @@ export function verifyProof(event: {
   // Bind the assertion class: v1 signatures are not bound to the event kind,
   // so without this check a proof can be replayed under a different NIP-85 kind
   if (expectedKind !== undefined && event.kind !== expectedKind) {
-    errors.push(`Event kind ${event.kind} does not match expected kind ${expectedKind}`)
+    errors.push(`Event kind ${shown(event.kind)} does not match expected kind ${expectedKind}`)
     return failure(errors)
   }
 
@@ -666,12 +667,20 @@ export function verifyProof(event: {
   // this, a proof copied onto any other kind (an attestation, a note, a label)
   // verifies, and a caller who forgets expectedKind reads it as an endorsement.
   if (!ASSERTION_KINDS.has(event.kind)) {
-    return failure([`Event kind ${String(event.kind)} is not a NIP-85 assertion kind (30382-30385)`])
+    return failure([`Event kind ${shown(event.kind)} is not a NIP-85 assertion kind (30382-30385)`])
   }
 
   // Every tag name must be a string, or later checks would throw instead of failing closed
   if (!Array.isArray(event.tags) || event.tags.some(t => !Array.isArray(t) || typeof t[0] !== 'string')) {
     return failure(['Malformed tag: every tag must be an array whose name is a string'])
+  }
+  // And every element after the name, as NIP-01 has it. The checks below
+  // compare tag values, test them against patterns and print them, and each of
+  // those converts an object to a string: that throws on one whose toString is
+  // not a function, which JSON can carry, and overflows the stack on a list
+  // nested deep enough.
+  if (event.tags.some(t => !isReadableTag(t))) {
+    return failure(['Malformed tag: every tag element must be a string'])
   }
 
   // Require d tag -- without it the electionId check cannot bind signatures to a subject

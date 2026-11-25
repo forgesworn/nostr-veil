@@ -120,8 +120,9 @@ name its publishers: when the policy names none, the decision report shows the
 for a policy that requires none. So do not gate on every control reading
 `pass`; gate on the decision. The policy inside a bundle is applied only when
 the bundle is authentic: for a bundle with a bad signature or a signer you do
-not trust, no assertion is verified against its policy and the report shows the
-policy controls as `not-checked`. The result is a gate, not a business
+not trust, no assertion is verified against its policy, and the report shows the
+policy controls as `not-checked` and leaves the profile, the policy id and the
+subject blank. The result is a gate, not a business
 decision. After it passes, the application still decides what action is
 proportionate for that subject and score.
 
