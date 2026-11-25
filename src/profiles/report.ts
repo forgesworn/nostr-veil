@@ -1,3 +1,5 @@
+import { isFullyReadable } from '../nip85/shape.js'
+import { isAuthenticBundle } from './authentic.js'
 import { explainVerificationIssue } from './issues.js'
 import { verifyProductionDeployment } from './production.js'
 import type { EventTemplate } from '../nip85/types.js'
@@ -118,6 +120,59 @@ function issueCodeSet(issues: readonly ProductionDecisionIssue[]): ReadonlySet<s
   return new Set(issues.map(issue => issue.code))
 }
 
+/** The controls that report what the policy inside the bundle asks for. */
+const POLICY_CONTROLS: ReadonlySet<ProductionControlId> = new Set<ProductionControlId>([
+  'event-signatures',
+  'event-publisher',
+  'circle-policy',
+  'companion-evidence',
+  'profile-subject',
+  'proof-threshold',
+  'metric-policy',
+])
+const POLICY_NOT_APPLIED = 'The deployment bundle is not authentic, so its policy was not applied and this was not checked.'
+/** The controls that are checks made on each assertion event. */
+const EVENT_CONTROLS: ReadonlySet<ProductionControlId> = new Set<ProductionControlId>([
+  'event-signatures',
+  'event-publisher',
+  'circle-policy',
+  'proof-threshold',
+  'metric-policy',
+])
+const NO_ASSERTION = 'No assertion was supplied, so there was nothing for this to check.'
+/**
+ * What the report says of a policy that was not applied: nothing. It is not
+ * the operator's, so none of it is read back to them. The empty strings stand
+ * in for values the profile summary has no "none" for.
+ */
+const BLANK_PROFILE = Object.freeze({
+  id: '',
+  title: '',
+  status: '',
+  kind: 0,
+  subjectTag: '',
+  subjectFormats: Object.freeze([]),
+  proofVersion: '',
+  proofClaims: Object.freeze([]),
+  proofLimitations: Object.freeze([]),
+  recommendedActions: Object.freeze([]),
+  requiredControls: Object.freeze([]),
+}) as unknown as ProductionDecisionProfileSummary
+const ASSERTION_UNREADABLE = 'An assertion is too malformed to read, so this could not be checked.'
+
+/**
+ * Read as an object a value that may not be one. A report is built from what
+ * the verifier was handed, and a bundle that is not authentic can hold
+ * anything.
+ */
+function record(value: unknown): Record<string, unknown> {
+  return value !== null && typeof value === 'object' ? value as Record<string, unknown> : {}
+}
+
+function list(value: unknown): unknown[] {
+  return Array.isArray(value) ? value : []
+}
+
 function hasPrefix(codes: ReadonlySet<string>, prefix: string): boolean {
   return [...codes].some(code => code.startsWith(prefix))
 }
@@ -145,7 +200,7 @@ function statusFromIssues(
 function productionControls(result: ProductionDeploymentVerification, issues: readonly ProductionDecisionIssue[]): readonly ProductionControlReport[] {
   const codes = issueCodeSet(issues)
   const signatureChecked = result.deployment.nostrSignatures.checked
-  const bundleHasExpiry = result.bundle.bundle.expiresAt !== undefined
+  const bundleHasExpiry = record(result.bundle.bundle).expiresAt !== undefined
   const bundleFreshnessFailed = hasAny(codes, [
     'bundle.expired',
     'bundle.expires_at_invalid',
@@ -166,7 +221,9 @@ function productionControls(result: ProductionDeploymentVerification, issues: re
   const eventPublisherStatus: ProductionControlStatus = publishers?.checked === true
     ? (publishers.valid ? 'pass' : 'fail')
     : 'not-checked'
-  const bundleFreshnessStatus: ProductionControlStatus = bundleFreshnessFailed
+  // The dates a bundle carries are a claim until its signature bears them out
+  const bundleDatesUnproven = !result.bundle.signatureValid
+  const bundleFreshnessStatus: ProductionControlStatus = bundleFreshnessFailed || bundleDatesUnproven
     ? 'fail'
     : (bundleHasExpiry ? 'pass' : 'not-checked')
   const companionEvidenceRequired = result.deployment.companionEvidence.requirements.some(requirement => requirement.required !== false)
@@ -174,15 +231,25 @@ function productionControls(result: ProductionDeploymentVerification, issues: re
   const companionEvidenceStatus: ProductionControlStatus = hasPrefix(codes, 'companion.')
     ? 'fail'
     : (companionEvidenceRequired || companionEvidenceChecked ? 'pass' : 'not-checked')
+  // An assertion too malformed to read had nothing in it for these checks to
+  // read, so none of them can be said to have passed
+  const unreadable = result.deployment.profileVerification.events
+    .some(item => !isFullyReadable(item.event))
+  const circleFailed = hasPrefix(codes, 'circle.')
+  const proofFailed = hasPrefix(codes, 'proof.') || hasPrefix(codes, 'federation.') || hasPrefix(codes, 'assertion.')
+  const metricFailed = hasPrefix(codes, 'metric.')
 
-  return Object.freeze([
+  const controls = [
     control(
       'bundle-publisher',
       'Trusted bundle publisher',
-      result.bundle.publisherTrusted ? 'pass' : 'fail',
-      result.bundle.publisherTrusted
+      // The signer a bundle names is a claim until its signature bears it out
+      result.bundle.publisherTrusted && result.bundle.signatureValid ? 'pass' : 'fail',
+      result.bundle.publisherTrusted && result.bundle.signatureValid
         ? 'The signed deployment bundle came from a configured trusted publisher key.'
-        : 'The verifier cannot tie this bundle to a configured trusted publisher key.',
+        : result.bundle.publisherTrusted
+          ? 'The bundle names a configured trusted publisher key, but its signature does not verify, so it cannot be tied to that key.'
+          : 'The verifier cannot tie this bundle to a configured trusted publisher key.',
     ),
     control(
       'bundle-signature',
@@ -200,7 +267,9 @@ function productionControls(result: ProductionDeploymentVerification, issues: re
         ? 'The deployment bundle is time-bounded and valid for this verification time.'
         : bundleFreshnessStatus === 'not-checked'
           ? 'Bundle expiry was explicitly relaxed, so this report cannot prove the bundle is time-bounded.'
-          : 'The deployment bundle is missing required expiry metadata, expired, or outside its valid time window.',
+          : bundleFreshnessFailed
+            ? 'The deployment bundle is missing required expiry metadata, expired, or outside its valid time window.'
+            : 'The bundle\'s signature does not verify, so the dates it carries prove nothing about whether it is in date.',
     ),
     control(
       'event-signatures',
@@ -227,10 +296,12 @@ function productionControls(result: ProductionDeploymentVerification, issues: re
     control(
       'circle-policy',
       'Accepted circle policy',
-      hasPrefix(codes, 'circle.') ? 'fail' : 'pass',
-      hasPrefix(codes, 'circle.')
+      circleFailed || unreadable ? 'fail' : 'pass',
+      circleFailed
         ? 'The assertion used a circle that is missing, malformed, expired, revoked, superseded, unaccepted, or not allowed for this profile.'
-        : 'The assertion was produced by a circle accepted by the deployment policy.',
+        : unreadable
+          ? ASSERTION_UNREADABLE
+          : 'The assertion was produced by a circle accepted by the deployment policy.',
     ),
     control(
       'profile-subject',
@@ -257,20 +328,22 @@ function productionControls(result: ProductionDeploymentVerification, issues: re
     control(
       'proof-threshold',
       'Proof and threshold',
-      hasPrefix(codes, 'proof.') || hasPrefix(codes, 'federation.') || hasPrefix(codes, 'assertion.')
-        ? 'fail'
-        : 'pass',
-      hasPrefix(codes, 'proof.') || hasPrefix(codes, 'federation.') || hasPrefix(codes, 'assertion.')
+      proofFailed || unreadable ? 'fail' : 'pass',
+      proofFailed
         ? 'The proof, federation, threshold, or assertion freshness check failed.'
-        : 'The nostr-veil proof, signer threshold, federation policy, and assertion freshness checks passed.',
+        : unreadable
+          ? ASSERTION_UNREADABLE
+          : 'The nostr-veil proof, signer threshold, federation policy, and assertion freshness checks passed.',
     ),
     control(
       'metric-policy',
       'Metric policy',
-      hasPrefix(codes, 'metric.') ? 'fail' : 'pass',
-      hasPrefix(codes, 'metric.')
+      metricFailed || unreadable ? 'fail' : 'pass',
+      metricFailed
         ? 'At least one metric is missing, unexpected, non-numeric, non-integer, or outside the deployment bounds.'
-        : 'The published metrics satisfy the deployment metric policy.',
+        : unreadable
+          ? ASSERTION_UNREADABLE
+          : 'The published metrics satisfy the deployment metric policy.',
     ),
     control(
       'companion-evidence',
@@ -282,10 +355,34 @@ function productionControls(result: ProductionDeploymentVerification, issues: re
           ? 'This deployment policy did not require companion evidence checks outside the nostr-veil proof.'
           : 'A required companion evidence check is missing, failed, stale, malformed, or for the wrong subject.',
     ),
-  ])
+  ]
+
+  // The policy of a bundle that is not authentic was not applied, so nothing
+  // it asks for was checked, and no control may say that it passed or failed
+  if (!isAuthenticBundle(result.bundle)) {
+    return Object.freeze(controls.map(item => POLICY_CONTROLS.has(item.id)
+      ? control(item.id, item.label, 'not-checked', POLICY_NOT_APPLIED)
+      : item))
+  }
+  // With no assertion at all, a check made on each assertion ran on none. It
+  // may still have failed for a fault in the policy itself, but it cannot have
+  // passed.
+  if (result.deployment.profileVerification.events.length === 0) {
+    return Object.freeze(controls.map(item => EVENT_CONTROLS.has(item.id) && item.status === 'pass'
+      ? control(item.id, item.label, 'not-checked', NO_ASSERTION)
+      : item))
+  }
+  return Object.freeze(controls)
 }
 
-function profileSummary(profile: UseCaseProfile): ProductionDecisionProfileSummary {
+/**
+ * The profile as the bundle states it, echoed and not interpreted. Where the
+ * policy was not applied this is what a bundle that is not authentic says of
+ * itself, and it need not be an object, nor its lists be lists.
+ */
+function profileSummary(given: unknown): ProductionDecisionProfileSummary {
+  const profile = record(given) as Partial<UseCaseProfile>
+
   return Object.freeze({
     id: profile.id,
     title: profile.title,
@@ -293,24 +390,27 @@ function profileSummary(profile: UseCaseProfile): ProductionDecisionProfileSumma
     kind: profile.kind,
     subjectTag: profile.subjectTag,
     ...(profile.subjectTagValue === undefined ? {} : { subjectTagValue: profile.subjectTagValue }),
-    subjectFormats: Object.freeze([...profile.subjectFormats]),
+    subjectFormats: Object.freeze([...list(profile.subjectFormats)]),
     proofVersion: profile.proofVersion,
-    proofClaims: Object.freeze([...(profile.proofClaims ?? [])]),
-    proofLimitations: Object.freeze([...(profile.proofLimitations ?? [])]),
-    recommendedActions: Object.freeze([...(profile.recommendedActions ?? [])]),
-    requiredControls: Object.freeze((profile.requiredControls ?? []).map(control => Object.freeze({ ...control }))),
-  })
+    proofClaims: Object.freeze([...list(profile.proofClaims)]),
+    proofLimitations: Object.freeze([...list(profile.proofLimitations)]),
+    recommendedActions: Object.freeze([...list(profile.recommendedActions)]),
+    requiredControls: Object.freeze(list(profile.requiredControls).map(item => Object.freeze({ ...record(item) }))),
+  }) as ProductionDecisionProfileSummary
 }
 
 function bundleSummary(result: ProductionDeploymentVerification): ProductionDecisionBundleSummary {
+  // Echoed as it was handed in, which need not be an object
+  const bundle = record(result.bundle.bundle) as Partial<ProductionDecisionBundleSummary>
+
   return Object.freeze({
-    id: result.bundle.bundle.id,
-    signer: result.bundle.bundle.signer,
-    issuedAt: result.bundle.bundle.issuedAt,
-    ...(result.bundle.bundle.expiresAt === undefined ? {} : { expiresAt: result.bundle.bundle.expiresAt }),
+    id: bundle.id,
+    signer: bundle.signer,
+    issuedAt: bundle.issuedAt,
+    ...(bundle.expiresAt === undefined ? {} : { expiresAt: bundle.expiresAt }),
     publisherTrusted: result.bundle.publisherTrusted,
     signatureValid: result.bundle.signatureValid,
-  })
+  }) as ProductionDecisionBundleSummary
 }
 
 /**
@@ -324,15 +424,18 @@ export function createProductionDecisionReport(
   result: ProductionDeploymentVerification,
 ): ProductionDecisionReport {
   const issues = Object.freeze(result.issues.map(decisionIssue))
+  const policyApplied = isAuthenticBundle(result.bundle)
 
   return Object.freeze({
     decision: result.decision,
     valid: result.valid,
     recommendedAction: recommendedAction(result.valid, issues),
     bundle: bundleSummary(result),
-    profile: profileSummary(result.deployment.policy.profile),
-    policyId: result.deployment.policy.id,
-    subject: result.deployment.policy.expectedSubject,
+    // Only an applied policy is described. One that was not applied is not the
+    // operator's, and what it says of itself is not repeated to them.
+    profile: policyApplied ? profileSummary(record(result.deployment.policy).profile) : BLANK_PROFILE,
+    policyId: policyApplied ? record(result.deployment.policy).id as string : '',
+    subject: policyApplied ? record(result.deployment.policy).expectedSubject as string : '',
     metrics: result.deployment.metrics,
     controls: productionControls(result, issues),
     issues,

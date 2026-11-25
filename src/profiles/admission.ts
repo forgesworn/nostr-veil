@@ -1,6 +1,8 @@
 import { schnorr } from '@noble/curves/secp256k1.js'
 import { sha256 } from '@noble/hashes/sha2.js'
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js'
+import { matches } from '../nip85/shape.js'
+import { isAuthenticBundle } from './authentic.js'
 import { verifyProductionDeployment } from './production.js'
 import type { EventTemplate } from '../nip85/types.js'
 import type { SignedDeploymentBundle } from './bundle.js'
@@ -146,12 +148,20 @@ function randomNonceHex(byteLength = 32): string {
 
 function stableStringify(value: unknown): string {
   return JSON.stringify(value, (_key, child: unknown) => {
+    // A number that is not finite has no JSON form: JSON.stringify would write
+    // it as null, and so would sign `1e999` and `null` as the same value. One
+    // could then be put in place of the other in a signed value.
+    if (typeof child === 'number' && !Number.isFinite(child)) {
+      throw new Error('a signed value cannot hold a number that is not finite')
+    }
     if (child !== null && typeof child === 'object' && !Array.isArray(child)) {
-      const sorted: Record<string, unknown> = {}
-      for (const key of Object.keys(child as Record<string, unknown>).sort()) {
-        sorted[key] = (child as Record<string, unknown>)[key]
-      }
-      return sorted
+      // Built from entries, not by assignment. Assigning to a key named
+      // `__proto__` sets a prototype and writes nothing, so that one key would
+      // never reach the digest: anything put under it in a signed value would
+      // ride along unsigned. JSON.parse makes it an ordinary key, and so
+      // does this.
+      const source = child as Record<string, unknown>
+      return Object.fromEntries(Object.keys(source).sort().map(key => [key, source[key]]))
     }
     return child
   })
@@ -284,12 +294,29 @@ export function createAdmissionPresentation(
 }
 
 export function verifyAdmissionPresentation(
-  presentation: AdmissionPresentation,
-  challenge: AdmissionChallenge,
+  givenPresentation: AdmissionPresentation,
+  givenChallenge: AdmissionChallenge,
   options: VerifyAdmissionPresentationOptions = {},
 ): AdmissionPresentationVerification {
   const errors: string[] = []
-  const expectedChallengeId = admissionChallengeId(challengePayload(challenge))
+  // A presentation comes from the applicant and can be anything. One that is
+  // not an object reads as one with nothing in it, and so fails every check
+  // below. The same goes for a challenge that was read back from storage.
+  const presentation = (givenPresentation !== null && typeof givenPresentation === 'object'
+    ? givenPresentation
+    : {}) as AdmissionPresentation
+  const challenge = (givenChallenge !== null && typeof givenChallenge === 'object'
+    ? givenChallenge
+    : {}) as AdmissionChallenge
+  // Undefined when the challenge cannot be serialised at all: a field nested
+  // thousands deep overflows the stack, and a number that is not finite has no
+  // JSON form. No id matches such a challenge.
+  let expectedChallengeId: string | undefined
+  try {
+    expectedChallengeId = admissionChallengeId(challengePayload(challenge))
+  } catch {
+    expectedChallengeId = undefined
+  }
   const challengeIssuedAtValid = isSafeUnix(challenge.issuedAt)
   const challengeExpiresAtValid = isSafeUnix(challenge.expiresAt)
   const presentationCreatedAtValid = isSafeUnix(presentation.createdAt)
@@ -298,7 +325,9 @@ export function verifyAdmissionPresentation(
   if (challenge.type !== ADMISSION_CHALLENGE_TYPE) {
     errors.push(`challenge type must be ${ADMISSION_CHALLENGE_TYPE}`)
   }
-  if (!HEX64_RE.test(challenge.applicantPubkey)) {
+  // A pattern is tested only against a string. Testing it against anything
+  // else converts that first, which can throw.
+  if (!matches(HEX64_RE, challenge.applicantPubkey)) {
     errors.push('challenge applicantPubkey must be a 64-character lowercase hex string')
   }
   if (typeof challenge.audience !== 'string' || challenge.audience.trim() === '' || /\s/.test(challenge.audience)) {
@@ -312,13 +341,13 @@ export function verifyAdmissionPresentation(
   if (challengeIssuedAtValid && challengeExpiresAtValid && challenge.expiresAt <= challenge.issuedAt) {
     errors.push('challenge expiresAt must be greater than issuedAt')
   }
-  if (!HEX64_RE.test(challenge.id)) errors.push('challenge id must be a 64-character lowercase hex string')
+  if (!matches(HEX64_RE, challenge.id)) errors.push('challenge id must be a 64-character lowercase hex string')
   if (challenge.id !== expectedChallengeId) errors.push('challenge id does not match challenge payload')
   if (presentation.version !== 1) errors.push('presentation version must be 1')
   if (presentation.type !== ADMISSION_PRESENTATION_TYPE) {
     errors.push(`presentation type must be ${ADMISSION_PRESENTATION_TYPE}`)
   }
-  if (!HEX64_RE.test(presentation.challengeId)) {
+  if (!matches(HEX64_RE, presentation.challengeId)) {
     errors.push('presentation challengeId must be a 64-character lowercase hex string')
   }
   if (presentation.challengeId !== challenge.id) errors.push('presentation challengeId does not match challenge')
@@ -348,8 +377,8 @@ export function verifyAdmissionPresentation(
   const replayed = usedChallengeSet(options.usedChallengeIds).has(challenge.id)
   if (replayed) errors.push('admission challenge has already been used')
 
-  const signatureShapeValid = HEX128_RE.test(presentation.signature)
-  const applicantShapeValid = HEX64_RE.test(presentation.applicantPubkey)
+  const signatureShapeValid = matches(HEX128_RE, presentation.signature)
+  const applicantShapeValid = matches(HEX64_RE, presentation.applicantPubkey)
   if (!signatureShapeValid) errors.push('presentation signature must be a 128-character lowercase hex string')
   if (!applicantShapeValid) errors.push('presentation applicantPubkey must be a 64-character lowercase hex string')
 
@@ -385,28 +414,37 @@ export function verifyAdmissionRequest(
   presentation: AdmissionPresentation,
   options: VerifyAdmissionRequestOptions = {},
 ): AdmissionRequestVerification {
+  const deployment = verifyProductionDeployment(events, bundle, options)
+  // The subject the bundle vouches for is read only from an authentic bundle.
+  // The policy of any other was not applied, and vouches for nobody: the
+  // request is denied for what the bundle check has already reported.
+  const authentic = isAuthenticBundle(deployment.bundle)
+  const vouchedFor: string | undefined = authentic ? bundle.policy.expectedSubject : undefined
+  // The applicant comes from the presentation, which need not be an object
+  const applicant = (presentation !== null && typeof presentation === 'object'
+    ? presentation.applicantPubkey
+    : undefined) as string
   const presentationVerification = verifyAdmissionPresentation(presentation, challenge, {
-    expectedApplicantPubkey: bundle.policy.expectedSubject,
+    expectedApplicantPubkey: vouchedFor,
     expectedAudience: options.expectedAudience,
     now: options.now,
     usedChallengeIds: options.usedChallengeIds,
   })
-  const deployment = verifyProductionDeployment(events, bundle, options)
   const errors = [
     ...presentationVerification.errors,
     ...deployment.errors,
   ]
 
-  if (bundle.policy.expectedSubject !== presentation.applicantPubkey) {
+  if (authentic && vouchedFor !== applicant) {
     errors.push('admission vouch subject does not match presentation applicant')
   }
 
-  const revoked = revokedApplicantSet(options.revokedApplicantPubkeys).has(presentation.applicantPubkey)
+  const revoked = revokedApplicantSet(options.revokedApplicantPubkeys).has(applicant)
   if (revoked) errors.push('admission applicant is revoked')
 
   const rank = firstRank(deployment)
   const valid = presentationVerification.valid && deployment.valid && !revoked
-    && bundle.policy.expectedSubject === presentation.applicantPubkey
+    && authentic && vouchedFor === applicant
   const decision = revoked
     ? 'revoke'
     : valid
@@ -414,7 +452,7 @@ export function verifyAdmissionRequest(
       : 'deny'
 
   return {
-    applicantPubkey: presentation.applicantPubkey,
+    applicantPubkey: applicant,
     decision,
     deployment,
     errors,

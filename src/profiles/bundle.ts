@@ -1,11 +1,14 @@
 import { schnorr } from '@noble/curves/secp256k1.js'
 import { sha256 } from '@noble/hashes/sha2.js'
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js'
+import { matches } from '../nip85/shape.js'
+import { isAuthenticBundle } from './authentic.js'
 import { issuesFromErrors } from './issues.js'
 import { verifyDeploymentPolicy } from './policy.js'
 import type { EventTemplate } from '../nip85/types.js'
 import type { VerificationIssue } from './issues.js'
 import type { DeploymentPolicyVerification, UseCaseDeploymentPolicy, VerifyDeploymentPolicyOptions } from './policy.js'
+import type { UseCaseProfile } from './types.js'
 
 export const DEPLOYMENT_BUNDLE_TYPE = 'nostr-veil-deployment-bundle'
 
@@ -83,12 +86,20 @@ function assertNonEmpty(value: string, label: string): string {
 
 function stableStringify(value: unknown): string {
   return JSON.stringify(value, (_key, child: unknown) => {
+    // A number that is not finite has no JSON form: JSON.stringify would write
+    // it as null, and so would sign `1e999` and `null` as the same value. One
+    // could then be put in place of the other in a signed value.
+    if (typeof child === 'number' && !Number.isFinite(child)) {
+      throw new Error('a signed value cannot hold a number that is not finite')
+    }
     if (child !== null && typeof child === 'object' && !Array.isArray(child)) {
-      const sorted: Record<string, unknown> = {}
-      for (const key of Object.keys(child as Record<string, unknown>).sort()) {
-        sorted[key] = (child as Record<string, unknown>)[key]
-      }
-      return sorted
+      // Built from entries, not by assignment. Assigning to a key named
+      // `__proto__` sets a prototype and writes nothing, so that one key would
+      // never reach the digest: anything put under it in a signed value would
+      // ride along unsigned. JSON.parse makes it an ordinary key, and so
+      // does this.
+      const source = child as Record<string, unknown>
+      return Object.fromEntries(Object.keys(source).sort().map(key => [key, source[key]]))
     }
     return child
   })
@@ -162,34 +173,41 @@ export function createSignedDeploymentBundle(
 }
 
 export function verifySignedDeploymentBundle(
-  bundle: SignedDeploymentBundle,
+  given: SignedDeploymentBundle,
   options: VerifySignedDeploymentBundleOptions = {},
 ): SignedDeploymentBundleVerification {
   const errors: string[] = []
   const now = options.now ?? nowSeconds()
   const trustedPublishers = trustedPublisherSet(options.trustedPublishers, errors)
+  // A bundle is fetched, and what arrives can be anything. One that is not an
+  // object reads as one with nothing in it, and so fails every check below.
+  const bundle = (given !== null && typeof given === 'object' ? given : {}) as SignedDeploymentBundle
 
   if (bundle.version !== 1) errors.push('bundle version must be 1')
   if (bundle.type !== DEPLOYMENT_BUNDLE_TYPE) errors.push(`bundle type must be ${DEPLOYMENT_BUNDLE_TYPE}`)
-  if (bundle.id.trim() === '') errors.push('bundle id must be non-empty')
-  if (!Number.isSafeInteger(bundle.issuedAt) || bundle.issuedAt < 0) {
+  if (typeof bundle.id !== 'string' || bundle.id.trim() === '') errors.push('bundle id must be non-empty')
+  // Nothing below compares a date that is not a number, or tests a pattern
+  // against a value that is not a string: either would first convert it, and
+  // converting some objects throws
+  const issuedAtValid = Number.isSafeInteger(bundle.issuedAt) && bundle.issuedAt >= 0
+  if (!issuedAtValid) {
     errors.push('bundle issuedAt must be a non-negative Unix timestamp')
   }
   if (bundle.expiresAt !== undefined) {
     if (!Number.isSafeInteger(bundle.expiresAt) || bundle.expiresAt < 0) {
       errors.push('bundle expiresAt must be a non-negative Unix timestamp')
-    } else if (bundle.expiresAt <= bundle.issuedAt) {
+    } else if (issuedAtValid && bundle.expiresAt <= bundle.issuedAt) {
       errors.push('bundle expiresAt must be greater than issuedAt')
     } else if (now > bundle.expiresAt) {
       errors.push('bundle is expired')
     }
   }
-  if (bundle.issuedAt > now) {
+  if (issuedAtValid && bundle.issuedAt > now) {
     errors.push('bundle issuedAt is in the future')
   }
 
-  const signerShapeValid = HEX64_RE.test(bundle.signer)
-  const signatureShapeValid = HEX128_RE.test(bundle.signature)
+  const signerShapeValid = matches(HEX64_RE, bundle.signer)
+  const signatureShapeValid = matches(HEX128_RE, bundle.signature)
   if (!signerShapeValid) errors.push('bundle signer must be a 64-character lowercase hex string')
   if (!signatureShapeValid) errors.push('bundle signature must be a 128-character lowercase hex string')
 
@@ -213,12 +231,49 @@ export function verifySignedDeploymentBundle(
   }
 
   return {
-    bundle,
+    bundle: given,
     errors,
     issues: issuesFromErrors(errors),
     publisherTrusted,
     signatureValid,
     valid: errors.length === 0,
+  }
+}
+
+/**
+ * The result for a policy that was not applied. Nothing in the policy is read:
+ * it is handed back as it was given, and no event is verified against it.
+ */
+function policyNotApplied(bundle: unknown): DeploymentPolicyVerification {
+  const policy: unknown = bundle !== null && typeof bundle === 'object' ? (bundle as { policy?: unknown }).policy : undefined
+  const profile: unknown = policy !== null && typeof policy === 'object' ? (policy as { profile?: unknown }).profile : undefined
+
+  return {
+    companionEvidence: Object.freeze({
+      evidence: Object.freeze([]),
+      errors: [],
+      missingIds: Object.freeze([]),
+      requirements: Object.freeze([]),
+      valid: false,
+    }),
+    decision: 'reject',
+    errors: [],
+    issues: [],
+    metrics: {},
+    nostrSignatures: { checked: false, valid: false },
+    policy: policy as UseCaseDeploymentPolicy,
+    profileVerification: {
+      valid: false,
+      errors: [],
+      issues: [],
+      events: [],
+      federation: undefined,
+      profile: profile as UseCaseProfile,
+    },
+    publishers: { checked: false, valid: false },
+    revokedCircleIds: [],
+    supersededCircleIds: [],
+    valid: false,
   }
 }
 
@@ -228,7 +283,13 @@ export function verifyDeploymentBundle(
   options: VerifyDeploymentBundleOptions = {},
 ): DeploymentBundleVerification {
   const bundleVerification = verifySignedDeploymentBundle(bundle, options)
-  const deployment = verifyDeploymentPolicy(events, bundle.policy, options)
+  // A policy is applied only from an authentic bundle. Anything else was
+  // written by nobody the verifier knows: applying it would let that party
+  // choose what is checked, and reading it would trust its shape. The result
+  // is a rejection either way, for the reasons the bundle check has given.
+  const deployment = isAuthenticBundle(bundleVerification)
+    ? verifyDeploymentPolicy(events, bundle.policy, options)
+    : policyNotApplied(bundle)
   const errors = [
     ...bundleVerification.errors,
     ...deployment.errors,

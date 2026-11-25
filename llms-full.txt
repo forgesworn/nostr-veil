@@ -784,6 +784,19 @@ Verify that the bundle signature is valid, the signer pubkey is pinned in
 `trustedPublishers`, the bundle is fresh, and the bundled deployment policy
 accepts the signed assertion events.
 
+The policy is applied only when the bundle is authentic: its signature is
+valid and its signer is in `trustedPublishers`. For any other bundle no event
+is verified against the policy, `deployment` comes back as a rejection with no
+findings of its own, and the errors are the bundle's. A policy that nobody
+trusted signed does not choose what is checked. No verifier reads it, and the
+decision report leaves the profile, the policy id and the subject blank;
+`deployment.policy` still holds it exactly as the bundle gave it. An authentic
+bundle that is expired still has its policy applied.
+
+The signature covers every key and value of the policy. A bundle cannot be
+signed with a number that is not finite inside it (`Infinity`, `NaN`): JSON
+has no form for one, and would write it as `null`.
+
 ```ts
 const bundle = createSignedDeploymentBundle(policy, {
   id: 'package-release-gate',
@@ -813,6 +826,17 @@ also requires the bundle to have `expiresAt` and the bundled policy to require
 valid Nostr signatures for relay-fetched events. It returns `decision`,
 human-readable `errors`, and stable `issues[].code` values.
 
+An event, a bundle and an admission presentation can each come from anyone. A
+malformed event or presentation (no `tags`, a tag that is not a list, a metric
+value that is not a string, an object or a deeply nested list where a string
+or a number belongs), or a malformed bundle that is not authentic (not an
+object, or with anything at all for a policy), is rejected with an ordinary
+error, and no verifier throws on it. For an event or a bundle the error has an
+issue code, such as `nip85.syntax_invalid` or `bundle.id_invalid`. An
+admission presentation is denied with an error message: admission results
+carry no issue codes. None of this covers an authentic bundle whose own policy
+is malformed: the operator signed it, and a verifier can still throw on it.
+
 ```ts
 const result = verifyProductionDeployment(assertionFromRelay, bundle, {
   companionEvidence,
@@ -840,6 +864,14 @@ checked (relaxed by the caller, or never asked for by the policy). The
 publishers, as `companion-evidence` does for a policy that requires none, so
 gate on the decision, not on every control reading `pass`. A result with no
 `publishers` field, as an earlier release returned, also reads `not-checked`.
+For a bundle that is not authentic, every control that reports on the policy
+reads `not-checked` and the report's `profile`, `policyId` and `subject` are
+blank: the policy was not applied, and is not the operator's to be shown. For
+an assertion too malformed to read, the circle, proof and metric controls read
+`fail`. With no assertion at all, a control that checks each assertion reads
+`not-checked`. `bundle-publisher` and `bundle-freshness` pass only when the
+signature verifies too: the signer and the dates a bundle carries are claims
+until then.
 
 #### `verifyProductionDeploymentReport(events, bundle, options) → ProductionDecisionReport`
 

@@ -89,8 +89,16 @@ export function signEvent(template: UnsignedEvent, privateKey: string): SignedEv
  * relay, before acting on its proof or score.
  */
 export function verifySignedEvent(event: SignedEvent): boolean {
-  if (computeEventId(event) !== event.id) return false
+  // What a relay returns can be anything, and only an object has an id to check
+  if (event === null || typeof event !== 'object') return false
+  // The id is a hash of JSON, which has no form for a number that is not
+  // finite and writes it as null. An id made over one date of that kind is the
+  // id for every other, so such an event is not what anybody signed.
+  if (!Number.isFinite(event.created_at) || !Number.isFinite(event.kind)) return false
   try {
+    // Inside the guard as well: serialising an event whose tags or content are
+    // nested thousands deep overflows the stack
+    if (computeEventId(event) !== event.id) return false
     return schnorr.verify(hexToBytes(event.sig), hexToBytes(event.id), hexToBytes(event.pubkey))
   } catch {
     return false
