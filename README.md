@@ -520,6 +520,16 @@ runbooks, `verifyProductionDeploymentReport()` returns the same decision with a
 recommended action, expanded issue remediations, and pass/fail/not-checked
 status for the production controls.
 
+A bundle's policy is applied only when the bundle is authentic: validly signed
+by a key in `trustedPublishers`. For any other bundle the decision is `reject`,
+no assertion is verified against its policy, and the report shows the policy
+controls as `not-checked` and leaves the profile, the policy id and the subject
+blank. Events, bundles and admission presentations can come
+from anyone. A malformed event, or a malformed bundle that is not authentic, is
+rejected with an issue code, and a malformed presentation is denied with an
+error. No verifier throws on any of them. That does not cover a bundle you
+signed yourself with a malformed policy inside: check what you sign.
+
 ---
 
 ## Use cases

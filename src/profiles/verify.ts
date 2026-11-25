@@ -1,4 +1,5 @@
 import { validateAssertionStrict } from '../nip85/validators.js'
+import { readableEvent, shown } from '../nip85/shape.js'
 import { computeCircleId } from '../proof/circle.js'
 import { verifyFederation } from '../proof/federate.js'
 import { verifyProof } from '../proof/verify.js'
@@ -161,7 +162,7 @@ function contributionBoundsFor(
 
 function verifyEvent(
   profile: UseCaseProfile,
-  event: EventTemplate,
+  given: EventTemplate,
   index: number,
   options: VerifyUseCaseProfileOptions,
   acceptedCircles: Set<string> | undefined,
@@ -172,13 +173,18 @@ function verifyEvent(
   errors: string[],
 ): VerifiedProfileEvent {
   const prefix = `event[${index}]`
-  const syntax = validateAssertionStrict(event)
+  const syntax = validateAssertionStrict(given)
   if (!syntax.valid) {
     errors.push(...syntax.errors.map(error => `${prefix} syntax: ${error}`))
   }
+  // An event from a relay can be anything. The syntax check has reported what
+  // is malformed, and the reads below see only the tags that are well formed:
+  // on the event as given they would throw where they should turn it away.
+  // The proof verifier is still handed the event as given.
+  const event = readableEvent(given)
 
   if (event.kind !== profile.kind) {
-    errors.push(`${prefix} kind ${event.kind} does not match profile kind ${profile.kind}`)
+    errors.push(`${prefix} kind ${shown(event.kind)} does not match profile kind ${profile.kind}`)
   }
 
   const subject = singletonTagValue(event, 'd', errors, prefix)
@@ -199,7 +205,7 @@ function verifyEvent(
 
   const requireAggregate = options.aggregate ?? profile.aggregate
   const contributionBounds = contributionBoundsFor(profile, options)
-  const proof = verifyProof(event, {
+  const proof = verifyProof(given, {
     aggregateFn: options.aggregateFn,
     requireProofVersion: profile.proofVersion,
     ...(requireAggregate === undefined ? {} : { requireAggregate }),
@@ -228,7 +234,8 @@ function verifyEvent(
     } else if (typeof createdAt !== 'number' || !Number.isSafeInteger(createdAt)) {
       // Compared as it stands, a word or NaN is neither older than the window
       // nor ahead of it, so the assertion would pass both ends and never go
-      // stale. An event that arrives as JSON can carry anything here.
+      // stale, and an object or a deeply nested list would be converted first,
+      // which can throw. An event that arrives as JSON can carry anything here.
       errors.push(`${prefix} assertion created_at is not a Unix timestamp`)
     } else if (now !== undefined && createdAt < now - maxAgeSeconds) {
       errors.push(`${prefix} assertion is outside the accepted freshness window`)
@@ -259,7 +266,7 @@ function verifyEvent(
 
   return {
     circleId: eventCircleId,
-    event,
+    event: given,
     proof,
     subject,
     syntax,
@@ -293,7 +300,7 @@ export function verifyUseCaseProfile(
     }
     if (profile.federation.requireScope) {
       for (let i = 0; i < eventList.length; i++) {
-        if (tagValues(eventList[i], 'veil-scope').length !== 1) {
+        if (tagValues(readableEvent(eventList[i]), 'veil-scope').length !== 1) {
           errors.push(`event[${i}] federation profile requires exactly one veil-scope tag`)
         }
       }

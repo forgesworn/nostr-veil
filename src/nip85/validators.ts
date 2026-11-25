@@ -1,4 +1,5 @@
 import type { ValidationResult } from './types.js'
+import { MALFORMED_EVENT, MALFORMED_TAG, isWellFormedTag, matches, numberFrom, shown } from './shape.js'
 import { NIP85_KINDS } from './types.js'
 import { GENERAL_TAGS, isUnixSecondsTagValue } from './tags.js'
 
@@ -84,10 +85,12 @@ function isFiniteNumberTag(value: string | undefined): boolean {
   return Number.isFinite(Number(value))
 }
 
-function validateLooseRank(value: string | undefined, errors: string[]): void {
-  const rankValue = Number(value)
+function validateLooseRank(value: unknown, errors: string[]): void {
+  // Not Number() and not a template on the value as it stands: a tag value
+  // from a relay can be an object, and converting one can throw
+  const rankValue = numberFrom(value)
   if (isNaN(rankValue) || rankValue < 0 || rankValue > 100) {
-    errors.push(`Invalid rank value: "${value}". Must be a number between 0 and 100.`)
+    errors.push(`Invalid rank value: "${shown(value)}". Must be a number between 0 and 100.`)
   }
 }
 
@@ -192,7 +195,7 @@ function validateStrictGeneralTags(event: RawEvent, errors: string[]): void {
   }
   const value: unknown = expirations[0][1]
   if (!isUnixSecondsTagValue(value)) {
-    errors.push(`Invalid expiration-tag: "${value}". Must be a unix timestamp in seconds.`)
+    errors.push(`Invalid expiration-tag: "${shown(value)}". Must be a unix timestamp in seconds.`)
   }
 }
 
@@ -220,6 +223,13 @@ function validateStrictMetrics(event: RawEvent, errors: string[]): void {
     }
     if (tag[1] === undefined) {
       errors.push(`Metric "${name}" is missing a value.`)
+      continue
+    }
+    // A tag value from a relay need not be a string. Both checks below call a
+    // string method on it, and would throw on a number where they should
+    // report it.
+    if (allowed.numeric.has(name) && typeof tag[1] !== 'string') {
+      errors.push(`Metric "${name}" must be a string.`)
       continue
     }
     if (name === 'rank') {
@@ -258,16 +268,16 @@ export function validateAssertion(input: RawEvent, options: ValidationOptions = 
 
   // Fail closed rather than throw on relay-supplied junk: drop malformed tags and report them
   if (input === null || typeof input !== 'object' || !Array.isArray(input.tags)) {
-    return { valid: false, errors: ['Malformed event: tags must be an array.'] }
+    return { valid: false, errors: [MALFORMED_EVENT] }
   }
-  const wellFormed = input.tags.filter(t => Array.isArray(t) && typeof t[0] === 'string')
+  const wellFormed = input.tags.filter(isWellFormedTag)
   if (wellFormed.length !== input.tags.length) {
-    errors.push('Malformed tag: every tag must be an array whose name is a string.')
+    errors.push(MALFORMED_TAG)
   }
   const event: RawEvent = { kind: input.kind, tags: wellFormed, content: input.content }
 
   if (!ASSERTION_KINDS.has(event.kind)) {
-    errors.push(`Invalid kind: ${event.kind}. Must be one of 30382, 30383, 30384, 30385.`)
+    errors.push(`Invalid kind: ${shown(event.kind)}. Must be one of 30382, 30383, 30384, 30385.`)
   }
 
   const dTag = event.tags.find(t => t[0] === 'd')
@@ -283,9 +293,9 @@ export function validateAssertion(input: RawEvent, options: ValidationOptions = 
   // Validate all numeric metric tags are finite numbers
   for (const tag of event.tags) {
     if (LOOSE_NUMERIC_METRICS.has(tag[0]) && tag[0] !== 'rank') {
-      const value = Number(tag[1])
+      const value = numberFrom(tag[1])
       if (!Number.isFinite(value)) {
-        errors.push(`Invalid metric "${tag[0]}": "${tag[1]}" is not a finite number.`)
+        errors.push(`Invalid metric "${tag[0]}": "${shown(tag[1])}" is not a finite number.`)
       }
     }
   }
@@ -317,8 +327,13 @@ export function validateAssertionStrict(event: RawEvent): ValidationResult {
 export function validateProviderDeclarationStrict(event: RawEvent): ValidationResult {
   const errors: string[] = []
 
+  // Fail closed rather than throw on relay-supplied junk, as validateAssertion does
+  if (event === null || typeof event !== 'object' || !Array.isArray(event.tags)) {
+    return { valid: false, errors: [MALFORMED_EVENT] }
+  }
+
   if (event.kind !== NIP85_KINDS.PROVIDER) {
-    errors.push(`Invalid kind: ${event.kind}. Must be 10040 for a provider declaration.`)
+    errors.push(`Invalid kind: ${shown(event.kind)}. Must be 10040 for a provider declaration.`)
   }
 
   if (event.content !== '' && event.tags.length === 0) {
@@ -332,7 +347,7 @@ export function validateProviderDeclarationStrict(event: RawEvent): ValidationRe
   const seen = new Set<string>()
   for (let i = 0; i < event.tags.length; i++) {
     const tag = event.tags[i]
-    const name = tag[0]
+    const name: unknown = Array.isArray(tag) ? tag[0] : undefined
     if (typeof name !== 'string' || !PROVIDER_TAG_RE.test(name)) {
       errors.push(`Provider tag at index ${i} must use kind:metric format.`)
       continue
@@ -347,7 +362,7 @@ export function validateProviderDeclarationStrict(event: RawEvent): ValidationRe
       errors.push(`Provider tag at index ${i} has an empty metric name.`)
     }
 
-    const key = `${kindText}:${metric}:${tag[1] ?? ''}`
+    const key = `${kindText}:${metric}:${shown(tag[1] ?? '')}`
     if (seen.has(key)) {
       errors.push(`Duplicate provider declaration for ${kindText}:${metric}.`)
     }
@@ -359,7 +374,7 @@ export function validateProviderDeclarationStrict(event: RawEvent): ValidationRe
     }
 
     const relayHint = tag[2]
-    if (relayHint !== undefined && relayHint !== '' && !RELAY_HINT_RE.test(relayHint)) {
+    if (relayHint !== undefined && relayHint !== '' && !matches(RELAY_HINT_RE, relayHint)) {
       errors.push(`Provider tag at index ${i} relay hint must be a websocket URL.`)
     }
   }

@@ -1,3 +1,4 @@
+import { isAuthenticBundle } from './authentic.js'
 import { verificationIssue } from './issues.js'
 import { verifyDeploymentBundle } from './bundle.js'
 import type { EventTemplate } from '../nip85/types.js'
@@ -23,10 +24,13 @@ export interface ProductionDeploymentVerification extends DeploymentBundleVerifi
 }
 
 function productionHardeningIssues(
-  bundle: SignedDeploymentBundle,
+  given: SignedDeploymentBundle,
+  policyApplied: boolean,
   options: VerifyProductionDeploymentOptions,
 ): VerificationIssue[] {
   const issues: VerificationIssue[] = []
+  // A bundle is fetched, and what arrives need not be an object
+  const bundle = (given !== null && typeof given === 'object' ? given : {}) as SignedDeploymentBundle
 
   if (options.requireBundleExpiry !== false && bundle.expiresAt === undefined) {
     issues.push(verificationIssue(
@@ -36,7 +40,8 @@ function productionHardeningIssues(
     ))
   }
 
-  if (options.requireSignedEvents !== false && bundle.policy.requireNostrSignature !== true) {
+  // The policy is read only where it was applied: from an authentic bundle
+  if (policyApplied && options.requireSignedEvents !== false && bundle.policy.requireNostrSignature !== true) {
     issues.push(verificationIssue(
       'policy.nostr_signature_not_required',
       'production verifier requires policy.requireNostrSignature = true',
@@ -60,7 +65,7 @@ export function verifyProductionDeployment(
   options: VerifyProductionDeploymentOptions = {},
 ): ProductionDeploymentVerification {
   const base = verifyDeploymentBundle(events, bundle, options)
-  const hardeningIssues = productionHardeningIssues(bundle, options)
+  const hardeningIssues = productionHardeningIssues(bundle, isAuthenticBundle(base.bundle), options)
   const issues = [
     ...(base.issues ?? []),
     ...hardeningIssues,

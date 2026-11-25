@@ -192,12 +192,15 @@ describe('an assertion whose created_at is not a Unix timestamp', () => {
     expect(codes(result)).toEqual(['assertion.created_at_invalid'])
   })
 
-  // NaN is a number, so it passes the signed-event shape check, and it signs
+  // NaN is a number, so it passes the signed-event shape check, and it signs.
+  // Its id is the id of a date of null, though: JSON has no form for NaN. So
+  // it is no date, and not what anybody signed either.
   it('rejects NaN on a signed event when the policy requires signatures', () => {
     const signedPolicy = createDeploymentPolicy(profile, { ...gate, requireNostrSignature: true })
     const event = signEvent({ ...dated(0), created_at: Number.NaN }, '55'.repeat(32))
 
-    expect(verifyDeploymentPolicy(event, signedPolicy, { now: NOW }).errors).toEqual([INVALID])
+    expect(verifyDeploymentPolicy(event, signedPolicy, { now: NOW }).errors)
+      .toEqual([INVALID, 'event[0] Nostr event signature is invalid'])
   })
 
   it('still reads a whole number of seconds, before 1970 included, as a date', () => {
