@@ -22,7 +22,9 @@ export function nowSeconds(): number {
  * A numeric string or a fraction compares as a number, and a caller who passes
  * one already gets a working check, so both are kept and returned as numbers.
  * A string is read as `Number()` reads it, which is how the comparisons read
- * it before, so hex and exponent notation are read as well.
+ * it before, so hex and exponent notation are read as well. The one exception
+ * is an empty or blank string: `Number('')` is 0, a time no caller means, so
+ * it is an error.
  */
 export function verificationTime(value: unknown): number | undefined {
   if (value === undefined || value === null) return nowSeconds()
