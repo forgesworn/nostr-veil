@@ -241,8 +241,9 @@ export function verifySignedDeploymentBundle(
 }
 
 /**
- * The result for a policy that was not applied. Nothing in the policy is read:
- * it is handed back as it was given, and no event is verified against it.
+ * The result for a policy that was not applied. Nothing in the policy is
+ * checked: it is handed back as it was given, with the profile it names, and
+ * no event is verified against it.
  */
 function policyNotApplied(bundle: unknown): DeploymentPolicyVerification {
   const policy: unknown = bundle !== null && typeof bundle === 'object' ? (bundle as { policy?: unknown }).policy : undefined

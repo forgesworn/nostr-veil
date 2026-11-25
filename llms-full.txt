@@ -860,8 +860,8 @@ or a number belongs), or a malformed bundle that is not authentic (not an
 object, or with anything at all for a policy), is rejected with an ordinary
 error, and no verifier throws on it. For an event or a bundle the error has an
 issue code, such as `nip85.syntax_invalid` or `bundle.id_invalid`. An
-admission presentation is denied with an error message: admission results
-carry no issue codes. None of this covers an authentic bundle whose own policy
+admission presentation is denied with an error message, which carries no
+issue code. None of this covers an authentic bundle whose own policy
 is malformed: the operator signed it, and a verifier can still throw on it.
 
 ```ts
@@ -895,10 +895,14 @@ For a bundle that is not authentic, every control that reports on the policy
 reads `not-checked` and the report's `profile`, `policyId` and `subject` are
 blank: the policy was not applied, and is not the operator's to be shown. For
 an assertion too malformed to read, the circle, proof and metric controls read
-`fail`. With no assertion at all, a control that checks each assertion reads
-`not-checked`. `bundle-publisher` and `bundle-freshness` pass only when the
-signature verifies too: the signer and the dates a bundle carries are claims
-until then.
+`fail`. With no assertion at all, a control that checks each assertion never
+reads `pass`: it reads `not-checked`, or `fail` where one of its checks failed
+even so, for example on a malformed setting in the policy, a circle manifest
+that is out of date, revoked or, with a `now` that cannot be compared, could not
+be dated, a federation profile given no events, or, for `event-signatures`, a
+policy that does not require Nostr signatures. `bundle-publisher` and
+`bundle-freshness` pass only when the signature verifies too: the signer and
+the dates a bundle carries are claims until then.
 
 #### `verifyProductionDeploymentReport(events, bundle, options) → ProductionDecisionReport`
 
