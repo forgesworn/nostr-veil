@@ -475,12 +475,26 @@ describe('a bundle that is not what it should be', () => {
     )).toThrow('a signed value cannot hold a number that is not finite')
   })
 
-  it('is reported without its policy being read when the verification time cannot be compared either', () => {
+  it('is reported without the report reading its policy when the verification time cannot be compared either', () => {
     for (const shape of [null, 'abc', 42, { circleManifests: 'abc' }, { circleManifests: [{}] }]) {
-      const forged = { ...bundle, policy: shape } as unknown as SignedDeploymentBundle
+      // A policy that is an object is watched. The verifier reads it to check
+      // the bundle's signature, so the watch covers the report alone.
+      const reads: string[] = []
+      const note = (key: string | symbol) => reads.push(String(key))
+      const watched = shape !== null && typeof shape === 'object'
+        ? new Proxy(shape, {
+          get: (target, key, receiver) => (note(key), Reflect.get(target, key, receiver)),
+          getOwnPropertyDescriptor: (target, key) => (note(key), Reflect.getOwnPropertyDescriptor(target, key)),
+          has: (target, key) => (note(key), Reflect.has(target, key)),
+          ownKeys: target => (note('(keys)'), Reflect.ownKeys(target)),
+        })
+        : shape
+      const forged = { ...bundle, policy: watched } as unknown as SignedDeploymentBundle
       const result = verifyProductionDeployment(signed, forged, { ...trusted, now: Number.NaN })
+      reads.length = 0
       const statuses = controlStatuses(result)
 
+      expect(reads, JSON.stringify(shape)).toEqual([])
       expect(result.decision, JSON.stringify(shape)).toBe('reject')
       expect(result.errors, JSON.stringify(shape)).toContain('now must be a Unix timestamp')
       expect(statuses['bundle-freshness'], JSON.stringify(shape)).toBe('fail')

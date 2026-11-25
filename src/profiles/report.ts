@@ -237,12 +237,23 @@ function productionControls(result: ProductionDeploymentVerification, issues: re
   // was supplied.
   const nowInvalid = codes.has('verification.now_invalid')
   const suppliedEvidenceIds = new Set(result.deployment.companionEvidence.evidence.map(evidence => evidence.id))
+  // Any window other than zero counts, well formed or not: a well-formed one
+  // could not be compared against the time, and a malformed one was not
+  // applied, so either way the evidence was not aged. The window is not
+  // converted to tell them apart, as converting an object that JSON can
+  // carry, such as {"toString":1}, throws.
   const evidenceAgeUnchecked = nowInvalid
-    && result.deployment.companionEvidence.requirements.some(requirement =>
-      (requirement.maxAgeSeconds ?? 0) > 0 && suppliedEvidenceIds.has(requirement.id))
-  // Read through record(): the policy of a bundle that is not authentic was
-  // not applied, is handed back as it was given, and need not be an object
-  const manifestExpiryUnchecked = nowInvalid && list(record(result.deployment.policy).circleManifests).length > 0
+    && result.deployment.companionEvidence.requirements.some(requirement => {
+      const window: unknown = requirement.maxAgeSeconds
+      return window !== undefined && window !== 0 && suppliedEvidenceIds.has(requirement.id)
+    })
+  // Only a policy that was applied is read. The policy of a bundle that is not
+  // authentic is handed back as it was given, and every control that reports
+  // on it reads not-checked below. An applied one is still read through
+  // record(), as a policy that arrives as JSON need not be an object.
+  const policyApplied = isAuthenticBundle(result.bundle)
+  const manifestExpiryUnchecked = nowInvalid && policyApplied
+    && list(record(result.deployment.policy).circleManifests).length > 0
   const companionEvidenceFailed = hasPrefix(codes, 'companion.')
   const companionEvidenceStatus: ProductionControlStatus = companionEvidenceFailed || evidenceAgeUnchecked
     ? 'fail'
@@ -389,7 +400,7 @@ function productionControls(result: ProductionDeploymentVerification, issues: re
 
   // The policy of a bundle that is not authentic was not applied, so nothing
   // it asks for was checked, and no control may say that it passed or failed
-  if (!isAuthenticBundle(result.bundle)) {
+  if (!policyApplied) {
     return Object.freeze(controls.map(item => POLICY_CONTROLS.has(item.id)
       ? control(item.id, item.label, 'not-checked', POLICY_NOT_APPLIED)
       : item))

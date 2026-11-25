@@ -243,6 +243,68 @@ describe('a verification time that cannot be compared', () => {
     expect(statusAt(Number.NaN, freshEvidence)).toBe('fail')
   })
 
+  // The verifier reports a requirement window that is not a number as
+  // malformed, and compares nothing against it. JSON can carry an object that
+  // cannot be converted to a number at all.
+  it('does not stop the report on a requirement window that cannot be converted', () => {
+    const window: unknown = JSON.parse('{"toString":1}')
+    const unconvertible = createSignedDeploymentBundle(
+      {
+        ...createDeploymentPolicy(profile, { ...gate, requireNostrSignature: true }),
+        companionEvidence: [{ id: 'check', maxAgeSeconds: window as number, required: false }],
+      },
+      { expiresAt: NOW + 600, id: 'unconvertible', issuedAt: NOW - 10, privateKey: OPERATOR_KEY },
+    )
+
+    for (const now of [NOW, Number.NaN]) {
+      for (const companionEvidence of [undefined, freshEvidence]) {
+        const label = `${now} ${companionEvidence === undefined ? 'without' : 'with'} evidence`
+        const result = verifyProductionDeployment(signedAssertion, unconvertible, {
+          companionEvidence,
+          now,
+          trustedPublishers: [unconvertible.signer],
+        })
+        expect(result.bundle.valid, label).toBe(now === NOW)
+        expect(result.issues.map(issue => issue.code), label).toContain('companion.invalid')
+
+        const controls = createProductionDecisionReport(result).controls
+        expect(controls.find(item => item.id === 'companion-evidence')?.status, label).toBe('fail')
+      }
+    }
+  })
+
+  // A malformed window was not applied, and no evidence was aged against a
+  // time that cannot be compared. The control reads the window from the
+  // requirement, not from the issue reported for it.
+  it('fails the evidence control for a malformed window under an unusable now, from the window alone', () => {
+    const statusFor = (window: unknown) => {
+      const bundle = createSignedDeploymentBundle(
+        {
+          ...createDeploymentPolicy(profile, { ...gate, requireNostrSignature: true }),
+          companionEvidence: [{ id: 'check', maxAgeSeconds: window as number, required: false }],
+        },
+        { expiresAt: NOW + 600, id: 'window', issuedAt: NOW - 10, privateKey: OPERATOR_KEY },
+      )
+      const result = verifyProductionDeployment(signedAssertion, bundle, {
+        companionEvidence: freshEvidence,
+        now: Number.NaN,
+        trustedPublishers: [bundle.signer],
+      })
+      const uncoded = { ...result, issues: result.issues.filter(issue => !issue.code.startsWith('companion.')) }
+      return { result, status: createProductionDecisionReport(uncoded).controls.find(item => item.id === 'companion-evidence')?.status }
+    }
+
+    for (const window of ['5', 'abc', null, true, -1, 1.5, [5], {}, JSON.parse('{"toString":1}')]) {
+      const label = JSON.stringify(window)
+      const { result, status } = statusFor(window)
+      expect(result.errors, label).toContain('companion evidence "check" maxAgeSeconds must be a non-negative integer')
+      expect(status, label).toBe('fail')
+    }
+    // A window of zero, or none, has no age to compare
+    expect(statusFor(0).status).toBe('pass')
+    expect(statusFor(undefined).status).toBe('pass')
+  })
+
   it('is reported once by a whole admission call, which denies', () => {
     const result = admission(Number.NaN)
 
