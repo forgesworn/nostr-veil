@@ -265,14 +265,19 @@ function productionControls(result: ProductionDeploymentVerification, issues: re
   const circlePolicyFailed = hasPrefix(codes, 'circle.')
   // A malformed threshold or window, or a malformed or unused allowance, means
   // the threshold or the freshness window was not applied as the policy meant
-  // it, so the control that reports them fails with it
+  // it, so the control that reports them fails with it. So does a now that
+  // cannot be compared, wherever an assertion was supplied, even one with no
+  // date that would have been compared, such as with the window off and no
+  // expiration tag. With no assertion there was nothing to compare, and the
+  // control reads as at a usable time.
+  const assertionDateUnchecked = nowInvalid && result.deployment.profileVerification.events.length > 0
   const proofOrFreshnessFailed = hasPrefix(codes, 'proof.')
     || hasPrefix(codes, 'federation.')
     || hasPrefix(codes, 'assertion.')
     || codes.has('policy.min_distinct_signers_invalid')
     || codes.has('policy.max_age_seconds_invalid')
     || codes.has('policy.max_future_seconds_invalid')
-    || codes.has('verification.now_invalid')
+    || assertionDateUnchecked
   // A bound that is not a number was not applied, so its metric was not checked
   const metricPolicyFailed = hasPrefix(codes, 'metric.') || codes.has('policy.metric_policy_invalid')
 

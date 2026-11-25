@@ -243,6 +243,30 @@ describe('a verification time that cannot be compared', () => {
     expect(statusAt(Number.NaN, freshEvidence)).toBe('fail')
   })
 
+  // With no assertion there was no date to compare, so the proof control reads
+  // as it does at any other time. The time is still reported, and the bundle's
+  // own dates still could not be compared.
+  it('does not fail the proof control when no assertion was supplied', () => {
+    const plainBundle = createSignedDeploymentBundle(
+      createDeploymentPolicy(profile, { ...gate, requireNostrSignature: true }),
+      { expiresAt: NOW + 600, id: 'plain', issuedAt: NOW - 10, privateKey: OPERATOR_KEY },
+    )
+    const reportAt = (now: number, events: EventTemplate[]) => {
+      const result = verifyProductionDeployment(events, plainBundle, { now, trustedPublishers: [plainBundle.signer] })
+      const controls = createProductionDecisionReport(result).controls
+      return { result, status: (id: string) => controls.find(item => item.id === id)?.status }
+    }
+
+    const none = reportAt(Number.NaN, [])
+    expect(none.result.decision).toBe('reject')
+    expect(none.result.errors).toContain(TIME)
+    expect(none.status('bundle-freshness')).toBe('fail')
+    expect(none.status('proof-threshold')).toBe('not-checked')
+    expect(reportAt(NOW, []).status('proof-threshold')).toBe('not-checked')
+    // Once there is one, its date is what could not be compared
+    expect(reportAt(Number.NaN, [signedAssertion]).status('proof-threshold')).toBe('fail')
+  })
+
   // The verifier reports a requirement window that is not a number as
   // malformed, and compares nothing against it. JSON can carry an object that
   // cannot be converted to a number at all.
