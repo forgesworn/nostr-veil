@@ -475,6 +475,33 @@ describe('a bundle that is not what it should be', () => {
     )).toThrow('a signed value cannot hold a number that is not finite')
   })
 
+  it('is reported without the report reading its policy when the verification time cannot be compared either', () => {
+    for (const shape of [null, 'abc', 42, { circleManifests: 'abc' }, { circleManifests: [{}] }]) {
+      // A policy that is an object is watched. The verifier reads it to check
+      // the bundle's signature, so the watch covers the report alone.
+      const reads: string[] = []
+      const note = (key: string | symbol) => reads.push(String(key))
+      const watched = shape !== null && typeof shape === 'object'
+        ? new Proxy(shape, {
+          get: (target, key, receiver) => (note(key), Reflect.get(target, key, receiver)),
+          getOwnPropertyDescriptor: (target, key) => (note(key), Reflect.getOwnPropertyDescriptor(target, key)),
+          has: (target, key) => (note(key), Reflect.has(target, key)),
+          ownKeys: target => (note('(keys)'), Reflect.ownKeys(target)),
+        })
+        : shape
+      const forged = { ...bundle, policy: watched } as unknown as SignedDeploymentBundle
+      const result = verifyProductionDeployment(signed, forged, { ...trusted, now: Number.NaN })
+      reads.length = 0
+      const statuses = controlStatuses(result)
+
+      expect(reads, JSON.stringify(shape)).toEqual([])
+      expect(result.decision, JSON.stringify(shape)).toBe('reject')
+      expect(result.errors, JSON.stringify(shape)).toContain('now must be a Unix timestamp')
+      expect(statuses['bundle-freshness'], JSON.stringify(shape)).toBe('fail')
+      for (const id of POLICY_CONTROLS) expect(statuses[id], `${id} ${JSON.stringify(shape)}`).toBe('not-checked')
+    }
+  })
+
   it('still has its policy applied when it is authentic but out of date', () => {
     const result = verifyProductionDeployment(signed, bundle, { ...trusted, now: NOW + 3600 })
     const statuses = controlStatuses(result)
@@ -575,7 +602,7 @@ describe('input that was let through before', () => {
 
   // Compared as it stood, a list of one number read as that number, and any
   // other list or object as neither stale nor fresh, which passed
-  it('is reported as missing when created_at is a list or an object', () => {
+  it('is turned away when created_at is a list or an object', () => {
     const unsigned = createDeploymentPolicy(profile, {
       acceptedCircleIds: [circle.circleId],
       expectedSubject: subject,
@@ -587,7 +614,25 @@ describe('input that was let through before', () => {
       const result = verifyDeploymentPolicy({ ...assertion, created_at: createdAt } as unknown as EventTemplate, unsigned, { now: NOW })
 
       expect(result.decision, JSON.stringify(createdAt)).toBe('reject')
-      expect(result.errors, JSON.stringify(createdAt)).toEqual(['event[0] missing created_at for freshness check'])
+      expect(result.errors, JSON.stringify(createdAt)).toEqual(['event[0] assertion created_at is not a Unix timestamp'])
+    }
+  })
+
+  // Read from JSON, `1e999` is infinity: later than any date, so never stale
+  it('is turned away when an unsigned event is dated at a number that is not finite', () => {
+    const unsigned = createDeploymentPolicy(profile, {
+      acceptedCircleIds: [circle.circleId],
+      expectedSubject: subject,
+      minDistinctSigners: 1,
+    })
+    const text = JSON.stringify({ ...assertion, created_at: 0 })
+
+    for (const date of ['1e999', '-1e999']) {
+      const event = JSON.parse(text.replace('"created_at":0', `"created_at":${date}`)) as EventTemplate
+      const result = verifyDeploymentPolicy(event, unsigned, { now: NOW })
+
+      expect(result.decision, date).toBe('reject')
+      expect(result.errors, date).toEqual(['event[0] assertion created_at is not a Unix timestamp'])
     }
   })
 

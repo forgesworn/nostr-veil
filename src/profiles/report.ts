@@ -201,12 +201,14 @@ function productionControls(result: ProductionDeploymentVerification, issues: re
   const codes = issueCodeSet(issues)
   const signatureChecked = result.deployment.nostrSignatures.checked
   const bundleHasExpiry = record(result.bundle.bundle).expiresAt !== undefined
+  // With a now that cannot be compared, no expiry was checked at all
   const bundleFreshnessFailed = hasAny(codes, [
     'bundle.expired',
     'bundle.expires_at_invalid',
     'bundle.expiry_required',
     'bundle.issued_at_future',
     'bundle.issued_at_invalid',
+    'verification.now_invalid',
   ])
   // The policy code comes first. Naming publishers forces the signature check,
   // so a hand-built policy can have its signatures checked without requiring
@@ -228,16 +230,56 @@ function productionControls(result: ProductionDeploymentVerification, issues: re
     : (bundleHasExpiry ? 'pass' : 'not-checked')
   const companionEvidenceRequired = result.deployment.companionEvidence.requirements.some(requirement => requirement.required !== false)
   const companionEvidenceChecked = result.deployment.companionEvidence.evidence.length > 0
-  const companionEvidenceStatus: ProductionControlStatus = hasPrefix(codes, 'companion.')
+  // With a now that cannot be compared, no evidence age and no manifest expiry
+  // was compared. A control that depends on one of them cannot read pass. One
+  // that compares nothing against the time is left as it was: evidence has an
+  // age to compare only where its requirement sets a window and the evidence
+  // was supplied.
+  const nowInvalid = codes.has('verification.now_invalid')
+  const suppliedEvidenceIds = new Set(result.deployment.companionEvidence.evidence.map(evidence => evidence.id))
+  // Any window other than zero counts, well formed or not: a well-formed one
+  // could not be compared against the time, and a malformed one was not
+  // applied, so either way the evidence was not aged. The window is not
+  // converted to tell them apart, as converting an object that JSON can
+  // carry, such as {"toString":1}, throws.
+  const evidenceAgeUnchecked = nowInvalid
+    && result.deployment.companionEvidence.requirements.some(requirement => {
+      const window: unknown = requirement.maxAgeSeconds
+      return window !== undefined && window !== 0 && suppliedEvidenceIds.has(requirement.id)
+    })
+  // Only a policy that was applied is read. The policy of a bundle that is not
+  // authentic is handed back as it was given, and every control that reports
+  // on it reads not-checked below. An applied one is still read through
+  // record(), as a policy that arrives as JSON need not be an object.
+  const policyApplied = isAuthenticBundle(result.bundle)
+  const manifestExpiryUnchecked = nowInvalid && policyApplied
+    && list(record(result.deployment.policy).circleManifests).length > 0
+  const companionEvidenceFailed = hasPrefix(codes, 'companion.')
+  const companionEvidenceStatus: ProductionControlStatus = companionEvidenceFailed || evidenceAgeUnchecked
     ? 'fail'
     : (companionEvidenceRequired || companionEvidenceChecked ? 'pass' : 'not-checked')
   // An assertion too malformed to read had nothing in it for these checks to
   // read, so none of them can be said to have passed
   const unreadable = result.deployment.profileVerification.events
     .some(item => !isFullyReadable(item.event))
-  const circleFailed = hasPrefix(codes, 'circle.')
-  const proofFailed = hasPrefix(codes, 'proof.') || hasPrefix(codes, 'federation.') || hasPrefix(codes, 'assertion.')
-  const metricFailed = hasPrefix(codes, 'metric.')
+  const circlePolicyFailed = hasPrefix(codes, 'circle.')
+  // A malformed threshold or window, or a malformed or unused allowance, means
+  // the threshold or the freshness window was not applied as the policy meant
+  // it, so the control that reports them fails with it. So does a now that
+  // cannot be compared, wherever an assertion was supplied, even one with no
+  // date that would have been compared, such as with the window off and no
+  // expiration tag. With no assertion there was nothing to compare, and the
+  // control reads as at a usable time.
+  const assertionDateUnchecked = nowInvalid && result.deployment.profileVerification.events.length > 0
+  const proofOrFreshnessFailed = hasPrefix(codes, 'proof.')
+    || hasPrefix(codes, 'federation.')
+    || hasPrefix(codes, 'assertion.')
+    || codes.has('policy.min_distinct_signers_invalid')
+    || codes.has('policy.max_age_seconds_invalid')
+    || codes.has('policy.max_future_seconds_invalid')
+    || assertionDateUnchecked
+  // A bound that is not a number was not applied, so its metric was not checked
+  const metricPolicyFailed = hasPrefix(codes, 'metric.') || codes.has('policy.metric_policy_invalid')
 
   const controls = [
     control(
@@ -296,12 +338,14 @@ function productionControls(result: ProductionDeploymentVerification, issues: re
     control(
       'circle-policy',
       'Accepted circle policy',
-      circleFailed || unreadable ? 'fail' : 'pass',
-      circleFailed
+      circlePolicyFailed || manifestExpiryUnchecked || unreadable ? 'fail' : 'pass',
+      circlePolicyFailed
         ? 'The assertion used a circle that is missing, malformed, expired, revoked, superseded, unaccepted, or not allowed for this profile.'
-        : unreadable
-          ? ASSERTION_UNREADABLE
-          : 'The assertion was produced by a circle accepted by the deployment policy.',
+        : manifestExpiryUnchecked
+          ? 'The verification time cannot be compared, so no circle manifest was checked for expiry.'
+          : unreadable
+            ? ASSERTION_UNREADABLE
+            : 'The assertion was produced by a circle accepted by the deployment policy.',
     ),
     control(
       'profile-subject',
@@ -328,8 +372,8 @@ function productionControls(result: ProductionDeploymentVerification, issues: re
     control(
       'proof-threshold',
       'Proof and threshold',
-      proofFailed || unreadable ? 'fail' : 'pass',
-      proofFailed
+      proofOrFreshnessFailed || unreadable ? 'fail' : 'pass',
+      proofOrFreshnessFailed
         ? 'The proof, federation, threshold, or assertion freshness check failed.'
         : unreadable
           ? ASSERTION_UNREADABLE
@@ -338,9 +382,9 @@ function productionControls(result: ProductionDeploymentVerification, issues: re
     control(
       'metric-policy',
       'Metric policy',
-      metricFailed || unreadable ? 'fail' : 'pass',
-      metricFailed
-        ? 'At least one metric is missing, unexpected, non-numeric, non-integer, or outside the deployment bounds.'
+      metricPolicyFailed || unreadable ? 'fail' : 'pass',
+      metricPolicyFailed
+        ? 'At least one metric is missing, unexpected, non-numeric, non-integer, or outside the deployment bounds, or a bound in the policy is malformed.'
         : unreadable
           ? ASSERTION_UNREADABLE
           : 'The published metrics satisfy the deployment metric policy.',
@@ -353,13 +397,15 @@ function productionControls(result: ProductionDeploymentVerification, issues: re
         ? 'Configured companion evidence passed for the same subject inside the deployment freshness window.'
         : companionEvidenceStatus === 'not-checked'
           ? 'This deployment policy did not require companion evidence checks outside the nostr-veil proof.'
-          : 'A required companion evidence check is missing, failed, stale, malformed, or for the wrong subject.',
+          : companionEvidenceFailed
+            ? 'A required companion evidence check is missing, failed, stale, malformed, or for the wrong subject.'
+            : 'The verification time cannot be compared, so no companion evidence was checked for age.',
     ),
   ]
 
   // The policy of a bundle that is not authentic was not applied, so nothing
   // it asks for was checked, and no control may say that it passed or failed
-  if (!isAuthenticBundle(result.bundle)) {
+  if (!policyApplied) {
     return Object.freeze(controls.map(item => POLICY_CONTROLS.has(item.id)
       ? control(item.id, item.label, 'not-checked', POLICY_NOT_APPLIED)
       : item))

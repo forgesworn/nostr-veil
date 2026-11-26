@@ -21,7 +21,9 @@ should include:
   circle has a designated publisher. The ring signatures are public and carry
   no time, so without the list anyone can republish a subset of them, or an old
   proof under a new timestamp, with their own key;
-- the freshness window, which reads the `created_at` the publisher set;
+- the freshness window, which reads the `created_at` the publisher set, and how
+  far ahead of the verifier's clock that may be (`maxFutureSeconds`). An event
+  dated ahead would otherwise stay fresh until that date plus the window;
 - the aggregate function, which the built-in profiles pin (`median`, or `sum`
   for a tally) and a policy can replace with `aggregate`;
 - metric bounds and required metrics, which apply to the published aggregate;

@@ -1,4 +1,8 @@
+import { NOW_INVALID } from './time.js'
+
 export type VerificationIssueCode =
+  | 'assertion.created_at_future'
+  | 'assertion.created_at_invalid'
   | 'assertion.created_at_missing'
   | 'assertion.stale'
   | 'bundle.expired'
@@ -43,6 +47,10 @@ export type VerificationIssueCode =
   | 'metric.unknown'
   | 'nip85.syntax_invalid'
   | 'policy.accepted_publishers_invalid'
+  | 'policy.max_age_seconds_invalid'
+  | 'policy.max_future_seconds_invalid'
+  | 'policy.metric_policy_invalid'
+  | 'policy.min_distinct_signers_invalid'
   | 'policy.nostr_signature_not_required'
   | 'profile.event_count_invalid'
   | 'profile.kind_mismatch'
@@ -54,6 +62,7 @@ export type VerificationIssueCode =
   | 'proof.invalid'
   | 'proof.threshold_not_met'
   | 'verification.failed'
+  | 'verification.now_invalid'
 
 export interface VerificationIssue {
   code: VerificationIssueCode
@@ -85,6 +94,14 @@ function explanation(
 }
 
 const VERIFICATION_ISSUE_EXPLANATION_INPUTS = {
+  'assertion.created_at_future': explanation(
+    'The assertion is dated further ahead of the verifier clock than the deployment allows.',
+    'Reject the assertion. Only its signer sets created_at, and an event dated ahead stays inside the freshness window until that date plus the window. If the verifier clock is right and the publisher is known to run ahead, raise maxFutureSeconds in the deployment policy.',
+  ),
+  'assertion.created_at_invalid': explanation(
+    'The assertion created_at is not a whole number of seconds.',
+    'Reject the assertion. A value that is not a Unix timestamp cannot be placed inside the freshness window, so it must not pass as fresh.',
+  ),
   'assertion.created_at_missing': explanation(
     'The assertion has no Nostr created_at timestamp.',
     'Fetch or publish a complete signed Nostr event with created_at before applying freshness policy.',
@@ -217,7 +234,7 @@ const VERIFICATION_ISSUE_EXPLANATION_INPUTS = {
   ),
   'companion.invalid': explanation(
     'A companion evidence record or requirement is malformed.',
-    'Fix the evidence id, status, subject, and timestamp before using it as deployment evidence.',
+    'Fix the evidence id, status, subject, and timestamp before using it as deployment evidence. Where the message names maxAgeSeconds, the requirement in the deployment policy is malformed and the evidence is not at fault: correct the requirement and reissue the bundle.',
     'operator-action',
   ),
   'companion.missing': explanation(
@@ -293,6 +310,26 @@ const VERIFICATION_ISSUE_EXPLANATION_INPUTS = {
     'Re-issue the policy with acceptedPublishers as one or more 64-character lowercase hex pubkeys. Every assertion is rejected until then.',
     'operator-action',
   ),
+  'policy.max_age_seconds_invalid': explanation(
+    'maxAgeSeconds is not a non-negative integer.',
+    'Correct maxAgeSeconds where it is set: in the verifier option, the profile, or the deployment policy, reissuing its bundle. A malformed window cannot be applied, so every assertion is rejected until then. Use 0 only to switch the freshness window off on purpose.',
+    'operator-action',
+  ),
+  'policy.max_future_seconds_invalid': explanation(
+    'maxFutureSeconds is not a non-negative integer, or is set while the freshness window is off.',
+    'Correct maxFutureSeconds where it is set: in the verifier option, or in the deployment policy, reissuing its bundle. With maxAgeSeconds 0 no date is checked, so leave maxFutureSeconds out or give the policy a window. Every assertion is rejected until then.',
+    'operator-action',
+  ),
+  'policy.metric_policy_invalid': explanation(
+    'A metric bound in the deployment policy is not a finite number, or its minimum is above its maximum.',
+    'Correct the min and max of that entry in metricPolicies and reissue the bundle. A bound that is not a number cannot be applied, so every assertion is rejected until then.',
+    'operator-action',
+  ),
+  'policy.min_distinct_signers_invalid': explanation(
+    'minDistinctSigners is not a positive integer.',
+    'Correct minDistinctSigners where it is set: in the verifier option, the profile, or the deployment policy, reissuing its bundle. A malformed threshold cannot be applied, so every assertion is rejected until then.',
+    'operator-action',
+  ),
   'policy.nostr_signature_not_required': explanation(
     'The production bundle policy would allow unsigned relay events.',
     'Set requireNostrSignature: true in createDeploymentPolicy() for production relay-fetched assertions.',
@@ -342,6 +379,11 @@ const VERIFICATION_ISSUE_EXPLANATION_INPUTS = {
     'Reject by default, inspect result.errors, and add a more specific issue mapping if this becomes a supported failure mode.',
     'manual-review',
   ),
+  'verification.now_invalid': explanation(
+    'The verifier was given a now that is not a Unix timestamp.',
+    'Pass now as Unix seconds, or leave it out to use the current time. Against a value such as NaN every time comparison is false, so nothing would expire or go stale; no time check runs and everything is rejected until it is corrected.',
+    'operator-action',
+  ),
 } satisfies Record<VerificationIssueCode, VerificationIssueExplanationInput>
 
 export const VERIFICATION_ISSUE_EXPLANATIONS = Object.freeze(
@@ -377,6 +419,30 @@ function pathFromMessage(message: string): string | undefined {
 
 function codeFromError(message: string): VerificationIssueCode {
   const lower = message.toLowerCase()
+
+  // Matched against the whole message, ahead of the fragment rules below. The
+  // syntax, proof and metric messages quote tag names taken from the event,
+  // and an event must not be able to name its way into any of these codes.
+  if (/^event\[\d+\] assertion created_at is in the future$/u.test(message)) return 'assertion.created_at_future'
+  if (/^event\[\d+\] assertion created_at is not a Unix timestamp$/u.test(message)) {
+    return 'assertion.created_at_invalid'
+  }
+  if (message === NOW_INVALID) return 'verification.now_invalid'
+  if (message === 'minDistinctSigners must be a positive integer') return 'policy.min_distinct_signers_invalid'
+  // The metric name here comes from the policy. An event's own messages open with event[n].
+  if (
+    message.startsWith('metricPolicies.')
+    && (message.endsWith(' must be a finite number') || message.endsWith('.min must be <= max'))
+  ) {
+    return 'policy.metric_policy_invalid'
+  }
+  if (message === 'maxAgeSeconds must be a non-negative integer') return 'policy.max_age_seconds_invalid'
+  if (
+    message === 'maxFutureSeconds must be a non-negative integer'
+    || message === 'maxFutureSeconds is set while maxAgeSeconds turns the freshness window off'
+  ) {
+    return 'policy.max_future_seconds_invalid'
+  }
 
   if (lower.includes('production verifier requires policy.requirenostrsignature')) {
     return 'policy.nostr_signature_not_required'

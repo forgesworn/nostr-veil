@@ -98,7 +98,25 @@ export interface VerifyUseCaseProfileOptions {
   contributionBounds?: ContributionBounds
   expectedSubject?: string
   expectedSubjectTagValue?: string
+  /**
+   * Freshness window in seconds, in place of the profile's. 0 switches the
+   * window off. A value that is not a non-negative integer is an error: read
+   * as it stands, a word or a negative number would switch the window off too.
+   */
   maxAgeSeconds?: number
+  /**
+   * How far ahead of `now` an assertion's `created_at` may be, in seconds,
+   * before it is rejected. It is the upper end of the freshness window, so
+   * setting it while `maxAgeSeconds` is 0 is an error. Only the signer sets
+   * `created_at`, and an event dated ahead stays inside the window until that
+   * date plus the window. Default: `DEFAULT_MAX_FUTURE_SECONDS`.
+   */
+  maxFutureSeconds?: number
+  /**
+   * Distinct signers required, in place of the profile's. A value that is not
+   * a positive integer is an error: read as it stands, a word or 0 would let a
+   * single signer through.
+   */
   minDistinctSigners?: number
   now?: number
   requireKnownCircle?: boolean

@@ -6,6 +6,7 @@ import { verifyProof } from '../proof/verify.js'
 import { isUnixSecondsTagValue } from '../nip85/tags.js'
 import { subjectMatchesAnyFormat } from './canonical.js'
 import { issuesFromErrors } from './issues.js'
+import { NOW_INVALID, verificationTime } from './time.js'
 import type { EventTemplate } from '../nip85/types.js'
 import type { ContributionBound, ContributionBounds } from '../proof/types.js'
 import type {
@@ -15,8 +16,88 @@ import type {
   VerifyUseCaseProfileOptions,
 } from './types.js'
 
-function nowSeconds(): number {
-  return Math.floor(Date.now() / 1000)
+/**
+ * How far ahead of the verifier's clock an assertion may be dated, in seconds,
+ * when the caller sets no `maxFutureSeconds`. Enough for ordinary clock drift,
+ * and short beside the 300-second window the built-in profiles use.
+ */
+export const DEFAULT_MAX_FUTURE_SECONDS = 60
+
+/**
+ * The signer threshold: the caller's option, or else the profile's.
+ * `signers < threshold` is false for a word or an object, and nothing is below
+ * zero, so a malformed value read as it stands would let a single signer
+ * through. It is reported instead, and undefined comes back so that no count
+ * is compared against it. The rule is the one `createDeploymentPolicy` and the
+ * profile definition apply: a positive integer. Only an absent option is
+ * unset, and the profile is checked too, because the one inside a bundle
+ * arrives as JSON.
+ */
+function minDistinctSignersFrom(
+  profile: UseCaseProfile,
+  options: VerifyUseCaseProfileOptions,
+  errors: string[],
+): number | undefined {
+  const value: unknown = options.minDistinctSigners === undefined
+    ? profile.minDistinctSigners
+    : options.minDistinctSigners
+  if (typeof value !== 'number' || !Number.isSafeInteger(value) || value <= 0) {
+    errors.push('minDistinctSigners must be a positive integer')
+    return undefined
+  }
+  return value
+}
+
+/**
+ * The freshness window in seconds: the caller's option, or else the profile's.
+ * `maxAgeSeconds > 0` is false for a word, an object or a negative number, so
+ * a malformed value read as it stands would switch the window off, and the
+ * future bound inside it, without a word. It is reported instead, and
+ * undefined comes back so that no date is compared against it. Only an absent
+ * option is unset: null is what NaN becomes in JSON. The profile is checked
+ * too, because the one inside a bundle arrives as JSON.
+ */
+function maxAgeSecondsFrom(
+  profile: UseCaseProfile,
+  options: VerifyUseCaseProfileOptions,
+  errors: string[],
+): number | undefined {
+  const value: unknown = options.maxAgeSeconds === undefined ? profile.maxAgeSeconds : options.maxAgeSeconds
+  if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < 0) {
+    errors.push('maxAgeSeconds must be a non-negative integer')
+    return undefined
+  }
+  return value
+}
+
+/**
+ * The allowance for a `created_at` ahead of `now`. A value that is not a
+ * non-negative integer is an error: compared as it stands, a string or NaN
+ * would make the test false and take the bound away. It is reported once for
+ * the run and undefined comes back, so that no date is compared against it and
+ * no event is called future-dated for a fault in the policy. That includes
+ * null, which is what NaN becomes in JSON; only an absent value is unset.
+ *
+ * The allowance is the upper end of the freshness window. With the window off
+ * no date is checked, so a value set beside it would be read and then dropped.
+ * That is an error too. A malformed window has already been reported and is
+ * not reported again here.
+ */
+function maxFutureSecondsFrom(
+  options: VerifyUseCaseProfileOptions,
+  maxAgeSeconds: number | undefined,
+  errors: string[],
+): number | undefined {
+  const value: unknown = options.maxFutureSeconds
+  if (value === undefined) return DEFAULT_MAX_FUTURE_SECONDS
+  if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < 0) {
+    errors.push('maxFutureSeconds must be a non-negative integer')
+    return undefined
+  }
+  if (maxAgeSeconds === 0) {
+    errors.push('maxFutureSeconds is set while maxAgeSeconds turns the freshness window off')
+  }
+  return value
 }
 
 function tagValues(event: EventTemplate, name: string): string[] {
@@ -85,6 +166,10 @@ function verifyEvent(
   index: number,
   options: VerifyUseCaseProfileOptions,
   acceptedCircles: Set<string> | undefined,
+  minDistinctSigners: number | undefined,
+  now: number | undefined,
+  maxAgeSeconds: number | undefined,
+  maxFutureSeconds: number | undefined,
   errors: string[],
 ): VerifiedProfileEvent {
   const prefix = `event[${index}]`
@@ -130,28 +215,43 @@ function verifyEvent(
     errors.push(...proof.errors.map(error => `${prefix} proof: ${error}`))
   }
 
-  const minDistinctSigners = options.minDistinctSigners ?? profile.minDistinctSigners
-  if (profile.federation === undefined && proof.distinctSigners < minDistinctSigners) {
+  // Undefined when the threshold is malformed, which is reported once for the run
+  if (
+    profile.federation === undefined
+    && minDistinctSigners !== undefined
+    && proof.distinctSigners < minDistinctSigners
+  ) {
     errors.push(`${prefix} has fewer than ${minDistinctSigners} distinct signers`)
   }
 
-  const maxAgeSeconds = options.maxAgeSeconds ?? profile.maxAgeSeconds
-  if (maxAgeSeconds > 0) {
-    // A created_at that is an object is no date. Comparing it would convert it
-    // first, which throws on some objects, so it is reported as missing.
+  // The window and the allowance are undefined when malformed, and now is
+  // undefined when it cannot be compared. Each is reported once for the run,
+  // and nothing is compared against any of them.
+  if (maxAgeSeconds !== undefined && maxAgeSeconds > 0) {
     const createdAt: unknown = event.created_at
-    if (createdAt === undefined || (typeof createdAt === 'object' && createdAt !== null)) {
+    if (createdAt === undefined) {
       errors.push(`${prefix} missing created_at for freshness check`)
-    } else if ((createdAt as number) < (options.now ?? nowSeconds()) - maxAgeSeconds) {
+    } else if (typeof createdAt !== 'number' || !Number.isSafeInteger(createdAt)) {
+      // Compared as it stands, a word or NaN is neither older than the window
+      // nor ahead of it, so the assertion would pass both ends and never go
+      // stale, and an object or a deeply nested list would be converted first,
+      // which can throw. An event that arrives as JSON can carry anything here.
+      errors.push(`${prefix} assertion created_at is not a Unix timestamp`)
+    } else if (now !== undefined && createdAt < now - maxAgeSeconds) {
       errors.push(`${prefix} assertion is outside the accepted freshness window`)
+    } else if (now !== undefined && maxFutureSeconds !== undefined && createdAt - maxFutureSeconds > now) {
+      // Only the signer sets created_at, and an event dated ahead stays inside
+      // the window until that date plus the window. Without this bound the
+      // publisher chooses how long an assertion counts as fresh.
+      errors.push(`${prefix} assertion created_at is in the future`)
     }
   }
 
   // NIP-40: the publisher declared the assertion dead from this time. Many
   // relays and caches still serve expired events, so check it here too.
   const expiration = event.tags.find(tag => tag[0] === 'expiration')?.[1]
-  if (expiration !== undefined && isUnixSecondsTagValue(expiration)
-    && Number(expiration) <= (options.now ?? nowSeconds())) {
+  if (now !== undefined && expiration !== undefined && isUnixSecondsTagValue(expiration)
+    && Number(expiration) <= now) {
     errors.push(`${prefix} assertion has expired (NIP-40 expiration ${expiration})`)
   }
 
@@ -207,9 +307,25 @@ export function verifyUseCaseProfile(
     }
   }
 
-  const verifiedEvents = eventList.map((event, index) =>
-    verifyEvent(profile, event, index, options, acceptedCircles, errors),
-  )
+  // Undefined when the caller's now cannot be compared. Then no date is
+  // compared against it, here or for NIP-40 expiry, and the run fails for that.
+  const now = verificationTime(options.now)
+  if (now === undefined) errors.push(NOW_INVALID)
+  const minDistinctSigners = minDistinctSignersFrom(profile, options, errors)
+  const maxAgeSeconds = maxAgeSecondsFrom(profile, options, errors)
+  const maxFutureSeconds = maxFutureSecondsFrom(options, maxAgeSeconds, errors)
+  const verifiedEvents = eventList.map((event, index) => verifyEvent(
+    profile,
+    event,
+    index,
+    options,
+    acceptedCircles,
+    minDistinctSigners,
+    now,
+    maxAgeSeconds,
+    maxFutureSeconds,
+    errors,
+  ))
 
   const federation = profile.federation === undefined
     ? undefined
@@ -218,8 +334,7 @@ export function verifyUseCaseProfile(
     if (!federation.valid) {
       errors.push(...federation.errors.map(error => `federation: ${error}`))
     }
-    const minDistinctSigners = options.minDistinctSigners ?? profile.minDistinctSigners
-    if (federation.distinctSigners < minDistinctSigners) {
+    if (minDistinctSigners !== undefined && federation.distinctSigners < minDistinctSigners) {
       errors.push(`federation has fewer than ${minDistinctSigners} distinct signers`)
     }
   }

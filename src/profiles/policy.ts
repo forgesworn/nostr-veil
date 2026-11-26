@@ -2,6 +2,7 @@ import { verifySignedEvent } from '../signing.js'
 import { readableEvent } from '../nip85/shape.js'
 import { issuesFromErrors } from './issues.js'
 import { resolveCircleManifests } from './manifest.js'
+import { NOW_INVALID, verificationTime, withoutRepeatedTimeError } from './time.js'
 import { verifyUseCaseProfile } from './verify.js'
 import { PUBLISHER_TAGS } from '../nip85/tags.js'
 import { isAggregateTagValue } from '../proof/aggregate.js'
@@ -97,6 +98,15 @@ export interface CreateDeploymentPolicyOptions {
   expectedSubjectTagValue?: string
   id?: string
   maxAgeSeconds?: number
+  /**
+   * How far ahead of the verifier's clock an assertion's `created_at` may be,
+   * in seconds, before it is rejected. Only the signer sets `created_at`, and
+   * an event dated ahead stays inside the freshness window until that date
+   * plus the window. Zero allows no skew. It is the upper end of the freshness
+   * window, so setting it while `maxAgeSeconds` is 0 throws. Default:
+   * `DEFAULT_MAX_FUTURE_SECONDS`.
+   */
+  maxFutureSeconds?: number
   metricPolicies?: Readonly<Record<string, DeploymentMetricPolicy>>
   minDistinctSigners?: number
   /**
@@ -124,6 +134,8 @@ export interface UseCaseDeploymentPolicy {
   expectedSubjectTagValue?: string
   id: string
   maxAgeSeconds: number
+  /** Present only when the deployment sets its own allowance for a `created_at` ahead of the verifier's clock. */
+  maxFutureSeconds?: number
   metricPolicies: Readonly<Record<string, DeploymentMetricPolicy>>
   minDistinctSigners: number
   profile: UseCaseProfile
@@ -167,22 +179,30 @@ function normaliseEvents(events: EventTemplate | readonly EventTemplate[]): Even
   return Array.isArray(events) ? [...events] : [events as EventTemplate]
 }
 
-function assertFinite(value: number | undefined, label: string): void {
-  if (value !== undefined && !Number.isFinite(value)) {
-    throw new Error(`${label} must be a finite number`)
+/**
+ * Problems with the bounds of one metric policy. Used when a policy is created
+ * and again when one is verified, because a policy inside a signed bundle
+ * arrives as JSON and nothing has checked its shape. `value < min` is false
+ * for a word, an object or null, so a malformed bound compared as it stands
+ * would let any value through the gate it was written for.
+ */
+function metricPolicyProblems(name: string, policy: DeploymentMetricPolicy): string[] {
+  const problems: string[] = []
+  const min: unknown = policy.min
+  const max: unknown = policy.max
+  const minFinite = typeof min === 'number' && Number.isFinite(min)
+  const maxFinite = typeof max === 'number' && Number.isFinite(max)
+  if (min !== undefined && !minFinite) problems.push(`metricPolicies.${name}.min must be a finite number`)
+  if (max !== undefined && !maxFinite) problems.push(`metricPolicies.${name}.max must be a finite number`)
+  if (minFinite && maxFinite && (min as number) > (max as number)) {
+    problems.push(`metricPolicies.${name}.min must be <= max`)
   }
-}
-
-function nowSeconds(): number {
-  return Math.floor(Date.now() / 1000)
+  return problems
 }
 
 function assertMetricPolicy(name: string, policy: DeploymentMetricPolicy): void {
-  assertFinite(policy.min, `metricPolicies.${name}.min`)
-  assertFinite(policy.max, `metricPolicies.${name}.max`)
-  if (policy.min !== undefined && policy.max !== undefined && policy.min > policy.max) {
-    throw new Error(`metricPolicies.${name}.min must be <= max`)
-  }
+  const problems = metricPolicyProblems(name, policy)
+  if (problems.length > 0) throw new Error(problems[0])
 }
 
 function cloneMetricPolicies(
@@ -230,11 +250,14 @@ function assertEvidenceRequirement(requirement: CompanionEvidenceRequirement, in
     throw new Error(`companionEvidence[${index}].label must be non-empty`)
   }
 
+  // The check above reads a null window as none, and so does this: a null is
+  // not stored, because the verifier rejects one in a policy read from JSON.
+  const window: unknown = requirement.maxAgeSeconds
   return Object.freeze({
     id,
     ...(requirement.label === undefined ? {} : { label: requirement.label }),
     ...(requirement.expectedSubject === undefined ? {} : { expectedSubject: requirement.expectedSubject }),
-    ...(requirement.maxAgeSeconds === undefined ? {} : { maxAgeSeconds: requirement.maxAgeSeconds }),
+    ...(window === undefined || window === null ? {} : { maxAgeSeconds: requirement.maxAgeSeconds }),
     required: requirement.required ?? true,
   })
 }
@@ -376,6 +399,14 @@ export function createDeploymentPolicy(
   const maxAgeSeconds = options.maxAgeSeconds ?? profile.maxAgeSeconds
   const minDistinctSigners = options.minDistinctSigners ?? profile.minDistinctSigners
   assertNonNegativeInteger(maxAgeSeconds, 'maxAgeSeconds')
+  if (options.maxFutureSeconds !== undefined) {
+    assertNonNegativeInteger(options.maxFutureSeconds, 'maxFutureSeconds')
+    // The allowance is the upper end of the freshness window. With the window
+    // off no date is checked, so the value would be stored and never used.
+    if (maxAgeSeconds === 0) {
+      throw new Error('maxFutureSeconds is set while maxAgeSeconds turns the freshness window off')
+    }
+  }
   assertPositiveInteger(minDistinctSigners, 'minDistinctSigners')
   const rawCircleIds = optionalAcceptedCircleIds(options.acceptedCircleIds)
   const circleManifests = Object.freeze([...(options.circleManifests ?? [])])
@@ -413,6 +444,7 @@ export function createDeploymentPolicy(
     ...(options.expectedSubjectTagValue === undefined ? {} : { expectedSubjectTagValue: options.expectedSubjectTagValue }),
     id: options.id ?? profile.id,
     maxAgeSeconds,
+    ...(options.maxFutureSeconds === undefined ? {} : { maxFutureSeconds: options.maxFutureSeconds }),
     metricPolicies: cloneMetricPolicies(options.metricPolicies),
     minDistinctSigners,
     profile,
@@ -465,9 +497,23 @@ function verifyCompanionEvidence(
   const errors: string[] = []
   const byId = companionEvidenceById(options.companionEvidence, errors)
   const missingIds: string[] = []
-  const now = options.now ?? nowSeconds()
+  // Undefined when the caller's now cannot be compared. Then no evidence is
+  // compared against it, and the evidence fails for that instead.
+  const now = verificationTime(options.now)
+  if (now === undefined) errors.push(NOW_INVALID)
 
   for (const requirement of requirements) {
+    // The requirement arrives as JSON inside a bundle. `> 0` is false for a
+    // word or a negative number, which would switch this window off unnoticed.
+    // It is checked before the evidence is looked up, so that a malformed
+    // window is reported whether or not the evidence was supplied.
+    const window: unknown = requirement.maxAgeSeconds
+    const windowMalformed = window !== undefined
+      && (typeof window !== 'number' || !Number.isSafeInteger(window) || window < 0)
+    if (windowMalformed) {
+      errors.push(`companion evidence "${requirement.id}" maxAgeSeconds must be a non-negative integer`)
+    }
+
     const evidence = byId.get(requirement.id)
     if (evidence === undefined) {
       if (requirement.required !== false) {
@@ -483,14 +529,16 @@ function verifyCompanionEvidence(
     if (requirement.expectedSubject !== undefined && evidence.subject !== requirement.expectedSubject) {
       errors.push(`companion evidence "${requirement.id}" subject does not match expected subject`)
     }
+    // Nothing is compared against a malformed window
+    if (windowMalformed) continue
     if ((requirement.maxAgeSeconds ?? 0) > 0) {
       if (evidence.checkedAt === undefined) {
         errors.push(`companion evidence "${requirement.id}" missing checkedAt for freshness check`)
       } else if (!Number.isSafeInteger(evidence.checkedAt) || evidence.checkedAt < 0) {
         errors.push(`companion evidence "${requirement.id}" checkedAt is invalid`)
-      } else if (evidence.checkedAt > now) {
+      } else if (now !== undefined && evidence.checkedAt > now) {
         errors.push(`companion evidence "${requirement.id}" checkedAt is in the future`)
-      } else if (evidence.checkedAt < now - (requirement.maxAgeSeconds ?? 0)) {
+      } else if (now !== undefined && evidence.checkedAt < now - (requirement.maxAgeSeconds ?? 0)) {
         errors.push(`companion evidence "${requirement.id}" is outside the accepted freshness window`)
       }
     }
@@ -534,6 +582,17 @@ function verifyMetricPolicies(
   const metrics: Record<string, number[]> = {}
   const allowedMetricNames = new Set(Object.keys(policy.metricPolicies))
 
+  // A malformed bound is reported once, here, and its metric is then left
+  // alone: nothing is compared against a bound that is not a number.
+  const malformed = new Set<string>()
+  for (const [name, metricPolicy] of Object.entries(policy.metricPolicies)) {
+    const problems = metricPolicyProblems(name, metricPolicy)
+    if (problems.length > 0) {
+      errors.push(...problems)
+      malformed.add(name)
+    }
+  }
+
   for (const [index, event] of events.entries()) {
     const published = metricTags(event)
 
@@ -546,6 +605,7 @@ function verifyMetricPolicies(
     }
 
     for (const [name, metricPolicy] of Object.entries(policy.metricPolicies)) {
+      if (malformed.has(name)) continue
       const raw = published.get(name)
       if (raw === undefined) {
         if (metricPolicy.required === true) {
@@ -663,19 +723,24 @@ export function verifyDeploymentPolicy(
     expectedSubject: policy.expectedSubject,
     expectedSubjectTagValue: policy.expectedSubjectTagValue,
     maxAgeSeconds: policy.maxAgeSeconds,
+    // Passed as it stands: a policy inside a bundle arrives as JSON, and the
+    // profile verifier rejects a value that is not a non-negative integer
+    ...(policy.maxFutureSeconds === undefined ? {} : { maxFutureSeconds: policy.maxFutureSeconds }),
     minDistinctSigners: policy.minDistinctSigners,
     now: options.now,
   })
   const metricVerification = verifyMetricPolicies(eventList, policy)
   const companionEvidence = verifyCompanionEvidence(policy, options)
   const publisherVerification = verifyPublishers(eventList, policy)
-  const errors = [
+  // The manifests, the profile and the companion evidence read the same now,
+  // and each reports one it cannot compare
+  const errors = withoutRepeatedTimeError([
     ...circleResolution.errors,
     ...profileVerification.errors,
     ...metricVerification.errors,
     ...companionEvidence.errors,
     ...publisherVerification.errors,
-  ]
+  ])
   const valid = errors.length === 0
 
   return {

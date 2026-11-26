@@ -1,4 +1,5 @@
 import { computeCircleId } from '../proof/circle.js'
+import { NOW_INVALID, verificationTime } from './time.js'
 
 export type CircleManifestStatus = 'active' | 'revoked' | 'superseded'
 
@@ -65,10 +66,6 @@ export interface CircleManifestResolution {
 }
 
 const HEX64_RE = /^[0-9a-f]{64}$/
-
-function nowSeconds(): number {
-  return Math.floor(Date.now() / 1000)
-}
 
 function assertHex64(value: string, label: string): void {
   if (!HEX64_RE.test(value)) {
@@ -202,8 +199,24 @@ export function verifyCircleManifest(
   manifest: CircleManifest,
   options: VerifyCircleManifestOptions = {},
 ): CircleManifestVerification {
+  const now = verificationTime(options.now)
+  return verifyManifestAt(manifest, options, now, now === undefined)
+}
+
+/**
+ * Verify one manifest against a time already resolved. `now` is undefined when
+ * the caller's value cannot be compared; then no expiry is compared against
+ * it. `reportTime` is false when the caller has reported that for the whole
+ * set, so that each manifest does not repeat it.
+ */
+function verifyManifestAt(
+  manifest: CircleManifest,
+  options: VerifyCircleManifestOptions,
+  now: number | undefined,
+  reportTime: boolean,
+): CircleManifestVerification {
   const errors: string[] = []
-  const now = options.now ?? nowSeconds()
+  if (reportTime) errors.push(NOW_INVALID)
   const revokedCircleIds = new Set(options.revokedCircleIds ?? [])
 
   if (manifest.version !== 1) errors.push('manifest version must be 1')
@@ -229,11 +242,11 @@ export function verifyCircleManifest(
       errors.push('expiresAt must be a non-negative Unix timestamp')
     } else if (manifest.expiresAt <= manifest.issuedAt) {
       errors.push('expiresAt must be greater than issuedAt')
-    } else if (now > manifest.expiresAt) {
+    } else if (now !== undefined && now > manifest.expiresAt) {
       errors.push('manifest is expired')
     }
   }
-  if (manifest.issuedAt > now) {
+  if (now !== undefined && manifest.issuedAt > now) {
     errors.push('manifest issuedAt is in the future')
   }
 
@@ -268,6 +281,9 @@ export function resolveCircleManifests(
   const accepted = new Set<string>()
   const revoked = new Set<string>()
   const superseded = new Set<string>()
+  // Reported once here for the whole set, not by each manifest
+  const now = verificationTime(options.now)
+  if (now === undefined) errors.push(NOW_INVALID)
 
   for (const manifest of manifests) {
     addAll(revoked, manifest.revokedCircleIds)
@@ -277,12 +293,11 @@ export function resolveCircleManifests(
   }
 
   for (const [index, manifest] of manifests.entries()) {
-    const verification = verifyCircleManifest(manifest, {
+    const verification = verifyManifestAt(manifest, {
       allowSuperseded: options.allowSuperseded,
-      now: options.now,
       profileId: options.profileId,
       revokedCircleIds: revoked,
-    })
+    }, now, false)
 
     if (!verification.valid) {
       errors.push(...verification.errors.map(error => `manifest[${index}]: ${error}`))
