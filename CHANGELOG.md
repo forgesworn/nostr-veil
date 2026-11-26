@@ -1,3 +1,11 @@
+## 0.40.0 (2026-11-26)
+
+### Features
+
+- give every error the library raises a family code (#74) (profiles)
+
+
+
 ## 0.39.0 (2026-11-26)
 
 ### Features
