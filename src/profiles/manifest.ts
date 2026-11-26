@@ -1,5 +1,7 @@
 import { computeCircleId } from '../proof/circle.js'
+import { CodedErrors, issuesOf } from './coded.js'
 import { NOW_INVALID, verificationTime } from './time.js'
+import type { VerificationIssueCode } from './issues.js'
 
 export type CircleManifestStatus = 'active' | 'revoked' | 'superseded'
 
@@ -159,39 +161,57 @@ export function createCircleManifest(options: CreateCircleManifestOptions): Circ
   return Object.freeze(manifest)
 }
 
-function validateSortedHexList(values: readonly string[], label: string, errors: string[]): void {
+/**
+ * A fault in the shape of a manifest that has no issue code of its own. The
+ * faults in `members`, `profileIds`, `revokedCircleIds` and `circleId` are
+ * filed as `circle.manifest_invalid`. The rest have always been filed under
+ * the general code, and still are.
+ */
+const UNCODED: VerificationIssueCode = 'verification.failed'
+
+function validateSortedHexList(
+  values: readonly string[],
+  label: string,
+  code: VerificationIssueCode,
+  found: CodedErrors,
+): void {
   if (values.length === 0) {
-    errors.push(`${label} must contain at least one value`)
+    found.add(code, `${label} must contain at least one value`)
     return
   }
   for (let i = 0; i < values.length; i++) {
     if (!HEX64_RE.test(values[i])) {
-      errors.push(`${label}[${i}] must be a 64-character lowercase hex string`)
+      found.add(code, `${label}[${i}] must be a 64-character lowercase hex string`)
     }
     if (i > 0) {
-      if (values[i] < values[i - 1]) errors.push(`${label} must be sorted lexicographically`)
-      if (values[i] === values[i - 1]) errors.push(`${label}[${i}] is duplicated`)
+      if (values[i] < values[i - 1]) found.add(code, `${label} must be sorted lexicographically`)
+      if (values[i] === values[i - 1]) found.add(code, `${label}[${i}] is duplicated`)
     }
   }
 }
 
-function validateOptionalHexList(values: readonly string[] | undefined, label: string, errors: string[]): void {
+function validateOptionalHexList(
+  values: readonly string[] | undefined,
+  label: string,
+  code: VerificationIssueCode,
+  found: CodedErrors,
+): void {
   if (values === undefined) return
-  validateSortedHexList(values, label, errors)
+  validateSortedHexList(values, label, code, found)
 }
 
-function validateProfileIds(manifest: CircleManifest, profileId: string | undefined, errors: string[]): void {
+function validateProfileIds(manifest: CircleManifest, profileId: string | undefined, found: CodedErrors): void {
   if (manifest.profileIds.length === 0) {
-    errors.push('profileIds must contain at least one value')
+    found.add('circle.manifest_invalid', 'profileIds must contain at least one value')
   }
   const seen = new Set<string>()
   for (const [index, id] of manifest.profileIds.entries()) {
-    if (id.trim() === '') errors.push(`profileIds[${index}] must be non-empty`)
-    if (seen.has(id)) errors.push(`profileIds[${index}] is duplicated`)
+    if (id.trim() === '') found.add('circle.manifest_invalid', `profileIds[${index}] must be non-empty`)
+    if (seen.has(id)) found.add('circle.manifest_invalid', `profileIds[${index}] is duplicated`)
     seen.add(id)
   }
   if (profileId !== undefined && !seen.has(profileId)) {
-    errors.push(`manifest does not allow profile ${profileId}`)
+    found.add('circle.profile_not_allowed', `manifest does not allow profile ${profileId}`)
   }
 }
 
@@ -215,57 +235,57 @@ function verifyManifestAt(
   now: number | undefined,
   reportTime: boolean,
 ): CircleManifestVerification {
-  const errors: string[] = []
-  if (reportTime) errors.push(NOW_INVALID)
+  const found = new CodedErrors()
+  if (reportTime) found.add('verification.now_invalid', NOW_INVALID)
   const revokedCircleIds = new Set(options.revokedCircleIds ?? [])
 
-  if (manifest.version !== 1) errors.push('manifest version must be 1')
-  if (manifest.name.trim() === '') errors.push('manifest name must be non-empty')
-  if (manifest.purpose.trim() === '') errors.push('manifest purpose must be non-empty')
-  validateSortedHexList(manifest.members, 'members', errors)
-  validateProfileIds(manifest, options.profileId, errors)
-  validateOptionalHexList(manifest.revokedCircleIds, 'revokedCircleIds', errors)
-  validateOptionalHexList(manifest.supersedes, 'supersedes', errors)
+  if (manifest.version !== 1) found.add(UNCODED, 'manifest version must be 1')
+  if (manifest.name.trim() === '') found.add(UNCODED, 'manifest name must be non-empty')
+  if (manifest.purpose.trim() === '') found.add(UNCODED, 'manifest purpose must be non-empty')
+  validateSortedHexList(manifest.members, 'members', 'circle.manifest_invalid', found)
+  validateProfileIds(manifest, options.profileId, found)
+  validateOptionalHexList(manifest.revokedCircleIds, 'revokedCircleIds', 'circle.manifest_invalid', found)
+  validateOptionalHexList(manifest.supersedes, 'supersedes', UNCODED, found)
 
   const computedCircleId = computeCircleId([...manifest.members])
   if (!HEX64_RE.test(manifest.circleId)) {
-    errors.push('circleId must be a 64-character lowercase hex string')
+    found.add('circle.manifest_invalid', 'circleId must be a 64-character lowercase hex string')
   } else if (manifest.circleId !== computedCircleId) {
-    errors.push('circleId does not match manifest members')
+    found.add('circle.manifest_invalid', 'circleId does not match manifest members')
   }
 
   if (!Number.isSafeInteger(manifest.issuedAt) || manifest.issuedAt < 0) {
-    errors.push('issuedAt must be a non-negative Unix timestamp')
+    found.add(UNCODED, 'issuedAt must be a non-negative Unix timestamp')
   }
   if (manifest.expiresAt !== undefined) {
     if (!Number.isSafeInteger(manifest.expiresAt) || manifest.expiresAt < 0) {
-      errors.push('expiresAt must be a non-negative Unix timestamp')
+      found.add(UNCODED, 'expiresAt must be a non-negative Unix timestamp')
     } else if (manifest.expiresAt <= manifest.issuedAt) {
-      errors.push('expiresAt must be greater than issuedAt')
+      found.add(UNCODED, 'expiresAt must be greater than issuedAt')
     } else if (now !== undefined && now > manifest.expiresAt) {
-      errors.push('manifest is expired')
+      found.add('circle.manifest_expired', 'manifest is expired')
     }
   }
   if (now !== undefined && manifest.issuedAt > now) {
-    errors.push('manifest issuedAt is in the future')
+    found.add(UNCODED, 'manifest issuedAt is in the future')
   }
 
   if (manifest.status !== 'active' && manifest.status !== 'revoked' && manifest.status !== 'superseded') {
-    errors.push('manifest status must be active, revoked, or superseded')
+    found.add(UNCODED, 'manifest status must be active, revoked, or superseded')
   }
-  if (manifest.status === 'revoked') errors.push('manifest is revoked')
+  if (manifest.status === 'revoked') found.add('circle.revoked', 'manifest is revoked')
   if (manifest.status === 'superseded' && options.allowSuperseded !== true) {
-    errors.push('manifest is superseded')
+    found.add('circle.superseded', 'manifest is superseded')
   }
   if (revokedCircleIds.has(manifest.circleId)) {
-    errors.push('manifest circle is revoked by deployment policy')
+    found.add('circle.revoked', 'manifest circle is revoked by deployment policy')
   }
 
   return {
     circleId: HEX64_RE.test(manifest.circleId) ? manifest.circleId : null,
-    errors,
+    errors: found.errors,
     manifest,
-    valid: errors.length === 0,
+    valid: found.length === 0,
   }
 }
 
@@ -277,13 +297,13 @@ export function resolveCircleManifests(
   manifests: readonly CircleManifest[],
   options: ResolveCircleManifestsOptions = {},
 ): CircleManifestResolution {
-  const errors: string[] = []
+  const found = new CodedErrors()
   const accepted = new Set<string>()
   const revoked = new Set<string>()
   const superseded = new Set<string>()
   // Reported once here for the whole set, not by each manifest
   const now = verificationTime(options.now)
-  if (now === undefined) errors.push(NOW_INVALID)
+  if (now === undefined) found.add('verification.now_invalid', NOW_INVALID)
 
   for (const manifest of manifests) {
     addAll(revoked, manifest.revokedCircleIds)
@@ -300,7 +320,9 @@ export function resolveCircleManifests(
     }, now, false)
 
     if (!verification.valid) {
-      errors.push(...verification.errors.map(error => `manifest[${index}]: ${error}`))
+      // Each keeps the code it was raised with, and gains the manifest's place
+      const place = `manifest[${index}]`
+      for (const issue of issuesOf(verification)) found.add(issue.code, `${place}: ${issue.message}`, place)
       continue
     }
     if (manifest.status === 'active') {
@@ -317,9 +339,9 @@ export function resolveCircleManifests(
 
   return {
     acceptedCircleIds: [...accepted].sort(),
-    errors,
+    errors: found.errors,
     revokedCircleIds: [...revoked].sort(),
     supersededCircleIds: [...superseded].sort(),
-    valid: errors.length === 0,
+    valid: found.length === 0,
   }
 }

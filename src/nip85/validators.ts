@@ -1,4 +1,5 @@
 import type { ValidationResult } from './types.js'
+import { syntaxErrorKinds } from './error-kinds.js'
 import { MALFORMED_EVENT, MALFORMED_TAG, isWellFormedTag, matches, numberFrom, shown } from './shape.js'
 import { NIP85_KINDS } from './types.js'
 import { GENERAL_TAGS, isUnixSecondsTagValue } from './tags.js'
@@ -235,7 +236,7 @@ function validateStrictMetrics(event: RawEvent, errors: string[]): void {
     if (name === 'rank') {
       validateStrictRank(tag[1], errors)
     } else if (allowed.numeric.has(name) && !isFiniteNumberTag(tag[1])) {
-      errors.push(`Invalid metric "${name}": "${tag[1]}" is not a finite number.`)
+      syntaxErrorKinds.push(errors, `Invalid metric "${name}": "${tag[1]}" is not a finite number.`, 'metric-not-finite')
     }
   }
 }
@@ -295,7 +296,11 @@ export function validateAssertion(input: RawEvent, options: ValidationOptions = 
     if (LOOSE_NUMERIC_METRICS.has(tag[0]) && tag[0] !== 'rank') {
       const value = numberFrom(tag[1])
       if (!Number.isFinite(value)) {
-        errors.push(`Invalid metric "${tag[0]}": "${shown(tag[1])}" is not a finite number.`)
+        syntaxErrorKinds.push(
+          errors,
+          `Invalid metric "${tag[0]}": "${shown(tag[1])}" is not a finite number.`,
+          'metric-not-finite',
+        )
       }
     }
   }

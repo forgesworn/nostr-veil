@@ -20,6 +20,7 @@ import type {
 } from './types.js'
 import { AGGREGATES, isAggregateName, isAggregateTagValue } from './aggregate.js'
 import { contributionBoundViolations, contributionBoundsProblem } from './bounds.js'
+import { proofErrorKinds } from './error-kinds.js'
 import { reservedMetricNameReason } from './metric-names.js'
 import { isUnixSecondsTagValue, PUBLISHER_TAGS } from '../nip85/tags.js'
 import { NIP85_KINDS } from '../nip85/types.js'
@@ -207,7 +208,7 @@ function checkRequiredAggregate(tags: string[][], required: AggregateTagValue, e
   }
   const actual: unknown = aggTags.length === 0 ? 'median' : aggTags[0][1]
   if (actual !== required) {
-    errors.push(`veil-agg is "${String(actual)}" but "${required}" is required`)
+    proofErrorKinds.push(errors, `veil-agg is "${String(actual)}" but "${required}" is required`, 'aggregate-mismatch')
   }
 }
 
@@ -890,7 +891,9 @@ export function verifyProof(event: {
     if (contributionBounds !== undefined) {
       const violations = contributionBoundViolations(signedMessage.metrics, contributionBounds)
       if (violations.length > 0) {
-        for (const violation of violations) errors.push(`Signature at index ${i} ${violation}`)
+        for (const violation of violations) {
+          proofErrorKinds.push(errors, `Signature at index ${i} ${violation}`, 'contribution-out-of-bounds')
+        }
         continue
       }
     }

@@ -48,11 +48,14 @@ export function withoutRepeatedTimeError(errors: readonly string[]): string[] {
   })
 }
 
-/** The same for issues, which carry the error as their message. */
-export function withoutRepeatedTimeIssue<T extends { message: string }>(issues: readonly T[]): T[] {
+/**
+ * The same for issues. They are told apart by the code they were raised with,
+ * which only a `now` that cannot be compared is given.
+ */
+export function withoutRepeatedTimeIssue<T extends { code: string }>(issues: readonly T[]): T[] {
   let seen = false
   return issues.filter(issue => {
-    if (issue.message !== NOW_INVALID) return true
+    if (issue.code !== 'verification.now_invalid') return true
     if (seen) return false
     seen = true
     return true
