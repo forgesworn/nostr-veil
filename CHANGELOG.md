@@ -1,3 +1,11 @@
+## 0.39.0 (2026-11-26)
+
+### Features
+
+- check the type of every policy field a verifier reads (#73) (profiles)
+
+
+
 ## 0.38.1 (2026-11-26)
 
 ### Bug Fixes
