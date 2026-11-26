@@ -1,5 +1,6 @@
 import { isFullyReadable } from '../nip85/shape.js'
 import { isAuthenticBundle } from './authentic.js'
+import { FIELD_CODES } from './fields.js'
 import { explainVerificationIssue } from './issues.js'
 import { verifyProductionDeployment } from './production.js'
 import type { EventTemplate } from '../nip85/types.js'
@@ -131,6 +132,12 @@ const POLICY_CONTROLS: ReadonlySet<ProductionControlId> = new Set<ProductionCont
   'metric-policy',
 ])
 const POLICY_NOT_APPLIED = 'The deployment bundle is not authentic, so its policy was not applied and this was not checked.'
+const POLICY_MALFORMED = 'The deployment policy is malformed, so this was not checked.'
+
+/** Whether the verifier stopped at a field of the wrong type in the policy. */
+function policyMalformed(codes: ReadonlySet<string>): boolean {
+  return FIELD_CODES.some(code => codes.has(code))
+}
 /** The controls that are checks made on each assertion event. */
 const EVENT_CONTROLS: ReadonlySet<ProductionControlId> = new Set<ProductionControlId>([
   'event-signatures',
@@ -248,11 +255,13 @@ function productionControls(result: ProductionDeploymentVerification, issues: re
       return window !== undefined && window !== 0 && suppliedEvidenceIds.has(requirement.id)
     })
   // Only a policy that was applied is read. The policy of a bundle that is not
-  // authentic is handed back as it was given, and every control that reports
-  // on it reads not-checked below. An applied one is still read through
+  // authentic is handed back as it was given, and so is one with a field of
+  // the wrong type, which the verifier stopped at; every control that reports
+  // on either reads not-checked below. An applied one is still read through
   // record(), as a policy that arrives as JSON need not be an object.
   const policyApplied = isAuthenticBundle(result.bundle)
-  const manifestExpiryUnchecked = nowInvalid && policyApplied
+  const malformed = policyMalformed(codes)
+  const manifestExpiryUnchecked = nowInvalid && policyApplied && !malformed
     && list(record(result.deployment.policy).circleManifests).length > 0
   const companionEvidenceFailed = hasPrefix(codes, 'companion.')
   const companionEvidenceStatus: ProductionControlStatus = companionEvidenceFailed || evidenceAgeUnchecked
@@ -410,6 +419,13 @@ function productionControls(result: ProductionDeploymentVerification, issues: re
       ? control(item.id, item.label, 'not-checked', POLICY_NOT_APPLIED)
       : item))
   }
+  // Nor was anything in a policy with a field of the wrong type, as the
+  // verifier stopped there
+  if (malformed) {
+    return Object.freeze(controls.map(item => POLICY_CONTROLS.has(item.id)
+      ? control(item.id, item.label, 'not-checked', POLICY_MALFORMED)
+      : item))
+  }
   // With no assertion at all, a check made on each assertion ran on none. It
   // may still have failed for a fault in the policy itself, but it cannot have
   // passed.
@@ -470,18 +486,19 @@ export function createProductionDecisionReport(
   result: ProductionDeploymentVerification,
 ): ProductionDecisionReport {
   const issues = Object.freeze(result.issues.map(decisionIssue))
-  const policyApplied = isAuthenticBundle(result.bundle)
+  // Only an applied policy is described. One that was not applied is not the
+  // operator's, and what it says of itself is not repeated to them. One with a
+  // field of the wrong type is not read at all, as the verifier did not read it.
+  const described = isAuthenticBundle(result.bundle) && !policyMalformed(issueCodeSet(issues))
 
   return Object.freeze({
     decision: result.decision,
     valid: result.valid,
     recommendedAction: recommendedAction(result.valid, issues),
     bundle: bundleSummary(result),
-    // Only an applied policy is described. One that was not applied is not the
-    // operator's, and what it says of itself is not repeated to them.
-    profile: policyApplied ? profileSummary(record(result.deployment.policy).profile) : BLANK_PROFILE,
-    policyId: policyApplied ? record(result.deployment.policy).id as string : '',
-    subject: policyApplied ? record(result.deployment.policy).expectedSubject as string : '',
+    profile: described ? profileSummary(record(result.deployment.policy).profile) : BLANK_PROFILE,
+    policyId: described ? record(result.deployment.policy).id as string : '',
+    subject: described ? record(result.deployment.policy).expectedSubject as string : '',
     metrics: result.deployment.metrics,
     controls: productionControls(result, issues),
     issues,

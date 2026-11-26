@@ -8,6 +8,7 @@ import { verifyProof } from '../proof/verify.js'
 import { isUnixSecondsTagValue } from '../nip85/tags.js'
 import { subjectMatchesAnyFormat } from './canonical.js'
 import { CodedErrors } from './coded.js'
+import { profileFieldProblems } from './fields.js'
 import { NOW_INVALID, verificationTime } from './time.js'
 import type { EventTemplate } from '../nip85/types.js'
 import type { ProofErrorKind } from '../proof/error-kinds.js'
@@ -311,6 +312,17 @@ export function verifyUseCaseProfile(
   profile: UseCaseProfile,
   options: VerifyUseCaseProfileOptions = {},
 ): UseCaseProfileVerification {
+  // A profile can arrive inside a policy read from JSON. One with a field of
+  // the wrong type is reported and nothing else is checked: read as it stood,
+  // the field would make this throw or switch its check off.
+  const fieldProblems = profileFieldProblems(profile)
+  if (fieldProblems.length > 0) {
+    const stopped = new CodedErrors()
+    for (const problem of fieldProblems) stopped.add('profile.field_invalid', problem.message, problem.path)
+    if (verificationTime(options.now) === undefined) stopped.add('verification.now_invalid', NOW_INVALID)
+    return { valid: false, errors: stopped.errors, issues: stopped.issues, events: [], federation: undefined, profile }
+  }
+
   const eventList = normaliseEvents(events)
   const found = new CodedErrors()
   const acceptedCircles = acceptedCircleSet(options)

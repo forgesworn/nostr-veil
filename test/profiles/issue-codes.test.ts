@@ -137,6 +137,10 @@ const MESSAGES: string[] = [
   'event[0] proof: Invalid LSAG signature at index 0',
   'event[0] has fewer than 3 distinct signers',
   'now must be a Unix timestamp',
+  'expectedSubject must be a string',
+  'metricPolicies.rank.required must be true or false',
+  'profile.proofVersion must be "v1" or "v2"',
+  'circleManifests[0].members must be a list of strings',
   // The same, cut down to the words a rule looks for, and one that begins as a proof tag does
   'companion evidence',
   'bundle is expired and the manifest is revoked',
