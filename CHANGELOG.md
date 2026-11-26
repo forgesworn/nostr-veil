@@ -1,3 +1,11 @@
+## 0.38.0 (2026-11-26)
+
+### Features
+
+- reject future-dated assertions and malformed settings (#70) (profiles)
+
+
+
 ## 0.37.1 (2026-11-25)
 
 ### Bug Fixes
