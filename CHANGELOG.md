@@ -1,3 +1,11 @@
+## 0.38.1 (2026-11-26)
+
+### Bug Fixes
+
+- give each issue its code where the error is raised (#72) (profiles)
+
+
+
 ## 0.38.0 (2026-11-26)
 
 ### Features
