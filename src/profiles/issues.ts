@@ -4,6 +4,7 @@ export type VerificationIssueCode =
   | 'assertion.created_at_future'
   | 'assertion.created_at_invalid'
   | 'assertion.created_at_missing'
+  | 'assertion.expired'
   | 'assertion.stale'
   | 'bundle.expired'
   | 'bundle.expires_at_invalid'
@@ -24,6 +25,7 @@ export type VerificationIssueCode =
   | 'circle.manifest_expired'
   | 'circle.manifest_field_invalid'
   | 'circle.manifest_invalid'
+  | 'circle.manifest_issued_at_future'
   | 'circle.profile_not_allowed'
   | 'circle.revoked'
   | 'circle.superseded'
@@ -115,6 +117,11 @@ const VERIFICATION_ISSUE_EXPLANATION_INPUTS = {
   'assertion.created_at_missing': explanation(
     'The assertion has no Nostr created_at timestamp.',
     'Fetch or publish a complete signed Nostr event with created_at before applying freshness policy.',
+  ),
+  'assertion.expired': explanation(
+    'The assertion has passed the NIP-40 expiration its publisher set.',
+    'Fetch a newer assertion. Its publisher set this one to lapse at that time, and that holds whatever the deployment freshness window allows.',
+    'refresh-and-retry',
   ),
   'assertion.stale': explanation(
     'The assertion is outside the deployment freshness window.',
@@ -213,6 +220,11 @@ const VERIFICATION_ISSUE_EXPLANATION_INPUTS = {
     'A circle manifest does not match the expected shape or member-derived circle id.',
     'Recreate the manifest with createCircleManifest() from the exact reviewed member pubkeys.',
     'operator-action',
+  ),
+  'circle.manifest_issued_at_future': explanation(
+    'A circle manifest used by the deployment is issued in the future for this verifier.',
+    'Check the verifier clock, then retry once the manifest is valid, or reissue it with the right issuedAt.',
+    'refresh-and-retry',
   ),
   'circle.profile_not_allowed': explanation(
     'The circle manifest does not allow this use-case profile.',
@@ -476,6 +488,31 @@ const FIELD_MESSAGES: ReadonlyArray<[RegExp, VerificationIssueCode]> = [
   [new RegExp(`^${MANIFEST_AT}\\.issuedAt must be a number$`, 'u'), 'circle.manifest_field_invalid'],
 ]
 
+// A manifest's own messages, alone or as a resolved set names it. The date
+// messages come bare from verifyCircleManifest, whose result has no issues.
+// The bundle and challenge verifiers prefix theirs, and the builders that
+// throw the same words raise no verification error.
+const IN_MANIFEST = String.raw`(?:manifest\[\d+\]: )?`
+const FAMILY_MESSAGES: ReadonlyArray<[RegExp, VerificationIssueCode]> = [
+  [/^event\[\d+\] assertion has expired \(NIP-40 expiration \d+\)$/u, 'assertion.expired'],
+  [/^event\[\d+\] missing veil-ring tag$/u, 'proof.invalid'],
+  [/^event\[\d+\] (?:missing|duplicate) [depak] tag$/u, 'nip85.syntax_invalid'],
+  [new RegExp(`^${IN_MANIFEST}manifest issuedAt is in the future$`, 'u'), 'circle.manifest_issued_at_future'],
+  [new RegExp(`^${IN_MANIFEST}(?:manifest version must be 1|manifest (?:name|purpose) must be non-empty|manifest status must be active, revoked, or superseded|(?:issuedAt|expiresAt) must be a non-negative Unix timestamp|expiresAt must be greater than issuedAt)$`, 'u'), 'circle.manifest_invalid'],
+  [new RegExp(`^${IN_MANIFEST}supersedes(?:\\[\\d+\\])? (?:must be a 64-character lowercase hex string|must be sorted lexicographically|is duplicated|must contain at least one value)$`, 'u'), 'circle.manifest_invalid'],
+]
+
+/**
+ * The code of a library message that once had only the general code, matched
+ * on the whole message. Each is raised with this code where it is raised.
+ */
+function familyCodeFromMessage(message: string): VerificationIssueCode | undefined {
+  for (const [pattern, code] of FAMILY_MESSAGES) {
+    if (pattern.test(message)) return code
+  }
+  return undefined
+}
+
 /**
  * The code of a message about a field of the wrong type, matched on the whole
  * message. Each is raised by the policy, profile or manifest check alone, and
@@ -519,6 +556,8 @@ function codeFromError(message: string): VerificationIssueCode {
   if (message === 'maxAgeSeconds must be a non-negative integer') return 'policy.max_age_seconds_invalid'
   const field = fieldCodeFromMessage(message)
   if (field !== undefined) return field
+  const family = familyCodeFromMessage(message)
+  if (family !== undefined) return family
   if (
     message === 'maxFutureSeconds must be a non-negative integer'
     || message === 'maxFutureSeconds is set while maxAgeSeconds turns the freshness window off'

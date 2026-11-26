@@ -162,14 +162,6 @@ export function createCircleManifest(options: CreateCircleManifestOptions): Circ
   return Object.freeze(manifest)
 }
 
-/**
- * A fault in the shape of a manifest that has no issue code of its own. The
- * faults in `members`, `profileIds`, `revokedCircleIds` and `circleId` are
- * filed as `circle.manifest_invalid`. The rest have always been filed under
- * the general code, and still are.
- */
-const UNCODED: VerificationIssueCode = 'verification.failed'
-
 function validateSortedHexList(
   values: readonly string[],
   label: string,
@@ -254,13 +246,13 @@ function verifyManifestAt(
   if (reportTime) found.add('verification.now_invalid', NOW_INVALID)
   const revokedCircleIds = new Set(options.revokedCircleIds ?? [])
 
-  if (manifest.version !== 1) found.add(UNCODED, 'manifest version must be 1')
-  if (manifest.name.trim() === '') found.add(UNCODED, 'manifest name must be non-empty')
-  if (manifest.purpose.trim() === '') found.add(UNCODED, 'manifest purpose must be non-empty')
+  if (manifest.version !== 1) found.add('circle.manifest_invalid', 'manifest version must be 1')
+  if (manifest.name.trim() === '') found.add('circle.manifest_invalid', 'manifest name must be non-empty')
+  if (manifest.purpose.trim() === '') found.add('circle.manifest_invalid', 'manifest purpose must be non-empty')
   validateSortedHexList(manifest.members, 'members', 'circle.manifest_invalid', found)
   validateProfileIds(manifest, options.profileId, found)
   validateOptionalHexList(manifest.revokedCircleIds, 'revokedCircleIds', 'circle.manifest_invalid', found)
-  validateOptionalHexList(manifest.supersedes, 'supersedes', UNCODED, found)
+  validateOptionalHexList(manifest.supersedes, 'supersedes', 'circle.manifest_invalid', found)
 
   const computedCircleId = computeCircleId([...manifest.members])
   if (!HEX64_RE.test(manifest.circleId)) {
@@ -270,23 +262,23 @@ function verifyManifestAt(
   }
 
   if (!Number.isSafeInteger(manifest.issuedAt) || manifest.issuedAt < 0) {
-    found.add(UNCODED, 'issuedAt must be a non-negative Unix timestamp')
+    found.add('circle.manifest_invalid', 'issuedAt must be a non-negative Unix timestamp')
   }
   if (manifest.expiresAt !== undefined) {
     if (!Number.isSafeInteger(manifest.expiresAt) || manifest.expiresAt < 0) {
-      found.add(UNCODED, 'expiresAt must be a non-negative Unix timestamp')
+      found.add('circle.manifest_invalid', 'expiresAt must be a non-negative Unix timestamp')
     } else if (manifest.expiresAt <= manifest.issuedAt) {
-      found.add(UNCODED, 'expiresAt must be greater than issuedAt')
+      found.add('circle.manifest_invalid', 'expiresAt must be greater than issuedAt')
     } else if (now !== undefined && now > manifest.expiresAt) {
       found.add('circle.manifest_expired', 'manifest is expired')
     }
   }
   if (now !== undefined && manifest.issuedAt > now) {
-    found.add(UNCODED, 'manifest issuedAt is in the future')
+    found.add('circle.manifest_issued_at_future', 'manifest issuedAt is in the future')
   }
 
   if (manifest.status !== 'active' && manifest.status !== 'revoked' && manifest.status !== 'superseded') {
-    found.add(UNCODED, 'manifest status must be active, revoked, or superseded')
+    found.add('circle.manifest_invalid', 'manifest status must be active, revoked, or superseded')
   }
   if (manifest.status === 'revoked') found.add('circle.revoked', 'manifest is revoked')
   if (manifest.status === 'superseded' && options.allowSuperseded !== true) {

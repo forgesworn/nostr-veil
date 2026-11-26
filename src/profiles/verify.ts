@@ -117,12 +117,13 @@ function tagValues(event: EventTemplate, name: string): string[] {
 
 function singletonTagValue(event: EventTemplate, name: string, found: CodedErrors, prefix: string): string | null {
   const values = tagValues(event, name)
+  // A tag the event must carry once is a fault of its shape
   if (values.length === 0) {
-    found.add('verification.failed', `${prefix} missing ${name} tag`, prefix)
+    found.add('nip85.syntax_invalid', `${prefix} missing ${name} tag`, prefix)
     return null
   }
   if (values.length > 1) {
-    found.add('verification.failed', `${prefix} duplicate ${name} tag`, prefix)
+    found.add('nip85.syntax_invalid', `${prefix} duplicate ${name} tag`, prefix)
     return null
   }
   return values[0]
@@ -131,7 +132,8 @@ function singletonTagValue(event: EventTemplate, name: string, found: CodedError
 function circleId(event: EventTemplate, found: CodedErrors, prefix: string): string | null {
   const ring = event.tags.find(tag => tag[0] === 'veil-ring')?.slice(1)
   if (ring === undefined) {
-    found.add('verification.failed', `${prefix} missing veil-ring tag`, prefix)
+    // No ring, no proof
+    found.add('proof.invalid', `${prefix} missing veil-ring tag`, prefix)
     return null
   }
   return computeCircleId(ring)
@@ -281,7 +283,7 @@ function verifyEvent(
   const expiration = event.tags.find(tag => tag[0] === 'expiration')?.[1]
   if (now !== undefined && expiration !== undefined && isUnixSecondsTagValue(expiration)
     && Number(expiration) <= now) {
-    raise('verification.failed', `assertion has expired (NIP-40 expiration ${expiration})`)
+    raise('assertion.expired', `assertion has expired (NIP-40 expiration ${expiration})`)
   }
 
   const eventCircleId = circleId(event, found, prefix)
