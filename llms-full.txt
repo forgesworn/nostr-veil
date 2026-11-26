@@ -721,7 +721,9 @@ not a whole number of seconds (a string, `NaN`, a fraction) fails with
 `assertion.created_at_invalid`: it cannot be placed in the window, so it must
 not pass as fresh. With `maxAgeSeconds` 0 none of this is checked, and setting
 `maxFutureSeconds` beside it is an error (`policy.max_future_seconds_invalid`):
-the allowance is the upper end of a window that is off. A `maxAgeSeconds` that
+the allowance is the upper end of a window that is off. The NIP-40
+`expiration` a publisher sets is checked with the window on or off: an
+assertion past it fails with `assertion.expired`. A `maxAgeSeconds` that
 is not a non-negative integer (a word, a negative number, `null`) fails every
 event with `policy.max_age_seconds_invalid`, whether it comes from the option,
 the profile or a policy read from a bundle; read as it stands it would switch
@@ -741,6 +743,14 @@ any value through that bound.
 Build a machine-readable circle manifest. A manifest binds a member list to its
 circle ID and records allowed profile IDs, issue/expiry times, superseded
 circles, revoked circles, policy URI, contact, and evidence process.
+
+When verified, a manifest whose values fail its own checks (its version,
+name, purpose, members, circle ID, profile IDs, dates, status, or the circles
+it revokes or supersedes) is reported as `circle.manifest_invalid`, one issued
+after the verifier's `now` as `circle.manifest_issued_at_future`, and one past
+its expiry as `circle.manifest_expired`. Each fails the report's
+`circle-policy` control. A field of the wrong type is
+`circle.manifest_field_invalid`, and the verifier stops there.
 
 #### `createDeploymentPolicy(profile, options) → UseCaseDeploymentPolicy`
 

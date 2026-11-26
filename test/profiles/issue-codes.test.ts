@@ -137,10 +137,14 @@ const MESSAGES: string[] = [
   'event[0] proof: Invalid LSAG signature at index 0',
   'event[0] has fewer than 3 distinct signers',
   'now must be a Unix timestamp',
+  // A message no rule knows, which a caller holding only strings reads under the general code
+  'the verifier could not finish',
   'expectedSubject must be a string',
   'metricPolicies.rank.required must be true or false',
   'profile.proofVersion must be "v1" or "v2"',
   'circleManifests[0].members must be a list of strings',
+  'event[0] assertion has expired (NIP-40 expiration 1777999400)',
+  'manifest[0]: manifest issuedAt is in the future',
   // The same, cut down to the words a rule looks for, and one that begins as a proof tag does
   'companion evidence',
   'bundle is expired and the manifest is revoked',
@@ -431,8 +435,11 @@ describe('a code given where the error is raised', () => {
     expect(under(manifest({ circleId: 'ee'.repeat(32) }))).toEqual([
       'circle.manifest_invalid: manifest[0]: circleId does not match manifest members',
     ])
-    // A fault with no code of its own keeps the general one, as it always had
-    expect(under(manifest({ name: ' ' }))).toEqual(['verification.failed: manifest[0]: manifest name must be non-empty'])
+    // A fault of the manifest's own shape is a fault of the manifest
+    expect(under(manifest({ name: ' ' }))).toEqual(['circle.manifest_invalid: manifest[0]: manifest name must be non-empty'])
+    expect(under(manifest({ issuedAt: NOW + 3600, expiresAt: NOW + 7200 }))).toEqual([
+      'circle.manifest_issued_at_future: manifest[0]: manifest issuedAt is in the future',
+    ])
   })
 
   it('reaches the profile verifier from the proof verifier, for the two failures of an aggregation policy', () => {
