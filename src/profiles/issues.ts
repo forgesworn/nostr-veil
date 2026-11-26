@@ -22,6 +22,7 @@ export type VerificationIssueCode =
   | 'circle.accepted_invalid'
   | 'circle.accepted_missing'
   | 'circle.manifest_expired'
+  | 'circle.manifest_field_invalid'
   | 'circle.manifest_invalid'
   | 'circle.profile_not_allowed'
   | 'circle.revoked'
@@ -47,12 +48,14 @@ export type VerificationIssueCode =
   | 'metric.unknown'
   | 'nip85.syntax_invalid'
   | 'policy.accepted_publishers_invalid'
+  | 'policy.field_invalid'
   | 'policy.max_age_seconds_invalid'
   | 'policy.max_future_seconds_invalid'
   | 'policy.metric_policy_invalid'
   | 'policy.min_distinct_signers_invalid'
   | 'policy.nostr_signature_not_required'
   | 'profile.event_count_invalid'
+  | 'profile.field_invalid'
   | 'profile.kind_mismatch'
   | 'profile.subject_format_invalid'
   | 'profile.subject_hint_mismatch'
@@ -201,6 +204,11 @@ const VERIFICATION_ISSUE_EXPLANATION_INPUTS = {
     'Rotate the circle manifest, publish a replacement, and verify the assertion against the current manifest.',
     'refresh-and-retry',
   ),
+  'circle.manifest_field_invalid': explanation(
+    'A field of a circle manifest in the deployment policy is of the wrong type, or one it needs is missing.',
+    'Correct the field the issue path names and reissue the bundle. The verifier stops at a malformed field and checks nothing else, so every assertion is rejected until then.',
+    'operator-action',
+  ),
   'circle.manifest_invalid': explanation(
     'A circle manifest does not match the expected shape or member-derived circle id.',
     'Recreate the manifest with createCircleManifest() from the exact reviewed member pubkeys.',
@@ -317,6 +325,11 @@ const VERIFICATION_ISSUE_EXPLANATION_INPUTS = {
     'Re-issue the policy with acceptedPublishers as one or more 64-character lowercase hex pubkeys. Every assertion is rejected until then.',
     'operator-action',
   ),
+  'policy.field_invalid': explanation(
+    'A field of the deployment policy is of the wrong type, or one it needs is missing.',
+    'Correct the field the issue path names and reissue the bundle. The verifier stops at a malformed field and checks nothing else, so every assertion is rejected until then.',
+    'operator-action',
+  ),
   'policy.max_age_seconds_invalid': explanation(
     'maxAgeSeconds is not a non-negative integer.',
     'Correct maxAgeSeconds where it is set: in the verifier option, the profile, or the deployment policy, reissuing its bundle. A malformed window cannot be applied, so every assertion is rejected until then. Use 0 only to switch the freshness window off on purpose.',
@@ -345,6 +358,11 @@ const VERIFICATION_ISSUE_EXPLANATION_INPUTS = {
   'profile.event_count_invalid': explanation(
     'The number of events does not match the selected profile.',
     'Pass exactly one event for single-assertion profiles, or the complete scoped event set for federation profiles.',
+    'operator-action',
+  ),
+  'profile.field_invalid': explanation(
+    'A field of the use-case profile is of the wrong type or out of its range, or one it needs is missing.',
+    'Correct the field the issue path names, in the profile or in the deployment policy that carries it, and reissue its bundle. The verifier stops at a malformed field and checks nothing else, so every assertion is rejected until then.',
     'operator-action',
   ),
   'profile.kind_mismatch': explanation(
@@ -424,6 +442,61 @@ function pathFromMessage(message: string): string | undefined {
   return undefined
 }
 
+// A manifest is named by its place in a policy, in a resolved set, or alone
+const MANIFEST_AT = String.raw`(?:circleManifests\[\d+\]|manifest\[\d+\]|manifest)`
+const FIELD_MESSAGES: ReadonlyArray<[RegExp, VerificationIssueCode]> = [
+  [/^policy must be an object$/u, 'policy.field_invalid'],
+  [/^acceptedCircleIds must be a list of strings$/u, 'policy.field_invalid'],
+  [/^aggregate must be a string$/u, 'policy.field_invalid'],
+  [/^(?:circleManifests|companionEvidence) must be a list$/u, 'policy.field_invalid'],
+  [/^companionEvidence\[\d+\] must be an object$/u, 'policy.field_invalid'],
+  [/^companionEvidence\[\d+\]\.(?:id|expectedSubject) must be a string$/u, 'policy.field_invalid'],
+  [/^companionEvidence\[\d+\]\.required must be true or false$/u, 'policy.field_invalid'],
+  [/^(?:expectedSubject|expectedSubjectTagValue) must be a string$/u, 'policy.field_invalid'],
+  [/^metricPolicies must be an object$/u, 'policy.field_invalid'],
+  [/^(?:allowSupersededCircleIds|rejectUnknownMetrics|requireNostrSignature) must be true or false$/u, 'policy.field_invalid'],
+  [/^profile must be an object$/u, 'profile.field_invalid'],
+  [/^profile\.id must be a string$/u, 'profile.field_invalid'],
+  [/^profile\.kind must be a number$/u, 'profile.field_invalid'],
+  [/^profile\.proofVersion must be "v1" or "v2"$/u, 'profile.field_invalid'],
+  [/^profile\.subjectTag must be "p", "e", "a" or "k"$/u, 'profile.field_invalid'],
+  [/^profile\.(?:subjectTagValue|aggregate) must be a string$/u, 'profile.field_invalid'],
+  [/^profile\.metrics\[\d+\]\.contribution must be an object$/u, 'profile.field_invalid'],
+  [/^profile\.federation\.requireScope must be true or false$/u, 'profile.field_invalid'],
+  [/^profile\.subjectFormats must be a list of strings$/u, 'profile.field_invalid'],
+  [/^profile\.metrics must be a list$/u, 'profile.field_invalid'],
+  [/^profile\.metrics\[\d+\] must be an object$/u, 'profile.field_invalid'],
+  [/^profile\.metrics\[\d+\]\.name must be a string$/u, 'profile.field_invalid'],
+  [/^profile\.federation must be an object$/u, 'profile.field_invalid'],
+  [/^profile\.federation\.minCircles must be a positive integer$/u, 'profile.field_invalid'],
+  [/^manifests must be a list$/u, 'circle.manifest_field_invalid'],
+  [new RegExp(`^${MANIFEST_AT} must be an object$`, 'u'), 'circle.manifest_field_invalid'],
+  [new RegExp(`^${MANIFEST_AT}\\.(?:members|profileIds|revokedCircleIds|supersedes) must be a list of strings$`, 'u'), 'circle.manifest_field_invalid'],
+  [new RegExp(`^${MANIFEST_AT}\\.(?:circleId|name|purpose) must be a string$`, 'u'), 'circle.manifest_field_invalid'],
+  [new RegExp(`^${MANIFEST_AT}\\.issuedAt must be a number$`, 'u'), 'circle.manifest_field_invalid'],
+]
+
+/**
+ * The code of a message about a field of the wrong type, matched on the whole
+ * message. Each is raised by the policy, profile or manifest check alone, and
+ * only an entry of metricPolicies carries text from the policy: its name, with
+ * both ends of the message fixed around it.
+ */
+function fieldCodeFromMessage(message: string): VerificationIssueCode | undefined {
+  for (const [pattern, code] of FIELD_MESSAGES) {
+    if (pattern.test(message)) return code
+  }
+  if (
+    message.startsWith('metricPolicies.')
+    && (message.endsWith(' must be an object')
+      || message.endsWith('.required must be true or false')
+      || message.endsWith('.integer must be true or false'))
+  ) {
+    return 'policy.field_invalid'
+  }
+  return undefined
+}
+
 function codeFromError(message: string): VerificationIssueCode {
   const lower = message.toLowerCase()
 
@@ -444,6 +517,8 @@ function codeFromError(message: string): VerificationIssueCode {
     return 'policy.metric_policy_invalid'
   }
   if (message === 'maxAgeSeconds must be a non-negative integer') return 'policy.max_age_seconds_invalid'
+  const field = fieldCodeFromMessage(message)
+  if (field !== undefined) return field
   if (
     message === 'maxFutureSeconds must be a non-negative integer'
     || message === 'maxFutureSeconds is set while maxAgeSeconds turns the freshness window off'

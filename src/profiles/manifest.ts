@@ -1,5 +1,6 @@
 import { computeCircleId } from '../proof/circle.js'
 import { CodedErrors, issuesOf } from './coded.js'
+import { manifestFieldProblems } from './fields.js'
 import { NOW_INVALID, verificationTime } from './time.js'
 import type { VerificationIssueCode } from './issues.js'
 
@@ -219,6 +220,20 @@ export function verifyCircleManifest(
   manifest: CircleManifest,
   options: VerifyCircleManifestOptions = {},
 ): CircleManifestVerification {
+  // A manifest can arrive inside a policy read from JSON. One with a field of
+  // the wrong type is reported and nothing else is checked: read as it stood,
+  // the field would make this throw.
+  const problems = manifestFieldProblems(manifest, 'manifest')
+  if (problems.length > 0) {
+    const found = new CodedErrors()
+    for (const problem of problems) found.add('circle.manifest_field_invalid', problem.message, problem.path)
+    if (verificationTime(options.now) === undefined) found.add('verification.now_invalid', NOW_INVALID)
+    // The circle id it states is still given back where it is well formed
+    const stated: unknown = manifest !== null && typeof manifest === 'object'
+      ? (manifest as { circleId?: unknown }).circleId
+      : undefined
+    return { circleId: typeof stated === 'string' && HEX64_RE.test(stated) ? stated : null, errors: found.errors, manifest, valid: false }
+  }
   const now = verificationTime(options.now)
   return verifyManifestAt(manifest, options, now, now === undefined)
 }
@@ -298,6 +313,23 @@ export function resolveCircleManifests(
   options: ResolveCircleManifestsOptions = {},
 ): CircleManifestResolution {
   const found = new CodedErrors()
+  const list: unknown = manifests
+  if (!Array.isArray(list)) {
+    found.add('circle.manifest_field_invalid', 'manifests must be a list', 'manifests')
+    if (verificationTime(options.now) === undefined) found.add('verification.now_invalid', NOW_INVALID)
+    return { acceptedCircleIds: [], errors: found.errors, revokedCircleIds: [], supersededCircleIds: [], valid: false }
+  }
+  // Each manifest's lists are read below before any manifest is verified, so a
+  // manifest with a field of the wrong type is reported first, and none of its
+  // fields is read
+  const malformed = new Set<number>()
+  for (let index = 0; index < list.length; index++) {
+    for (const problem of manifestFieldProblems(list[index], `manifest[${index}]`)) {
+      found.add('circle.manifest_field_invalid', problem.message, problem.path)
+      malformed.add(index)
+    }
+  }
+
   const accepted = new Set<string>()
   const revoked = new Set<string>()
   const superseded = new Set<string>()
@@ -305,11 +337,23 @@ export function resolveCircleManifests(
   const now = verificationTime(options.now)
   if (now === undefined) found.add('verification.now_invalid', NOW_INVALID)
 
-  for (const manifest of manifests) {
+  for (const [index, manifest] of manifests.entries()) {
+    if (malformed.has(index)) continue
     addAll(revoked, manifest.revokedCircleIds)
     addAll(superseded, manifest.supersedes)
     if (manifest.status === 'revoked') revoked.add(manifest.circleId)
     if (manifest.status === 'superseded') superseded.add(manifest.circleId)
+  }
+  // No circle is accepted from a set that could not be read in full. What the
+  // well-formed manifests in it revoke or supersede still stands.
+  if (malformed.size > 0) {
+    return {
+      acceptedCircleIds: [],
+      errors: found.errors,
+      revokedCircleIds: [...revoked].sort(),
+      supersededCircleIds: [...superseded].sort(),
+      valid: false,
+    }
   }
 
   for (const [index, manifest] of manifests.entries()) {

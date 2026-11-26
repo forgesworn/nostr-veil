@@ -866,8 +866,27 @@ object, or with anything at all for a policy), is rejected with an ordinary
 error, and no verifier throws on it. For an event or a bundle the error has an
 issue code, such as `nip85.syntax_invalid` or `bundle.id_invalid`. An
 admission presentation is denied with an error message, which carries no
-issue code. None of this covers an authentic bundle whose own policy
-is malformed: the operator signed it, and a verifier can still throw on it.
+issue code.
+
+The policy of an authentic bundle is the operator's, but it is still JSON.
+Each field the verifier reads must be absent or of its type, and `null` is not
+absent; a field with no default, such as `expectedSubject`, `metricPolicies`
+or the profile, must be there. A field of the wrong type is reported under the
+code of the part it belongs to, `policy.field_invalid`, `profile.field_invalid`
+(which `verifyUseCaseProfile` also reports on its own) or
+`circle.manifest_field_invalid`, with a `path` naming it, and nothing else in
+the policy is checked: read as it stood, the field would make the verifier
+throw or switch its check off. The report's policy controls read
+`not-checked`, and its profile summary is blank. A value with a check of its
+own, such as a time window, the signer threshold or a metric bound, keeps its
+code. `createDeploymentPolicy` reads a `null` option as unset and stores no
+`null` for one; the profile it is given is stored as given, and refused where
+the verifier would reject it, a `null` in it included. Until it did, a `null` `expectedSubjectTagValue`, or a `null`
+`required` or `integer` in a metric entry, was stored as given: a bundle
+issued with one is now rejected, and must be reissued. Where it already refused a `null`, as for `maxFutureSeconds`, a metric
+or contribution bound, `acceptedPublishers`, `aggregate` or
+`contributionBounds`, it still does. The verifier's own options are not
+covered.
 
 ```ts
 const result = verifyProductionDeployment(assertionFromRelay, bundle, {

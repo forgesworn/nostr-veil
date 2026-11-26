@@ -1,6 +1,7 @@
 import { verifySignedEvent } from '../signing.js'
 import { readableEvent } from '../nip85/shape.js'
 import { CodedErrors, issuesOf } from './coded.js'
+import { deploymentFieldIssues } from './fields.js'
 import { resolveCircleManifests } from './manifest.js'
 import { NOW_INVALID, verificationTime, withoutRepeatedTimeIssue } from './time.js'
 import { verifyUseCaseProfile } from './verify.js'
@@ -213,8 +214,11 @@ function cloneMetricPolicies(
 
   for (const [name, policy] of entries) {
     if (name.trim() === '') throw new Error('metric policy name must be non-empty')
+    // A null entry or flag is read as unset and not stored: the verifier
+    // rejects a null in a policy read from JSON
+    if (policy === null) continue
     assertMetricPolicy(name, policy)
-    cloned[name] = Object.freeze({ ...policy })
+    cloned[name] = Object.freeze(Object.fromEntries(Object.entries(policy).filter(([, value]) => value !== null)))
   }
 
   return Object.freeze(cloned)
@@ -240,13 +244,17 @@ function cloneContributionBounds(bounds: ContributionBounds | undefined): Contri
 }
 
 function assertEvidenceRequirement(requirement: CompanionEvidenceRequirement, index: number): CompanionEvidenceRequirement {
-  const id = requirement.id.trim()
+  const given: unknown = requirement.id
+  const id = typeof given === 'string' ? given.trim() : ''
   if (id === '') throw new Error(`companionEvidence[${index}].id must be non-empty`)
   assertNonNegativeInteger(requirement.maxAgeSeconds ?? 0, `companionEvidence[${index}].maxAgeSeconds`)
-  if (requirement.expectedSubject !== undefined && requirement.expectedSubject.trim() === '') {
+  // A null label or subject is read as unset, as a null window is below
+  const label = requirement.label ?? undefined
+  const expectedSubject = requirement.expectedSubject ?? undefined
+  if (expectedSubject !== undefined && expectedSubject.trim() === '') {
     throw new Error(`companionEvidence[${index}].expectedSubject must be non-empty`)
   }
-  if (requirement.label !== undefined && requirement.label.trim() === '') {
+  if (label !== undefined && label.trim() === '') {
     throw new Error(`companionEvidence[${index}].label must be non-empty`)
   }
 
@@ -255,8 +263,8 @@ function assertEvidenceRequirement(requirement: CompanionEvidenceRequirement, in
   const window: unknown = requirement.maxAgeSeconds
   return Object.freeze({
     id,
-    ...(requirement.label === undefined ? {} : { label: requirement.label }),
-    ...(requirement.expectedSubject === undefined ? {} : { expectedSubject: requirement.expectedSubject }),
+    ...(label === undefined ? {} : { label }),
+    ...(expectedSubject === undefined ? {} : { expectedSubject }),
     ...(window === undefined || window === null ? {} : { maxAgeSeconds: requirement.maxAgeSeconds }),
     required: requirement.required ?? true,
   })
@@ -269,6 +277,8 @@ function cloneCompanionEvidenceRequirements(
   const seen = new Set<string>()
 
   for (const [index, requirement] of (requirements ?? []).entries()) {
+    // A null entry is read as unset, as a null option is
+    if (requirement === null || requirement === undefined) continue
     const checked = assertEvidenceRequirement(requirement, index)
     if (seen.has(checked.id)) throw new Error(`companionEvidence[${index}].id is duplicated`)
     seen.add(checked.id)
@@ -397,7 +407,11 @@ export function createDeploymentPolicy(
   profile: UseCaseProfile,
   options: CreateDeploymentPolicyOptions,
 ): UseCaseDeploymentPolicy {
-  if (options.expectedSubject.trim() === '') throw new Error('expectedSubject must be non-empty')
+  // A null is read as unset, and the subject is not optional
+  const expectedSubject: unknown = options.expectedSubject
+  if (typeof expectedSubject !== 'string' || expectedSubject.trim() === '') {
+    throw new Error('expectedSubject must be non-empty')
+  }
 
   const maxAgeSeconds = options.maxAgeSeconds ?? profile.maxAgeSeconds
   const minDistinctSigners = options.minDistinctSigners ?? profile.minDistinctSigners
@@ -411,7 +425,7 @@ export function createDeploymentPolicy(
     }
   }
   assertPositiveInteger(minDistinctSigners, 'minDistinctSigners')
-  const rawCircleIds = optionalAcceptedCircleIds(options.acceptedCircleIds)
+  const rawCircleIds = optionalAcceptedCircleIds(options.acceptedCircleIds ?? undefined)
   const circleManifests = Object.freeze([...(options.circleManifests ?? [])])
   const allowSupersededCircleIds = options.allowSupersededCircleIds ?? false
   const circleResolution = resolvedAcceptedCircleIds(
@@ -435,7 +449,7 @@ export function createDeploymentPolicy(
     throw new Error('requireNostrSignature cannot be false when acceptedPublishers is set: an unsigned event has no publisher')
   }
 
-  return Object.freeze({
+  const policy: UseCaseDeploymentPolicy = Object.freeze({
     acceptedCircleIds: rawCircleIds,
     ...(acceptedPublishers === undefined ? {} : { acceptedPublishers }),
     ...(aggregate === undefined ? {} : { aggregate }),
@@ -444,7 +458,7 @@ export function createDeploymentPolicy(
     ...(companionEvidence.length === 0 ? {} : { companionEvidence }),
     ...(contributionBounds === undefined ? {} : { contributionBounds }),
     expectedSubject: options.expectedSubject,
-    ...(options.expectedSubjectTagValue === undefined ? {} : { expectedSubjectTagValue: options.expectedSubjectTagValue }),
+    ...(options.expectedSubjectTagValue == null ? {} : { expectedSubjectTagValue: options.expectedSubjectTagValue }),
     id: options.id ?? profile.id,
     maxAgeSeconds,
     ...(options.maxFutureSeconds === undefined ? {} : { maxFutureSeconds: options.maxFutureSeconds }),
@@ -454,6 +468,59 @@ export function createDeploymentPolicy(
     rejectUnknownMetrics: options.rejectUnknownMetrics ?? false,
     requireNostrSignature: acceptedPublishers !== undefined || (options.requireNostrSignature ?? false),
   })
+  // The verifier checks the shape of every policy it reads. A policy it would
+  // refuse, for a profile or a manifest of the wrong shape, is not made.
+  const problems = deploymentFieldIssues(policy)
+  if (problems.length > 0) throw new Error(problems.map(issue => issue.message).join('; '))
+  return policy
+}
+
+/**
+ * The result for a policy with a field of the wrong type. Nothing else in it
+ * is read: read as it stood, the field would make the verifier throw or switch
+ * its check off. So the run is a rejection with those issues alone, and no
+ * event is checked against the policy.
+ */
+function stoppedOnFields(
+  policy: unknown,
+  fieldIssues: readonly VerificationIssue[],
+  now: unknown,
+): DeploymentPolicyVerification {
+  // A time that cannot be compared is still reported, as every verifier that
+  // takes one reports it
+  const issues = verificationTime(now) === undefined
+    ? [...fieldIssues, Object.freeze({ code: 'verification.now_invalid' as const, message: NOW_INVALID })]
+    : [...fieldIssues]
+  const profileIssues = issues.filter(issue => issue.code === 'profile.field_invalid')
+  // Handed back as the policy gave it, as for a policy that was not applied
+  const profile: unknown = policy !== null && typeof policy === 'object' ? (policy as { profile?: unknown }).profile : undefined
+  return {
+    companionEvidence: Object.freeze({
+      evidence: Object.freeze([]),
+      errors: [],
+      missingIds: Object.freeze([]),
+      requirements: Object.freeze([]),
+      valid: false,
+    }),
+    decision: 'reject',
+    errors: issues.map(issue => issue.message),
+    issues: [...issues],
+    metrics: {},
+    nostrSignatures: { checked: false, valid: false },
+    policy: policy as UseCaseDeploymentPolicy,
+    profileVerification: {
+      valid: false,
+      errors: profileIssues.map(issue => issue.message),
+      issues: profileIssues,
+      events: [],
+      federation: undefined,
+      profile: profile as UseCaseProfile,
+    },
+    publishers: { checked: false, valid: false },
+    revokedCircleIds: [],
+    supersededCircleIds: [],
+    valid: false,
+  }
 }
 
 function cloneCompanionEvidence(evidence: CompanionEvidence): CompanionEvidence {
@@ -573,7 +640,12 @@ function collectMetric(
   name: string,
   value: number,
 ): void {
-  metrics[name] ??= []
+  // A metric can be named after a member every object has, such as
+  // constructor: only the object's own entry is the metric's, and a new one
+  // is defined rather than assigned, so a name never reaches the prototype
+  if (!Object.hasOwn(metrics, name)) {
+    Object.defineProperty(metrics, name, { configurable: true, enumerable: true, value: [], writable: true })
+  }
   metrics[name].push(value)
 }
 
@@ -718,6 +790,10 @@ export function verifyDeploymentPolicy(
   policy: UseCaseDeploymentPolicy,
   options: VerifyDeploymentPolicyOptions = {},
 ): DeploymentPolicyVerification {
+  // A policy read from JSON is checked for shape before anything in it is read
+  const fieldIssues = deploymentFieldIssues(policy)
+  if (fieldIssues.length > 0) return stoppedOnFields(policy, fieldIssues, options.now)
+
   const eventList = normaliseEvents(events)
   const circleResolution = resolvedAcceptedCircleIds(
     policy.profile,

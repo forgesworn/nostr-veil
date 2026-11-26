@@ -3,6 +3,7 @@ import { sha256 } from '@noble/hashes/sha2.js'
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js'
 import { matches } from '../nip85/shape.js'
 import { isAuthenticBundle } from './authentic.js'
+import { stoppedAtField } from './fields.js'
 import { verifyProductionDeployment } from './production.js'
 import { NOW_INVALID, verificationTime, withoutRepeatedTimeError } from './time.js'
 import type { EventTemplate } from '../nip85/types.js'
@@ -421,9 +422,16 @@ export function verifyAdmissionRequest(
   const deployment = verifyProductionDeployment(events, bundle, options)
   // The subject the bundle vouches for is read only from an authentic bundle.
   // The policy of any other was not applied, and vouches for nobody: the
-  // request is denied for what the bundle check has already reported.
-  const authentic = isAuthenticBundle(deployment.bundle)
-  const vouchedFor: string | undefined = authentic ? bundle.policy.expectedSubject : undefined
+  // request is denied for what the bundle check has already reported. Nor
+  // does a policy the verifier stopped at for a field of the wrong type.
+  const authentic = isAuthenticBundle(deployment.bundle) && !stoppedAtField(deployment.deployment.issues)
+  // Its policy is still JSON: one that is not an object, or whose subject is
+  // not a string, vouches for nobody either, and the deployment reports why
+  const policy: unknown = authentic ? bundle.policy : undefined
+  const subject: unknown = policy !== null && typeof policy === 'object'
+    ? (policy as { expectedSubject?: unknown }).expectedSubject
+    : undefined
+  const vouchedFor: string | undefined = typeof subject === 'string' ? subject : undefined
   // The applicant comes from the presentation, which need not be an object
   const applicant = (presentation !== null && typeof presentation === 'object'
     ? presentation.applicantPubkey

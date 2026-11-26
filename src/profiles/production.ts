@@ -1,4 +1,5 @@
 import { isAuthenticBundle } from './authentic.js'
+import { stoppedAtField } from './fields.js'
 import { issuesOf } from './coded.js'
 import { verificationIssue } from './issues.js'
 import { verifyDeploymentBundle } from './bundle.js'
@@ -24,6 +25,11 @@ export interface ProductionDeploymentVerification extends DeploymentBundleVerifi
   issues: VerificationIssue[]
 }
 
+function requiresNostrSignature(policy: unknown): boolean {
+  return policy !== null && typeof policy === 'object'
+    && (policy as { requireNostrSignature?: unknown }).requireNostrSignature === true
+}
+
 function productionHardeningIssues(
   given: SignedDeploymentBundle,
   policyApplied: boolean,
@@ -41,8 +47,9 @@ function productionHardeningIssues(
     ))
   }
 
-  // The policy is read only where it was applied: from an authentic bundle
-  if (policyApplied && options.requireSignedEvents !== false && bundle.policy.requireNostrSignature !== true) {
+  // The policy is read only where it was applied: from an authentic bundle,
+  // whose policy is still JSON and need not be an object
+  if (policyApplied && options.requireSignedEvents !== false && !requiresNostrSignature(bundle.policy)) {
     issues.push(verificationIssue(
       'policy.nostr_signature_not_required',
       'production verifier requires policy.requireNostrSignature = true',
@@ -66,7 +73,10 @@ export function verifyProductionDeployment(
   options: VerifyProductionDeploymentOptions = {},
 ): ProductionDeploymentVerification {
   const base = verifyDeploymentBundle(events, bundle, options)
-  const hardeningIssues = productionHardeningIssues(bundle, isAuthenticBundle(base.bundle), options)
+  // A policy the verifier stopped at, for a field of the wrong type, is read
+  // no further here either
+  const policyRead = isAuthenticBundle(base.bundle) && !stoppedAtField(base.deployment.issues)
+  const hardeningIssues = productionHardeningIssues(bundle, policyRead, options)
   const issues = [
     ...issuesOf(base),
     ...hardeningIssues,
