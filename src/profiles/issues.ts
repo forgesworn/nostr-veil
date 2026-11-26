@@ -241,8 +241,8 @@ const VERIFICATION_ISSUE_EXPLANATION_INPUTS = {
     'refresh-and-retry',
   ),
   'circle.unaccepted': explanation(
-    'The assertion was produced by a circle this deployment does not accept.',
-    'Reject it unless governance reviews the circle and adds its manifest or circle id to the deployment policy.',
+    'The assertion does not name a circle this deployment accepts.',
+    'Reject it. If it names a circle, governance can review that circle and add its manifest or circle id to the deployment policy.',
   ),
   'companion.checked_at_future': explanation(
     'A companion evidence check is timestamped in the future.',
@@ -423,6 +423,13 @@ const VERIFICATION_ISSUE_EXPLANATION_INPUTS = {
   ),
 } satisfies Record<VerificationIssueCode, VerificationIssueExplanationInput>
 
+/** For a code this version does not know, as one a later release added */
+const UNKNOWN_ISSUE = explanation(
+  'This version of nostr-veil does not know this issue code.',
+  'Reject by default, read the result\'s errors, and upgrade nostr-veil to a version that knows the code.',
+  'manual-review',
+)
+
 export const VERIFICATION_ISSUE_EXPLANATIONS = Object.freeze(
   Object.fromEntries(
     Object.entries(VERIFICATION_ISSUE_EXPLANATION_INPUTS).map(([code, value]) => [
@@ -500,11 +507,16 @@ const FAMILY_MESSAGES: ReadonlyArray<[RegExp, VerificationIssueCode]> = [
   [new RegExp(`^${IN_MANIFEST}manifest issuedAt is in the future$`, 'u'), 'circle.manifest_issued_at_future'],
   [new RegExp(`^${IN_MANIFEST}(?:manifest version must be 1|manifest (?:name|purpose) must be non-empty|manifest status must be active, revoked, or superseded|(?:issuedAt|expiresAt) must be a non-negative Unix timestamp|expiresAt must be greater than issuedAt)$`, 'u'), 'circle.manifest_invalid'],
   [new RegExp(`^${IN_MANIFEST}supersedes(?:\\[\\d+\\])? (?:must be a 64-character lowercase hex string|must be sorted lexicographically|is duplicated|must contain at least one value)$`, 'u'), 'circle.manifest_invalid'],
+  // Two messages of the proof verifier name a circle's members or its id, and
+  // the fragment rules below would read them as a fault in a manifest
+  [/^event\[\d+\] proof: (?:veil-ring requires at least 2 members|Signature at index \d+ signed message circleId mismatch)$/u, 'proof.invalid'],
+  [/^federation: event\[\d+\]: (?:veil-ring requires at least 2 members|Signature at index \d+ signed message circleId mismatch)$/u, 'federation.invalid'],
 ]
 
 /**
- * The code of a library message that once had only the general code, matched
- * on the whole message. Each is raised with this code where it is raised.
+ * The code of a library message that the fragment rules would read wrongly or
+ * not at all, matched on the whole message. Each is raised with this code
+ * where it is raised.
  */
 function familyCodeFromMessage(message: string): VerificationIssueCode | undefined {
   for (const [pattern, code] of FAMILY_MESSAGES) {
@@ -673,8 +685,16 @@ export function issuesFromErrors(errors: readonly string[]): VerificationIssue[]
 export function explainVerificationIssue(
   issueOrCode: VerificationIssue | VerificationIssueCode,
 ): VerificationIssueExplanation {
-  const code = typeof issueOrCode === 'string' ? issueOrCode : issueOrCode.code
-  return VERIFICATION_ISSUE_EXPLANATIONS[code]
+  // A result read back from storage can carry anything here
+  const code: unknown = typeof issueOrCode === 'object' && issueOrCode !== null
+    ? (issueOrCode as { code?: unknown }).code
+    : issueOrCode
+  // A later release can add a code, and a result it wrote can be read here.
+  // Only the table's own keys are codes: toString is a name every object has.
+  if (typeof code === 'string' && Object.hasOwn(VERIFICATION_ISSUE_EXPLANATIONS, code)) {
+    return VERIFICATION_ISSUE_EXPLANATIONS[code as VerificationIssueCode]
+  }
+  return Object.freeze({ code: code as VerificationIssueCode, ...UNKNOWN_ISSUE })
 }
 
 export function remediationForIssue(issueOrCode: VerificationIssue | VerificationIssueCode): string {

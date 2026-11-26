@@ -108,7 +108,9 @@ function requireSingletonTag(event: RawEvent, name: string, errors: string[]): s
     errors.push(`Missing required ${name}-tag.`)
     return undefined
   }
-  if (values.length > 1) {
+  // Count every tag with this name, including ones with a missing or
+  // non-string value, as validateOptionalMatchingTag does
+  if (event.tags.filter(t => t[0] === name).length > 1) {
     errors.push(`Duplicate ${name}-tag.`)
   }
   return values[0]
@@ -138,7 +140,7 @@ function validateStrictSubjectTags(event: RawEvent, errors: string[]): void {
   // NIP-85: p, e and a tags MAY repeat the d value as a relay hint, on any kind.
   // i (relay-indexed, NIP-73) is held to the same rule: on kind 30385 d is the i value.
   for (const name of ['p', 'e', 'a', 'i']) validateOptionalMatchingTag(event, name, subject, errors)
-  if (event.kind !== NIP85_KINDS.IDENTIFIER && tagValues(event, 'k').length > 1) {
+  if (event.kind !== NIP85_KINDS.IDENTIFIER && event.tags.filter(t => t[0] === 'k').length > 1) {
     errors.push('Duplicate k-tag.')
   }
 

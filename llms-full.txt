@@ -212,7 +212,10 @@ names and kinds from the event. Show or log `path`, but do not parse it: a
 metric's ends with the tag name as the event wrote it. Use
 `explainVerificationIssue(issueOrCode)` or
 `remediationForIssue(issueOrCode)` to turn a stable code into the concrete next
-operator or verifier action. For production UI and audit logs,
+operator or verifier action. A code this version does not know, such as one a
+later release wrote into a stored result, is explained as unknown and asks for
+`manual-review`, and the decision report then reads no control as passed. For
+production UI and audit logs,
 `verifyProductionDeploymentReport()` returns the verifier decision with expanded
 issue remediations, a recommended action, and pass/fail/not-checked status for
 the controls.
@@ -473,14 +476,14 @@ subject hint tags (`p`, `e`, `a`) when present, or use
 `validateAssertionStrict(event)` as a shortcut.
 
 Checks: kind is valid, `d` tag is present, `rank` (if present) is 0–100.
-Strict mode also requires kind 30385 to carry one `k` tag holding a NIP-73
-type of 1 to 64 printable ASCII characters without spaces (`web`, `isbn`,
+Strict mode also requires one `d` tag and, on kind 30385, one `k` tag holding a
+NIP-73 type of 1 to 64 printable ASCII characters without spaces (`web`, `isbn`,
 `podcast:guid`, `<blockchain>:tx`; the built-in profiles' decimal values also
-pass), requires any `p`, `e`, `a` or `i` tag on any kind to appear once and
-repeat the `d` value, does not read `expiration`,
-`alt`, `client`, `L`, `l`, `i`, `-` or `nonce` as metrics, requires a present
-`expiration` to be one unix timestamp string, and reports a malformed tag or
-tag list instead of throwing.
+pass). A second `d` or `k` tag is counted whatever its value, even none. It
+requires any `p`, `e`, `a` or `i` tag on any kind to appear once and repeat the
+`d` value, does not read `expiration`, `alt`, `client`, `L`, `l`, `i`, `-` or
+`nonce` as metrics, requires a present `expiration` to be one unix timestamp
+string, and reports a malformed tag or tag list instead of throwing.
 
 - **`event`** `{ kind, tags, content }` — Raw Nostr event
 - **Returns** `ValidationResult` with `valid` and `errors`
@@ -704,7 +707,12 @@ NIP-73 type such as `doi` or `web`, or a decimal namespace.
 
 Verify NIP-85 syntax, proof version, expected kind and subject tag, freshness,
 threshold, accepted circles, expected subject, the aggregate function,
-per-contribution bounds, and federation policy. Every built-in profile pins
+per-contribution bounds, and federation policy. Where accepted circles are
+given, an assertion whose circle is not among them fails with
+`circle.unaccepted`, and so does one that names no circle: one with no
+`veil-ring` tag, or with a ring that is not a single tag of two or more
+lowercase hex keys in sorted order, which the proof verifier rejects too. Every
+built-in profile pins
 `aggregate`: `median`, and `sum` for `anonymous-group-decisions`, whose `rank`
 metric also carries `contribution: { min: 0, max: 1, integer: true, required: true }`
 (`required` rejects a signer who left the ballot out). An event
@@ -927,16 +935,17 @@ gate on the decision, not on every control reading `pass`. A result with no
 `publishers` field, as an earlier release returned, also reads `not-checked`.
 For a bundle that is not authentic, every control that reports on the policy
 reads `not-checked` and the report's `profile`, `policyId` and `subject` are
-blank: the policy was not applied, and is not the operator's to be shown. For
-an assertion too malformed to read, the circle, proof and metric controls read
-`fail`. With no assertion at all, a control that checks each assertion never
-reads `pass`: it reads `not-checked`, or `fail` where one of its checks failed
-even so, for example on a malformed setting in the policy, a circle manifest
-that is out of date, revoked or, with a `now` that cannot be compared, could not
-be dated, a federation profile given no events, or, for `event-signatures`, a
+blank: the policy was not applied, and is not the operator's to be shown. Where
+the policy was applied and has no field of the wrong type, the profile, circle,
+proof and metric controls read `fail` for an assertion too malformed to read.
+With no assertion at all, a control that checks each assertion never reads
+`pass`: it reads `not-checked`, or `fail` where one of its checks failed even
+so, for example on a malformed setting in the policy, a circle manifest that is
+out of date, revoked or, with a `now` that cannot be compared, could not be
+dated, a federation profile given no events, or, for `event-signatures`, a
 policy that does not require Nostr signatures. `bundle-publisher` and
-`bundle-freshness` pass only when the signature verifies too: the signer and
-the dates a bundle carries are claims until then.
+`bundle-freshness` pass only when the signature verifies too: the signer and the
+dates a bundle carries are claims until then.
 
 #### `verifyProductionDeploymentReport(events, bundle, options) → ProductionDecisionReport`
 
