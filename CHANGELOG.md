@@ -1,3 +1,11 @@
+## 0.40.4 (2026-11-27)
+
+### Bug Fixes
+
+- trim a git subject's trailing slashes in linear time (#78)
+
+
+
 ## 0.40.3 (2026-11-27)
 
 ### Bug Fixes
