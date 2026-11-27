@@ -88,6 +88,11 @@ export interface AdmissionRequestVerification {
   deployment: ProductionDeploymentVerification
   errors: string[]
   presentation: AdmissionPresentationVerification
+  /**
+   * The first rank in the deployment's `metrics`, or `null` where they hold
+   * none, as for a vouch given alone that gives its rank more than once or as
+   * no number.
+   */
   rank: number | null
   valid: boolean
 }

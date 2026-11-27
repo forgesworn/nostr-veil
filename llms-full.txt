@@ -766,7 +766,14 @@ Build a fail-closed verifier policy with accepted circle IDs or manifests,
 expected subject, optional subject-tag value, freshness, signer threshold,
 metric bounds, unknown-metric handling, optional companion evidence
 requirements, and optional Nostr event signature requirements. `metricPolicies`
-bound the published aggregate. `aggregate` replaces the aggregate function the
+bound the published aggregate, and every tag of a metric's name is held to
+them, wherever it is placed. A value that is missing, blank or not a finite
+number fails with `metric.invalid_value`. The value of a tag that cannot be
+read is not read, and the report fails its metric control for such an
+assertion. `rejectUnknownMetrics` reports an unknown name whether or not its
+tag has a value. The result's `metrics`, which the report and the admission
+`rank` read, hold a metric's value for an event only where the event gives it
+once, as a number. `aggregate` replaces the aggregate function the
 profile pins, and `contributionBounds` (`{ [metric]: { min?, max?, integer?, required? } }`)
 bounds what one member may sign; both are left off the policy when not set, and
 a malformed value throws. `maxFutureSeconds` sets how far ahead of the
