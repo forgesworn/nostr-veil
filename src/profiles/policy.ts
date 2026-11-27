@@ -1,5 +1,5 @@
 import { verifySignedEvent } from '../signing.js'
-import { readableEvent } from '../nip85/shape.js'
+import { isReadableTag, isWellFormedTag } from '../nip85/shape.js'
 import { CodedErrors, issuesOf } from './coded.js'
 import { deploymentFieldIssues } from './fields.js'
 import { resolveCircleManifests } from './manifest.js'
@@ -155,6 +155,13 @@ export interface DeploymentPolicyVerification {
   decision: DeploymentDecision
   errors: string[]
   issues?: VerificationIssue[]
+  /**
+   * The values of the metrics the policy bounds: for each, its value in each
+   * event that gives it once as a finite number, in the order of the events.
+   * An event that gives a metric more than once, or with no number, adds no
+   * value. A metric no event gives a value for has no entry. Nor has one
+   * whose bound is malformed: it is not checked.
+   */
   metrics: Record<string, number[]>
   nostrSignatures: {
     checked: boolean
@@ -623,16 +630,41 @@ function verifyCompanionEvidence(
   })
 }
 
-function metricTags(event: EventTemplate): Map<string, string> {
-  const metrics = new Map<string, string>()
-  // Only the well-formed tags: a tag from a relay need not be a list, nor its
-  // name a string, and the profile verifier has reported any that are not
-  for (const tag of readableEvent(event).tags) {
+interface MetricTags {
+  /** Every tag of the name, including one that cannot be read. */
+  count: number
+  /** The value of each tag of the name that can be read: `undefined` where it has none. */
+  values: Array<string | undefined>
+}
+
+/**
+ * Every metric the event names, with each tag of that name, wherever it is
+ * placed. A tag that is not a list, or whose name is not a string, names no
+ * metric, and the profile verifier has reported it. A tag that cannot be read,
+ * such as one with a value that is not a string, still counts, so its metric
+ * has no single value, but its value is not read.
+ */
+function metricTags(event: EventTemplate): Map<string, MetricTags> {
+  const metrics = new Map<string, MetricTags>()
+  const given: unknown = event !== null && typeof event === 'object' ? (event as { tags?: unknown }).tags : undefined
+  for (const tag of Array.isArray(given) ? given : []) {
+    if (!isWellFormedTag(tag)) continue
     const name = tag[0]
     if (META_TAGS.has(name) || PUBLISHER_TAGS.has(name) || name.startsWith('veil-')) continue
-    if (tag[1] !== undefined) metrics.set(name, tag[1])
+    const entry = metrics.get(name) ?? { count: 0, values: [] }
+    entry.count += 1
+    if (isReadableTag(tag)) entry.values.push(tag[1])
+    metrics.set(name, entry)
   }
   return metrics
+}
+
+/**
+ * The number a metric's value stands for, or `NaN`. A blank value is no
+ * number, as the strict syntax check reads it, where `Number()` reads it as 0.
+ */
+function metricNumber(value: string | undefined): number {
+  return value === undefined || value.trim() === '' ? Number.NaN : Number(value)
 }
 
 function collectMetric(
@@ -687,29 +719,34 @@ function verifyMetricPolicies(
 
     for (const [name, metricPolicy] of Object.entries(policy.metricPolicies)) {
       if (malformed.has(name)) continue
-      const raw = published.get(name)
-      if (raw === undefined) {
-        if (metricPolicy.required === true) {
-          found.add('metric.required_missing', `${place} missing required metric "${name}"`, place)
-        }
-        continue
+      const tags = published.get(name)
+      const values = tags?.values ?? []
+      // A tag with no value gives none, and one that cannot be read is not read
+      if (!values.some(value => value !== undefined) && metricPolicy.required === true) {
+        found.add('metric.required_missing', `${place} missing required metric "${name}"`, place)
       }
+      if (tags === undefined) continue
 
-      const value = Number(raw)
-      if (!Number.isFinite(value)) {
+      // Every value is held to the policy, wherever its tag is placed, and
+      // each fault is named once for the metric
+      const numbers = values.map(metricNumber)
+      const finite = numbers.filter(value => Number.isFinite(value))
+      const { min, max } = metricPolicy
+      if (finite.length < numbers.length) {
         raise('metric.invalid_value', name, 'is not a finite number')
-        continue
       }
-      if (metricPolicy.integer === true && !Number.isInteger(value)) {
+      if (metricPolicy.integer === true && finite.some(value => !Number.isInteger(value))) {
         raise('metric.integer_required', name, 'must be an integer')
       }
-      if (metricPolicy.min !== undefined && value < metricPolicy.min) {
-        raise('metric.below_min', name, `is below deployment minimum ${metricPolicy.min}`)
+      if (min !== undefined && finite.some(value => value < min)) {
+        raise('metric.below_min', name, `is below deployment minimum ${min}`)
       }
-      if (metricPolicy.max !== undefined && value > metricPolicy.max) {
-        raise('metric.above_max', name, `is above deployment maximum ${metricPolicy.max}`)
+      if (max !== undefined && finite.some(value => value > max)) {
+        raise('metric.above_max', name, `is above deployment maximum ${max}`)
       }
-      collectMetric(metrics, name, value)
+      // The metric has a value only where the event gives it once: of two
+      // tags of the name, neither value is the metric's
+      if (tags.count === 1 && finite.length === 1) collectMetric(metrics, name, finite[0])
     }
   }
 
