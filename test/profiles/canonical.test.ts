@@ -114,6 +114,10 @@ describe('a git repository path with a long run of slashes', () => {
     expect(canonicalGitRepositorySubject('https://git.example.com/team/repo/.git/')).toBe('git:https://git.example.com/team/repo')
     expect(canonicalGitRepositorySubject('https://git.example.com/team/repo///@v1')).toBe('git:https://git.example.com/team/repo@v1')
     expect(() => canonicalGitRepositorySubject('https://git.example.com///')).toThrow('git repository subject must include a repository path')
+    // Two repositories whose names differ by a last character that is not a
+    // slash keep two subjects
+    expect(canonicalGitRepositorySubject('https://git.example.com/team/repo-')).toBe('git:https://git.example.com/team/repo-')
+    expect(canonicalGitRepositorySubject('https://git.example.com/team/repo.')).toBe('git:https://git.example.com/team/repo.')
   })
 
   it('is canonicalised in time', () => {
