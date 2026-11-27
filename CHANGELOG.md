@@ -1,3 +1,11 @@
+## 0.40.1 (2026-11-27)
+
+### Bug Fixes
+
+- fail the circle and profile controls for an event they could not check (#75)
+
+
+
 ## 0.40.0 (2026-11-26)
 
 ### Features
