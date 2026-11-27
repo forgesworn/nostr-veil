@@ -94,3 +94,34 @@ describe('profile subject canonicalisation', () => {
     expect(subjectMatchesFormat(`verifier:Proof-of-Person:in-person:${hex}`, 'verifier')).toBe(false)
   })
 })
+
+describe('a git repository path with a long run of slashes', () => {
+  // A trim that backtracks tries every slash of the run as a start, so its
+  // cost grows with the square of the run: 0.40.3 took seconds over this one
+  const RUN = 128_000
+  const BUDGET_MS = 1_000
+  function within<T>(run: () => T): T {
+    const started = performance.now()
+    const value = run()
+    expect(performance.now() - started).toBeLessThan(BUDGET_MS)
+    return value
+  }
+
+  it('loses only its trailing slashes, as before', () => {
+    expect(canonicalGitRepositorySubject('https://git.example.com/team/repo/////')).toBe('git:https://git.example.com/team/repo')
+    expect(canonicalGitRepositorySubject('https://git.example.com/team//repo')).toBe('git:https://git.example.com/team//repo')
+    expect(canonicalGitRepositorySubject('https://git.example.com/team/repo.git///')).toBe('git:https://git.example.com/team/repo')
+    expect(canonicalGitRepositorySubject('https://git.example.com/team/repo/.git/')).toBe('git:https://git.example.com/team/repo')
+    expect(canonicalGitRepositorySubject('https://git.example.com/team/repo///@v1')).toBe('git:https://git.example.com/team/repo@v1')
+    expect(() => canonicalGitRepositorySubject('https://git.example.com///')).toThrow('git repository subject must include a repository path')
+  })
+
+  it('is canonicalised in time', () => {
+    const path = `/team${'/'.repeat(RUN)}repo`
+    expect(within(() => canonicalGitRepositorySubject(`https://git.example.com${path}`))).toBe(`git:https://git.example.com${path}`)
+  })
+
+  it('is checked against the git subject format in time', () => {
+    expect(within(() => subjectMatchesFormat(`git:https://git.example.com/${'/'.repeat(RUN)}x`, 'git'))).toBe(true)
+  })
+})

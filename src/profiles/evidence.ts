@@ -6,6 +6,7 @@ import {
   canonicalNpmPackageSubject,
   canonicalPackageDigestSubject,
 } from './canonical.js'
+import { withoutTrailingSlashes } from './trim.js'
 import type { EventTemplate } from '../nip85/types.js'
 import type { SignedEvent } from '../signing.js'
 import type { CompanionEvidence, CompanionEvidenceRequirement } from './policy.js'
@@ -429,7 +430,7 @@ function packageVersionEvidenceFromJson(value: unknown, expectedName: string, ex
 }
 
 function npmRegistryPackageUrl(registryUrl: string, name: string): string {
-  const base = registryUrl.replace(/\/+$/, '')
+  const base = withoutTrailingSlashes(registryUrl)
   return `${base}/${encodeURIComponent(name)}`
 }
 
