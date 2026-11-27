@@ -1,3 +1,11 @@
+## 0.40.2 (2026-11-27)
+
+### Bug Fixes
+
+- hold every tag of a metric name to the deployment policy (#76)
+
+
+
 ## 0.40.1 (2026-11-27)
 
 ### Bug Fixes
