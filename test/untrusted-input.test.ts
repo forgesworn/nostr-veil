@@ -686,3 +686,97 @@ describe('an admission presentation that is not what it should be', () => {
     }, 1)).toEqual([])
   })
 })
+
+describe('an event with very many tags', () => {
+  // The proof verifier names each metric tag it cannot take: one with no
+  // value, one with more than a value, a name given again, or `__proto__`.
+  // The ring signatures of a published proof are public and do not cover the
+  // other tags, so anyone can add such tags by the thousand. A call takes only
+  // so many arguments, so a list as long as the event must not be handed to one.
+  const MANY = 300_000
+  const widened = (tag: string[]): SignedEvent =>
+    signEvent({ ...assertion, tags: [...assertion.tags, ...Array.from({ length: MANY }, () => tag)] }, PUBLISHER_KEY)
+  // Fails as an assertion, not as an error, where the call throws
+  function settled<T>(run: () => T): T {
+    let value: T | undefined
+    expect(() => { value = run() }).not.toThrow()
+    return value as T
+  }
+  const elsewhere = createSignedDeploymentBundle(createDeploymentPolicy(profile, {
+    acceptedCircleIds: [circle.circleId],
+    acceptedPublishers: [pubkey(STRANGER_KEY)],
+    expectedSubject: subject,
+    minDistinctSigners: 1,
+    requireNostrSignature: true,
+  }), { expiresAt: NOW + 600, id: 'untrusted-input-elsewhere', issuedAt: NOW - 10, privateKey: OPERATOR_KEY })
+
+  // The assertion already gives `rank`, so every copy of a `rank` with a value
+  // is a second one, and only the first `x` with a value is taken
+  it.each([
+    ['a metric with no value', ['rank'], 'Metric "rank" is missing a value', MANY],
+    ['an unknown name with no value', ['x'], 'Metric "x" is missing a value', MANY],
+    ['a metric given again', ['rank', '85'], 'Duplicate metric tag "rank"', MANY],
+    ['an unknown name given again', ['x', '1'], 'Duplicate metric tag "x"', MANY - 1],
+    ['a metric with more than a value', ['x', '1', '2'], 'Metric "x" has extra elements the circle did not sign', MANY],
+    ['a tag named __proto__', ['__proto__', '1'], 'Tag name "__proto__" is not allowed', MANY],
+  ])('is turned away by the proof verifier, which names each tag: %s', (_name, tag, error, count) => {
+    const proof = settled(() => verifyProof(widened(tag)))
+
+    expect(proof.valid).toBe(false)
+    expect(proof.distinctSigners).toBe(1)
+    expect(proof.errors.filter(message => message === error).length).toBe(count)
+  })
+
+  // The first `z` is taken and then found unsigned, after every tag is read
+  const MIXED: Array<[string[], string]> = [
+    [['x'], 'Metric "x" is missing a value'],
+    [['rank', '85'], 'Duplicate metric tag "rank"'],
+    [['__proto__', '1'], 'Tag name "__proto__" is not allowed'],
+    [['y', '1', '2'], 'Metric "y" has extra elements the circle did not sign'],
+    [['z', '2'], 'Duplicate metric tag "z"'],
+  ]
+  it.each([
+    ['one round', 1],
+    ['60,000 rounds', MANY / MIXED.length],
+  ])('names each tag once, in tag order, before the comparison with the signed metrics: %s', (_name, rounds) => {
+    const tags = [...assertion.tags, ['z', '1']]
+    for (let round = 0; round < rounds; round++) tags.push(...MIXED.map(([tag]) => tag))
+    const proof = settled(() => verifyProof(signEvent({ ...assertion, tags }, PUBLISHER_KEY)))
+
+    const named = Array.from({ length: rounds }, () => MIXED.map(([, error]) => error)).flat()
+    const expected = [...named, 'Published metric "z" is not signed by any contribution']
+    // Compared by count and by index, as a diff of so long a list takes minutes
+    expect(proof.errors.length).toBe(expected.length)
+    const first = proof.errors.findIndex((message, index) => message !== expected[index])
+    expect(first, `error ${first} is ${JSON.stringify(proof.errors[first])}, not ${JSON.stringify(expected[first])}`).toBe(-1)
+  })
+
+  it('is turned away by every verifier built on the proof verifier', () => {
+    const event = widened(['x'])
+    // The admission request runs the production verifier, which runs the bundle,
+    // the policy, the profile and the proof
+    const admitted = settled(() => verifyAdmissionRequest(event, bundle, challenge, presentation, admission))
+
+    expect(admitted.decision).toBe('deny')
+    expect(admitted.deployment.decision).toBe('reject')
+    expect(createProductionDecisionReport(admitted.deployment).controls.find(control => control.id === 'proof-threshold')?.status).toBe('fail')
+    expect(settled(() => verifyFederation([event])).valid).toBe(false)
+  })
+
+  it('is turned away under a policy that accepts only another publisher', () => {
+    const result = settled(() => verifyProductionDeployment(widened(['x']), elsewhere, trusted))
+
+    expect(result.decision).toBe('reject')
+    expect(result.issues.map(issue => issue.code)).toContain('event.publisher_unaccepted')
+  })
+
+  it.each([
+    ['with no Nostr signature', (event: SignedEvent): EventTemplate => ({ kind: event.kind, tags: event.tags, content: event.content, created_at: event.created_at }), 'event.signature_missing'],
+    ["with another event's signature", (event: SignedEvent): EventTemplate => ({ ...event, id: signed.id, sig: signed.sig }) as EventTemplate, 'event.signature_invalid'],
+  ])('is turned away %s, under a policy that requires one', (_name, alter, code) => {
+    const result = settled(() => verifyProductionDeployment(alter(widened(['x'])), elsewhere, trusted))
+
+    expect(result.decision).toBe('reject')
+    expect(result.issues.map(issue => issue.code)).toContain(code)
+  })
+})

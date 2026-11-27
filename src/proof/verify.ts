@@ -927,7 +927,9 @@ export function verifyProof(event: {
       : resolveAggregateFn(event.tags, options, errors)
     if (aggregateFn !== null) {
       const published = extractPublishedMetrics(event.tags)
-      errors.push(...published.errors)
+      // One at a time: there is an error for each metric tag it cannot take,
+      // and so as many as the event has tags, more than one call can be given
+      for (const error of published.errors) errors.push(error)
       const signedMetrics = aggregateSignedMetrics(signedMessages, aggregateFn, errors)
       comparePublishedMetrics(published.metrics, signedMetrics, errors)
     }
