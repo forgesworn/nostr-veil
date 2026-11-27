@@ -387,3 +387,30 @@ describe('companion evidence collectors', () => {
     expect(evidence.find(item => item.id === 'vulnerability-feed')?.status).toBe('pass')
   })
 })
+
+describe('a registry URL with a long run of slashes', () => {
+  // The registry URL is the caller's. A trim that backtracks tries every slash
+  // of the run as a start, so its cost grows with the square of the run
+  const metadataFor = (urls: string[]): EvidenceFetch => async (input: string | URL) => {
+    urls.push(String(input))
+    return jsonResponse({ versions: { '0.14.0': { name: 'nostr-veil', version: '0.14.0' } } })
+  }
+
+  it('is joined to the package name in time', async () => {
+    const urls: string[] = []
+    const registryUrl = `https://registry.example.com/${'/'.repeat(128_000)}mirror`
+    const started = performance.now()
+    const metadata = await fetchNpmPackageVersionEvidence('nostr-veil', '0.14.0', { fetch: metadataFor(urls), registryUrl })
+
+    expect(performance.now() - started).toBeLessThan(1_000)
+    expect(urls).toEqual([`${registryUrl}/nostr-veil`])
+    expect(metadata.version).toBe('0.14.0')
+  })
+
+  it('loses only its trailing slashes, as before', async () => {
+    const urls: string[] = []
+    await fetchNpmPackageVersionEvidence('nostr-veil', '0.14.0', { fetch: metadataFor(urls), registryUrl: 'https://registry.example.com//mirror///' })
+
+    expect(urls).toEqual(['https://registry.example.com//mirror/nostr-veil'])
+  })
+})

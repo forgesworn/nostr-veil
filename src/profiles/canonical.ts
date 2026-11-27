@@ -1,3 +1,4 @@
+import { withoutTrailingSlashes } from './trim.js'
 import type { SubjectFormat } from './types.js'
 
 const HEX64_RE = /^[0-9a-f]{64}$/
@@ -203,7 +204,7 @@ export function canonicalGitRepositorySubject(repository: string, ref?: string):
   url.hostname = normaliseHostname(url.hostname)
   url.hash = ''
   url.search = ''
-  let pathname = url.pathname.replace(/\/+$/, '')
+  let pathname = withoutTrailingSlashes(url.pathname)
   if (pathname.endsWith('.git')) pathname = pathname.slice(0, -'.git'.length)
   if (pathname === '' || pathname === '/' || /\s/.test(pathname)) {
     throw new Error('git repository subject must include a repository path')

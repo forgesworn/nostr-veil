@@ -3,6 +3,7 @@ import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js'
 import { describe, expect, it } from 'vitest'
 import {
   FEDERATED_MODERATION_PROFILE,
+  RELEASE_PACKAGE_MAINTAINER_REPUTATION_PROFILE,
   USER_REPUTATION_ABUSE_REPORTING_PROFILE,
   aggregateContributions,
   computeEventId,
@@ -778,5 +779,41 @@ describe('an event with very many tags', () => {
 
     expect(result.decision).toBe('reject')
     expect(result.issues.map(issue => issue.code)).toContain(code)
+  })
+})
+
+describe('an event whose git subject has a long run of slashes', () => {
+  // Anyone can publish such an event. A trim that backtracks tries every slash
+  // of the run as a start, so its cost grows with the square of the run:
+  // 0.40.3 took seconds over this one
+  const RUN = 128_000
+  const BUDGET_MS = 1_000
+  const release = RELEASE_PACKAGE_MAINTAINER_REPUTATION_PROFILE
+  const event: EventTemplate = {
+    kind: release.kind,
+    tags: [['d', `git:https://git.example.com/${'/'.repeat(RUN)}x`], ['k', '0']],
+    content: '',
+    created_at: NOW,
+  }
+  function within<T>(run: () => T): T {
+    const started = performance.now()
+    const value = run()
+    expect(performance.now() - started).toBeLessThan(BUDGET_MS)
+    return value
+  }
+
+  it('is turned away by the profile verifier in time', () => {
+    expect(within(() => verifyUseCaseProfile(event, release, { now: NOW })).valid).toBe(false)
+  })
+
+  it('is turned away by the production verifier in time', () => {
+    const releaseBundle = createSignedDeploymentBundle(createDeploymentPolicy(release, {
+      acceptedCircleIds: [circle.circleId],
+      acceptedPublishers: [pubkey(STRANGER_KEY)],
+      expectedSubject: 'git:https://git.example.com/team/repo',
+      requireNostrSignature: true,
+    }), { expiresAt: NOW + 600, id: 'untrusted-input-release', issuedAt: NOW - 10, privateKey: OPERATOR_KEY })
+
+    expect(within(() => verifyProductionDeployment(event, releaseBundle, trusted)).decision).toBe('reject')
   })
 })
