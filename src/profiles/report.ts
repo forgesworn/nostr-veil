@@ -1,7 +1,7 @@
 import { isFullyReadable } from '../nip85/shape.js'
 import { isAuthenticBundle } from './authentic.js'
 import { FIELD_CODES } from './fields.js'
-import { explainVerificationIssue } from './issues.js'
+import { VERIFICATION_ISSUE_EXPLANATIONS, explainVerificationIssue } from './issues.js'
 import { verifyProductionDeployment } from './production.js'
 import type { EventTemplate } from '../nip85/types.js'
 import type { SignedDeploymentBundle } from './bundle.js'
@@ -147,6 +147,8 @@ const EVENT_CONTROLS: ReadonlySet<ProductionControlId> = new Set<ProductionContr
   'metric-policy',
 ])
 const NO_ASSERTION = 'No assertion was supplied, so there was nothing for this to check.'
+const UNKNOWN_CODE = 'The result carries an issue code this version of nostr-veil does not know, so this report cannot say that this passed.'
+const UNKNOWN_FAMILY = 'The result carries an issue code of this control\'s family that this version of nostr-veil does not know, so this report cannot say what failed.'
 /**
  * What the report says of a policy that was not applied: nothing. It is not
  * the operator's, so none of it is read back to them. The empty strings stand
@@ -181,7 +183,13 @@ function list(value: unknown): unknown[] {
 }
 
 function hasPrefix(codes: ReadonlySet<string>, prefix: string): boolean {
-  return [...codes].some(code => code.startsWith(prefix))
+  // A result read back from storage can carry a code that is not a string
+  return [...codes].some(code => typeof code === 'string' && code.startsWith(prefix))
+}
+
+/** Whether this version of nostr-veil knows the code: a key of its own table, and not a name every object has */
+function isKnownCode(code: unknown): boolean {
+  return typeof code === 'string' && Object.hasOwn(VERIFICATION_ISSUE_EXPLANATIONS, code)
 }
 
 function hasAny(codes: ReadonlySet<string>, candidates: readonly string[]): boolean {
@@ -197,15 +205,20 @@ function control(
   return Object.freeze({ id, label, status, summary })
 }
 
-function statusFromIssues(
-  codes: ReadonlySet<string>,
-  candidates: readonly string[],
-): ProductionControlStatus {
-  return hasAny(codes, candidates) ? 'fail' : 'pass'
-}
+/** The codes of a fault in the assertion's profile shape, subject, subject hint or NIP-85 syntax. */
+const PROFILE_SUBJECT_CODES = [
+  'profile.event_count_invalid',
+  'profile.kind_mismatch',
+  'profile.subject_format_invalid',
+  'profile.subject_hint_mismatch',
+  'profile.subject_mismatch',
+  'nip85.syntax_invalid',
+] as const
 
 function productionControls(result: ProductionDeploymentVerification, issues: readonly ProductionDecisionIssue[]): readonly ProductionControlReport[] {
   const codes = issueCodeSet(issues)
+  // A family fails on any of its codes, but only a code it knows says what failed
+  const knownCodes: ReadonlySet<string> = new Set([...codes].filter(isKnownCode))
   const signatureChecked = result.deployment.nostrSignatures.checked
   const bundleHasExpiry = record(result.bundle.bundle).expiresAt !== undefined
   // With a now that cannot be compared, no expiry was checked at all
@@ -264,6 +277,7 @@ function productionControls(result: ProductionDeploymentVerification, issues: re
   const manifestExpiryUnchecked = nowInvalid && policyApplied && !malformed
     && list(record(result.deployment.policy).circleManifests).length > 0
   const companionEvidenceFailed = hasPrefix(codes, 'companion.')
+  const companionKnownFailed = hasPrefix(knownCodes, 'companion.')
   const companionEvidenceStatus: ProductionControlStatus = companionEvidenceFailed || evidenceAgeUnchecked
     ? 'fail'
     : (companionEvidenceRequired || companionEvidenceChecked ? 'pass' : 'not-checked')
@@ -271,7 +285,9 @@ function productionControls(result: ProductionDeploymentVerification, issues: re
   // read, so none of them can be said to have passed
   const unreadable = result.deployment.profileVerification.events
     .some(item => !isFullyReadable(item.event))
+  const profileSubjectFailed = hasAny(codes, PROFILE_SUBJECT_CODES)
   const circlePolicyFailed = hasPrefix(codes, 'circle.')
+  const circleKnownFailed = hasPrefix(knownCodes, 'circle.')
   // A malformed threshold or window, or a malformed or unused allowance, means
   // the threshold or the freshness window was not applied as the policy meant
   // it, so the control that reports them fails with it. So does a now that
@@ -280,15 +296,18 @@ function productionControls(result: ProductionDeploymentVerification, issues: re
   // expiration tag. With no assertion there was nothing to compare, and the
   // control reads as at a usable time.
   const assertionDateUnchecked = nowInvalid && result.deployment.profileVerification.events.length > 0
-  const proofOrFreshnessFailed = hasPrefix(codes, 'proof.')
-    || hasPrefix(codes, 'federation.')
-    || hasPrefix(codes, 'assertion.')
+  const proofFamily = (set: ReadonlySet<string>) => hasPrefix(set, 'proof.')
+    || hasPrefix(set, 'federation.')
+    || hasPrefix(set, 'assertion.')
+  const proofKnownFailed = proofFamily(knownCodes)
     || codes.has('policy.min_distinct_signers_invalid')
     || codes.has('policy.max_age_seconds_invalid')
     || codes.has('policy.max_future_seconds_invalid')
     || assertionDateUnchecked
+  const proofOrFreshnessFailed = proofKnownFailed || proofFamily(codes)
   // A bound that is not a number was not applied, so its metric was not checked
-  const metricPolicyFailed = hasPrefix(codes, 'metric.') || codes.has('policy.metric_policy_invalid')
+  const metricKnownFailed = hasPrefix(knownCodes, 'metric.') || codes.has('policy.metric_policy_invalid')
+  const metricPolicyFailed = metricKnownFailed || hasPrefix(codes, 'metric.')
 
   const controls = [
     control(
@@ -348,55 +367,53 @@ function productionControls(result: ProductionDeploymentVerification, issues: re
       'circle-policy',
       'Accepted circle policy',
       circlePolicyFailed || manifestExpiryUnchecked || unreadable ? 'fail' : 'pass',
-      circlePolicyFailed
-        ? 'The assertion used a circle that is missing, malformed, expired, revoked, superseded, unaccepted, or not allowed for this profile.'
+      // A reason the report knows comes before a code it does not
+      circleKnownFailed
+        ? 'The assertion names no circle the deployment accepts, or the deployment\'s accepted circles or circle manifests are missing, malformed, expired, not yet valid, revoked, superseded, or not allowed for this profile.'
         : manifestExpiryUnchecked
           ? 'The verification time cannot be compared, so no circle manifest was checked for expiry.'
           : unreadable
             ? ASSERTION_UNREADABLE
-            : 'The assertion was produced by a circle accepted by the deployment policy.',
+            : circlePolicyFailed
+              ? UNKNOWN_FAMILY
+              : 'The assertion was produced by a circle accepted by the deployment policy.',
     ),
     control(
       'profile-subject',
       'Profile and subject binding',
-      statusFromIssues(codes, [
-        'profile.event_count_invalid',
-        'profile.kind_mismatch',
-        'profile.subject_format_invalid',
-        'profile.subject_hint_mismatch',
-        'profile.subject_mismatch',
-        'nip85.syntax_invalid',
-      ]),
-      hasAny(codes, [
-        'profile.event_count_invalid',
-        'profile.kind_mismatch',
-        'profile.subject_format_invalid',
-        'profile.subject_hint_mismatch',
-        'profile.subject_mismatch',
-        'nip85.syntax_invalid',
-      ])
+      // These checks read only the tags that can be read, and the syntax check
+      // does not read every tag, so an assertion too malformed to read fails
+      // this as it fails the circle, proof and metric controls
+      profileSubjectFailed || unreadable ? 'fail' : 'pass',
+      profileSubjectFailed
         ? 'The assertion does not match the expected profile shape, subject, subject hint, or NIP-85 syntax.'
-        : 'The assertion matches the profile kind, canonical subject, subject hint, and NIP-85 syntax policy.',
+        : unreadable
+          ? ASSERTION_UNREADABLE
+          : 'The assertion matches the profile kind, canonical subject, subject hint, and NIP-85 syntax policy.',
     ),
     control(
       'proof-threshold',
       'Proof and threshold',
       proofOrFreshnessFailed || unreadable ? 'fail' : 'pass',
-      proofOrFreshnessFailed
+      proofKnownFailed
         ? 'The proof, federation, threshold, or assertion freshness check failed.'
         : unreadable
           ? ASSERTION_UNREADABLE
-          : 'The nostr-veil proof, signer threshold, federation policy, and assertion freshness checks passed.',
+          : proofOrFreshnessFailed
+            ? UNKNOWN_FAMILY
+            : 'The nostr-veil proof, signer threshold, federation policy, and assertion freshness checks passed.',
     ),
     control(
       'metric-policy',
       'Metric policy',
       metricPolicyFailed || unreadable ? 'fail' : 'pass',
-      metricPolicyFailed
+      metricKnownFailed
         ? 'At least one metric is missing, unexpected, non-numeric, non-integer, or outside the deployment bounds, or a bound in the policy is malformed.'
         : unreadable
           ? ASSERTION_UNREADABLE
-          : 'The published metrics satisfy the deployment metric policy.',
+          : metricPolicyFailed
+            ? UNKNOWN_FAMILY
+            : 'The published metrics satisfy the deployment metric policy.',
     ),
     control(
       'companion-evidence',
@@ -406,23 +423,34 @@ function productionControls(result: ProductionDeploymentVerification, issues: re
         ? 'Configured companion evidence passed for the same subject inside the deployment freshness window.'
         : companionEvidenceStatus === 'not-checked'
           ? 'This deployment policy did not require companion evidence checks outside the nostr-veil proof.'
-          : companionEvidenceFailed
+          : companionKnownFailed
             ? 'A required companion evidence check is missing, failed, stale, malformed, or for the wrong subject.'
-            : 'The verification time cannot be compared, so no companion evidence was checked for age.',
+            : evidenceAgeUnchecked
+              ? 'The verification time cannot be compared, so no companion evidence was checked for age.'
+              : UNKNOWN_FAMILY,
     ),
   ]
+
+  // A code this version does not know came from a later release, and this
+  // report cannot tell what it was about, so no control can be said to have
+  // passed. A family it knows by prefix still fails its own control above,
+  // under the sentence of any reason the report knows for that failure.
+  const unknownCode = [...codes].some(code => !isKnownCode(code))
+  const finish = (list: readonly ProductionControlReport[]): readonly ProductionControlReport[] => Object.freeze(unknownCode
+    ? list.map(item => item.status === 'pass' ? control(item.id, item.label, 'not-checked', UNKNOWN_CODE) : item)
+    : [...list])
 
   // The policy of a bundle that is not authentic was not applied, so nothing
   // it asks for was checked, and no control may say that it passed or failed
   if (!policyApplied) {
-    return Object.freeze(controls.map(item => POLICY_CONTROLS.has(item.id)
+    return finish(controls.map(item => POLICY_CONTROLS.has(item.id)
       ? control(item.id, item.label, 'not-checked', POLICY_NOT_APPLIED)
       : item))
   }
   // Nor was anything in a policy with a field of the wrong type, as the
   // verifier stopped there
   if (malformed) {
-    return Object.freeze(controls.map(item => POLICY_CONTROLS.has(item.id)
+    return finish(controls.map(item => POLICY_CONTROLS.has(item.id)
       ? control(item.id, item.label, 'not-checked', POLICY_MALFORMED)
       : item))
   }
@@ -430,11 +458,11 @@ function productionControls(result: ProductionDeploymentVerification, issues: re
   // may still have failed for a fault in the policy itself, but it cannot have
   // passed.
   if (result.deployment.profileVerification.events.length === 0) {
-    return Object.freeze(controls.map(item => EVENT_CONTROLS.has(item.id) && item.status === 'pass'
+    return finish(controls.map(item => EVENT_CONTROLS.has(item.id) && item.status === 'pass'
       ? control(item.id, item.label, 'not-checked', NO_ASSERTION)
       : item))
   }
-  return Object.freeze(controls)
+  return finish(controls)
 }
 
 /**

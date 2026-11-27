@@ -516,7 +516,10 @@ plus stable `issues[].code` values such as `bundle.signer_untrusted`,
 and `metric.below_min`. Read the codes from `issues`, not from the `errors`
 strings, which quote text from the event. Use
 `explainVerificationIssue()` or `remediationForIssue()` to show the exact
-operator action for each failure. For application UI, audit logs, and support
+operator action for each failure. A code this version does not know, such as
+one a later release wrote into a stored result, is explained as unknown and
+asks for `manual-review`, and the decision report then reads no control as
+passed. For application UI, audit logs, and support
 runbooks, `verifyProductionDeploymentReport()` returns the same decision with a
 recommended action, expanded issue remediations, and pass/fail/not-checked
 status for the production controls.

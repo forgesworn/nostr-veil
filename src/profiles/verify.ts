@@ -129,14 +129,28 @@ function singletonTagValue(event: EventTemplate, name: string, found: CodedError
   return values[0]
 }
 
-function circleId(event: EventTemplate, found: CodedErrors, prefix: string): string | null {
-  const ring = event.tags.find(tag => tag[0] === 'veil-ring')?.slice(1)
-  if (ring === undefined) {
+const HEX64 = /^[0-9a-f]{64}$/u
+
+function circleId(given: EventTemplate, event: EventTemplate, found: CodedErrors, prefix: string): string | null {
+  const rings = event.tags.filter(tag => tag[0] === 'veil-ring')
+  if (rings.length === 0) {
     // No ring, no proof
     found.add('proof.invalid', `${prefix} missing veil-ring tag`, prefix)
     return null
   }
-  return computeCircleId(ring)
+  // A ring names a circle only as one tag of two or more member keys in sorted
+  // order, which the proof verifier requires too. The circle id joins the
+  // members with ':', so a ring of 'A:B' would name the circle of A and B. A
+  // second ring tag counts whether it can be read or not, as the proof
+  // verifier sees the event as given. Its tags are a list here, as the event
+  // read from it has a ring. A ring larger than the proof verifier allows
+  // still names its circle, which a deployment may accept, and the proof
+  // check fails it. The proof verifier says what is wrong with any other ring.
+  const ringTags = (given.tags as unknown[]).filter(tag => Array.isArray(tag) && tag[0] === 'veil-ring').length
+  const ring = rings[0].slice(1)
+  const named = ringTags === 1 && ring.length >= 2 && ring.every((member, index) =>
+    typeof member === 'string' && HEX64.test(member) && (index === 0 || member > ring[index - 1]))
+  return named ? computeCircleId(ring) : null
 }
 
 /**
@@ -206,10 +220,12 @@ function verifyEvent(
       raise(kind === 'metric-not-finite' ? 'metric.invalid_value' : 'nip85.syntax_invalid', `syntax: ${error}`)
     })
   }
-  // An event from a relay can be anything. The syntax check has reported what
-  // is malformed, and the reads below see only the tags that are well formed:
-  // on the event as given they would throw where they should turn it away.
-  // The proof verifier is still handed the event as given.
+  // An event from a relay can be anything. The reads below see only the tags
+  // that can be read: on the event as given they would throw where they
+  // should turn it away. The syntax check does not read every tag, so the
+  // production report fails the profile, circle, proof and metric controls
+  // for an event too malformed to read. The proof verifier is still handed
+  // the event as given.
   const event = readableEvent(given)
 
   if (event.kind !== profile.kind) {
@@ -286,12 +302,14 @@ function verifyEvent(
     raise('assertion.expired', `assertion has expired (NIP-40 expiration ${expiration})`)
   }
 
-  const eventCircleId = circleId(event, found, prefix)
+  const eventCircleId = circleId(given, event, found, prefix)
   if (acceptedCircles === undefined || acceptedCircles.size === 0) {
     if (options.requireKnownCircle !== false) {
       raise('circle.accepted_missing', 'no accepted circle IDs were supplied')
     }
-  } else if (eventCircleId !== null && !acceptedCircles.has(eventCircleId)) {
+  } else if (eventCircleId === null || !acceptedCircles.has(eventCircleId)) {
+    // An event with no ring names no circle, so it is from none the policy
+    // accepts. Left unchecked, the circle control would read it as passed.
     raise('circle.unaccepted', 'circle is not accepted by deployment policy')
   }
 
