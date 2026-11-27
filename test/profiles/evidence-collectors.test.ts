@@ -412,5 +412,7 @@ describe('a registry URL with a long run of slashes', () => {
     await fetchNpmPackageVersionEvidence('nostr-veil', '0.14.0', { fetch: metadataFor(urls), registryUrl: 'https://registry.example.com//mirror///' })
 
     expect(urls).toEqual(['https://registry.example.com//mirror/nostr-veil'])
+    await fetchNpmPackageVersionEvidence('nostr-veil', '0.14.0', { fetch: metadataFor(urls), registryUrl: 'https://registry.example.com/mirror ' })
+    expect(urls[1]).toBe('https://registry.example.com/mirror /nostr-veil')
   })
 })
