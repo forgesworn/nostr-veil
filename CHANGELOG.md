@@ -1,3 +1,11 @@
+## 0.40.3 (2026-11-27)
+
+### Bug Fixes
+
+- reject a proof event with very many bad metric tags instead of throwing (#77)
+
+
+
 ## 0.40.2 (2026-11-27)
 
 ### Bug Fixes
