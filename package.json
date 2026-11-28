@@ -45,6 +45,7 @@
     "test:companion-evidence:live": "tsx examples/companion-evidence-live.ts --live",
     "test:admission-gate": "node --import tsx examples/admission-gate.ts",
     "test:admission-gate:relay": "node --import tsx examples/admission-gate-relay.ts",
+    "test:in-room-flags": "node --import tsx examples/in-room-flags.ts",
     "test:use-cases:relay": "tsx examples/use-cases-relay.ts",
     "demo": "cd demo && npm run dev",
     "prepublishOnly": "npm run build",
@@ -87,7 +88,7 @@
     "provenance": true
   },
   "dependencies": {
-    "@forgesworn/ring-sig": "^3.0.0",
+    "@forgesworn/ring-sig": "^3.0.3",
     "@noble/curves": "^2.2.0",
     "@noble/hashes": "^2.0.1"
   },

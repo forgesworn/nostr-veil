@@ -579,7 +579,7 @@ Produce an anonymous ring-signed contribution to a trust circle assertion.
 - **`memberIndex`** `number` -- 0-based index in `circle.members` (sorted order); always use `circle.members.indexOf(memberPubkey)`
 - **`options`** `ProofContext | undefined` — Omit for v1; pass `{ proofVersion: 'v2', kind, subjectTag, subjectTagValue }` for semantic binding
 - **Returns** `Contribution` with ring signature, duplicate-detection token, and metrics
-- **Throws** if `memberIndex` is out of range (`Signer index out of range`), the private key doesn't match the pubkey at that index (`Private key does not match ring member at signerIndex`), or a metric name is reserved (`Metric name "<name>" is reserved: ...`: a single character, `veil-*`, `__proto__`, or a Nostr tag with its own meaning such as `expiration`, `alt`, `client`, `nonce` or `content-warning`)
+- **Throws** if `memberIndex` is out of range (`Signer index out of range`), `metrics` is not an object (`metrics must be an object`), the private key doesn't match the pubkey at that index (`Private key does not match ring member at signerIndex`), or a metric name is reserved (`Metric name "<name>" is reserved: ...`: a single character, `veil-*`, `__proto__`, or a Nostr tag with its own meaning such as `expiration`, `alt`, `client`, `nonce` or `content-warning`)
 
 ```ts
 const contrib = contributeAssertion(circle, subjectPubkey, { rank: 85 }, alicePrivkey, circle.members.indexOf(alicePubkey))
@@ -590,6 +590,49 @@ Typed contribution helpers set the v2 context for non-user assertion kinds:
 - `contributeEventAssertion(circle, eventId, metrics, privateKey, memberIndex, options?)`
 - `contributeAddressableAssertion(circle, address, metrics, privateKey, memberIndex, options?)`
 - `contributeIdentifierAssertion(circle, identifier, kTag, metrics, privateKey, memberIndex, options?)`
+
+External signers. `contributeAssertionAsync`, `contributeEventAssertionAsync`,
+`contributeAddressableAssertionAsync` and `contributeIdentifierAssertionAsync`
+take an `LsagSigner` where their counterparts take `privateKey`, and return
+`Promise<Contribution>`, so the key can stay on a hardware device, in a remote
+signer or in another process:
+
+```ts
+interface LsagSigner {
+  // Returns what lsagSign(message, ring, signerIndex, privateKey, electionId) gives in @forgesworn/ring-sig
+  lsagSign(request: { message: string; ring: string[]; signerIndex: number; electionId: string }):
+    Promise<Contribution['signature']> | Contribution['signature']
+}
+
+const contrib = await contributeAssertionAsync(circle, subjectPubkey, { rank: 85 }, signer, circle.members.indexOf(alicePubkey))
+```
+
+`message` is the canonical JSON naming the circle, subject and metrics. The
+answer is untrusted input: it must be an LSAG signature over that message, ring
+and election id, held to what the helper asked for and not to the copy the
+signer is handed, and must verify, or the helper throws (`External signer
+signed a different message`, `External signer signed under a different
+election id`, `External signer signed over a different ring`, `External signer
+signed under an LSAG domain nostr-veil does not use`, `External signer returned
+an invalid LSAG signature`, `External signer did not return an LSAG
+signature`). The ring that ring-sig's checks run on, and that the signer is
+asked to sign, is the circle's members read once, by index, as a plain list of
+2 to 1,000 strings, in lower case as ring-sig signs them. Before the signer is
+asked, what ring-sig would refuse to sign over that list is turned away, with
+ring-sig's errors, as the local helpers meet them: an election id over 512
+bytes (`electionId length exceeds maximum of 512 bytes`), a member index that
+is not an integer or not a position, a member twice, a message over 65,536
+bytes, or a member key that is not hex or not a curve point. A member that is
+not a string is turned away too (`Ring member at index 1 is not a string`).
+A signer that throws, or fails while its answer settles, rejects with its own
+error, such as a member declining; a settled answer that cannot be read is
+`External signer did not return an LSAG signature`. Only the signature fields are kept,
+as plain copies, so nothing a signer attaches to its answer travels on. A signer can still hide data in the
+signature's random values, so use only a signer you control. A ring signature hides which member signed,
+so the answer cannot be checked against `memberIndex`. As with the local
+helpers, nothing here applies `contributionBounds`: pass them to
+`aggregateContributions` and `verifyProof`. The NIP-07, NIP-46 and
+NIP-55 signer interfaces define no LSAG method; this is for signers you control.
 
 ---
 
@@ -630,7 +673,7 @@ kind-specific subject tags; the typed contribute helpers sign proof v2 by defaul
 Verify all ring signatures in a veil-enhanced NIP-85 event.
 
 - **`event`** `{ kind, tags, content }` — A Nostr event containing proof tags
-- **`options`** `AggregateFn | { aggregateFn?: AggregateFn; expectedKind?: number; requireProofVersion?: ProofVersion; requireAggregate?: AggregateName | 'custom'; contributionBounds?: ContributionBounds; rejectSubjectInRing?: boolean; limits?: Partial<VerifyLimits> }` -- `requireAggregate` rejects the event unless its `veil-agg` tag names that function (`veil-agg is "max" but "median" is required`; an event with no tag reads as `median`, and when a built-in function is required the metric tags are recomputed with it whatever `aggregateFn` is passed). It is recommended, because the publisher chooses the tag and the circle does not sign it: three scores of 20, 20 and 95 read as 20 under `median` and 95 under `max`, and both pass a bare `verifyProof`. `contributionBounds` rejects the event if any contribution's value for a named metric is outside its bounds (`Signature at index 2 metric "rank" value 3 is above the contribution maximum 1`); it is needed under `sum`, `mean`, `min` and `max`, where one contribution can move the result, and malformed bounds fail the proof. `rejectSubjectInRing` fails the proof with `Subject is a veil-ring member` when the d-tag subject is a ring member (default false; `subjectInRing` is reported either way); `aggregateFn` is needed only when `veil-agg` is `custom` (built-in names are read from the tag); `expectedKind` rejects events of any other NIP-85 kind and is recommended for v1 proofs, which are not kind-bound; `requireProofVersion` rejects the other proof version; `limits` overrides `DEFAULT_VERIFY_LIMITS` (`maxRingSize` 1000, `maxSigPayloadBytes` 128000, `maxSignedMessageBytes` 16384, `maxMetricCount` 128, `maxMetricNameLength` 64)
+- **`options`** `AggregateFn | { aggregateFn?: AggregateFn; expectedKind?: number; requireProofVersion?: ProofVersion; requireAggregate?: AggregateName | 'custom'; contributionBounds?: ContributionBounds; rejectSubjectInRing?: boolean; limits?: Partial<VerifyLimits> }` -- `requireAggregate` rejects the event unless its `veil-agg` tag names that function (`veil-agg is "max" but "median" is required`; an event with no tag reads as `median`, and when a built-in function is required the metric tags are recomputed with it whatever `aggregateFn` is passed). It is recommended, because the publisher chooses the tag and the circle does not sign it: three scores of 20, 20 and 95 read as 20 under `median` and 95 under `max`, and both pass a bare `verifyProof`. `contributionBounds` rejects the event if any contribution's value for a named metric is outside its bounds (`Signature at index 2 metric "rank" value 3 is above the contribution maximum 1`); it is needed under `sum`, `mean`, `min` and `max`, where one contribution can move the result, and malformed bounds fail the proof. `rejectSubjectInRing` fails the proof with `Subject is a veil-ring member` when the d-tag subject is a ring member (default false; `subjectInRing` is reported either way); `aggregateFn` is needed only when `veil-agg` is `custom` (built-in names are read from the tag); `expectedKind` rejects events of any other NIP-85 kind and is recommended for v1 proofs, which are not kind-bound; `requireProofVersion` rejects the other proof version; `limits` overrides `DEFAULT_VERIFY_LIMITS` (`maxRingSize` 1000, `maxSigPayloadBytes` 128000, `maxSignedMessageBytes` 16384, `maxMetricCount` 128, `maxMetricNameLength` 64, `maxSubjectLength` 512 (UTF-16 code units of the `d` tag: no longer subject can be signed, as the LSAG election id holds it and is limited to 512 bytes), and `maxTagCount`, which, left out, is `maxRingSize + maxMetricCount + 72` (1,200), so it rises with the ring limit. A proof's signatures, distinct metric names and fixed tags must together be within it, so a proof whose members sign different metric names can need it raised. An event with more tags, a tag name longer than `maxMetricNameLength` (or 14, the longest proof tag name) that does not begin `veil-`, or a longer `d` tag fails before any tag is read. Each limit must be a non-negative number, `Infinity` to lift it, and any other value, such as `NaN` or a string, fails the proof)
 - **Returns** `ProofVerification` with `valid`, `circleSize`, `threshold`, `distinctSigners`, `subjectInRing`, `independentSigners`, `errors`
 - An event with more than one `d` tag, a `p`, `e` or `a` tag (on any kind) that is repeated or differs from `d`, more than one `k` tag, a `k` tag on any kind but 30385, a `__proto__` tag or a malformed tag is invalid. The circle signs only the name and value of a metric tag, so a metric, `d` or `k` tag with anything after the value is invalid too. So is a second `veil-ring`, `veil-threshold`, `veil-agg`, `veil-version` or `veil-scope` tag, or extra elements on any of them or on a `veil-sig`; unknown `veil-*` tags are ignored, for forward compatibility. NIP-85 allows `p`/`e`/`a` only as relay hints that repeat the `d` value
 - An event whose signed contributions use a reserved metric name is invalid (`signed metric rejected: Metric name "<name>" is reserved: ...`), so one circle member cannot inject a tag such as `expiration` or `-` into the published event
@@ -944,7 +987,9 @@ For a bundle that is not authentic, every control that reports on the policy
 reads `not-checked` and the report's `profile`, `policyId` and `subject` are
 blank: the policy was not applied, and is not the operator's to be shown. Where
 the policy was applied and has no field of the wrong type, the profile, circle,
-proof and metric controls read `fail` for an assertion too malformed to read.
+proof and metric controls read `fail` for an assertion too malformed to read,
+or over the verifier's limits (`event.limit_exceeded`), and for every assertion
+under a limit that is not one (`verification.limits_invalid`).
 With no assertion at all, a control that checks each assertion never reads
 `pass`: it reads `not-checked`, or `fail` where one of its checks failed even
 so, for example on a malformed setting in the policy, a circle manifest that is

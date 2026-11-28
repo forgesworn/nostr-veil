@@ -4,7 +4,8 @@ import { readableEvent, shown } from '../nip85/shape.js'
 import { computeCircleId } from '../proof/circle.js'
 import { proofErrorKinds } from '../proof/error-kinds.js'
 import { verifyFederation } from '../proof/federate.js'
-import { verifyProof } from '../proof/verify.js'
+import { eventLimitExcess, limitExcessText, limitsProblem, resolveLimits } from '../proof/limits.js'
+import { DEFAULT_VERIFY_LIMITS, verifyProof } from '../proof/verify.js'
 import { isUnixSecondsTagValue } from '../nip85/tags.js'
 import { subjectMatchesAnyFormat } from './canonical.js'
 import { CodedErrors } from './coded.js'
@@ -252,6 +253,7 @@ function verifyEvent(
   const contributionBounds = contributionBoundsFor(profile, options)
   const proof = verifyProof(given, {
     aggregateFn: options.aggregateFn,
+    ...(options.limits === undefined ? {} : { limits: options.limits }),
     requireProofVersion: profile.proofVersion,
     ...(requireAggregate === undefined ? {} : { requireAggregate }),
     ...(contributionBounds === undefined ? {} : { contributionBounds }),
@@ -322,6 +324,20 @@ function verifyEvent(
   }
 }
 
+/**
+ * An event no check read. Its proof verifier stops at the same limit, before
+ * it reads a tag, and its syntax was not checked.
+ */
+function unreadEvent(given: EventTemplate, options: VerifyUseCaseProfileOptions, reason: string): VerifiedProfileEvent {
+  return {
+    circleId: null,
+    event: given,
+    proof: verifyProof(given, options.limits === undefined ? undefined : { limits: options.limits }),
+    subject: null,
+    syntax: { valid: false, errors: [reason] },
+  }
+}
+
 function normaliseEvents(events: EventTemplate | readonly EventTemplate[]): EventTemplate[] {
   if (Array.isArray(events)) return [...events]
   return [events as EventTemplate]
@@ -346,6 +362,14 @@ export function verifyUseCaseProfile(
   const eventList = normaliseEvents(events)
   const found = new CodedErrors()
   const acceptedCircles = acceptedCircleSet(options)
+  // Each event's tag count, tag names and subject are held to the limits
+  // before any check reads its tags. An event over one is turned away whole.
+  // A limit that is not one fails the run, and no event is checked at all.
+  const limits = resolveLimits(DEFAULT_VERIFY_LIMITS, options.limits)
+  const limitsError = limitsProblem(limits)
+  if (limitsError !== undefined) found.add('verification.limits_invalid', limitsError)
+  const excesses = eventList.map(event => (limitsError === undefined ? eventLimitExcess(event, limits) : undefined))
+  const unread = (index: number): boolean => limitsError !== undefined || excesses[index] !== undefined
 
   if (eventList.length === 0) {
     found.add('profile.event_count_invalid', 'profile verification requires at least one event')
@@ -360,6 +384,7 @@ export function verifyUseCaseProfile(
     }
     if (profile.federation.requireScope) {
       for (let i = 0; i < eventList.length; i++) {
+        if (unread(i)) continue
         if (tagValues(readableEvent(eventList[i]), 'veil-scope').length !== 1) {
           found.add('federation.invalid', `event[${i}] federation profile requires exactly one veil-scope tag`, `event[${i}]`)
         }
@@ -374,22 +399,36 @@ export function verifyUseCaseProfile(
   const minDistinctSigners = minDistinctSignersFrom(profile, options, found)
   const maxAgeSeconds = maxAgeSecondsFrom(profile, options, found)
   const maxFutureSeconds = maxFutureSecondsFrom(options, maxAgeSeconds, found)
-  const verifiedEvents = eventList.map((event, index) => verifyEvent(
-    profile,
-    event,
-    index,
-    options,
-    acceptedCircles,
-    minDistinctSigners,
-    now,
-    maxAgeSeconds,
-    maxFutureSeconds,
-    found,
-  ))
+  const verifiedEvents = eventList.map((event, index) => {
+    if (limitsError !== undefined) return unreadEvent(event, options, limitsError)
+    const excess = excesses[index]
+    if (excess !== undefined) {
+      const place = `event[${index}]`
+      found.add('event.limit_exceeded', `${place} ${limitExcessText(excess)}`, place)
+      return unreadEvent(event, options, `Event ${limitExcessText(excess)}`)
+    }
+    return verifyEvent(
+      profile,
+      event,
+      index,
+      options,
+      acceptedCircles,
+      minDistinctSigners,
+      now,
+      maxAgeSeconds,
+      maxFutureSeconds,
+      found,
+    )
+  })
 
-  const federation = profile.federation === undefined
+  // The federation check verifies each proof again, under the same limits.
+  // Under a limit that is not one there is nothing it may read.
+  const federation = profile.federation === undefined || limitsError !== undefined
     ? undefined
-    : verifyFederation(eventList, options.aggregateFn)
+    : verifyFederation(eventList, {
+      aggregateFn: options.aggregateFn,
+      ...(options.limits === undefined ? {} : { limits: options.limits }),
+    })
   if (federation !== undefined) {
     if (!federation.valid) {
       // Whatever the federation check says, and it quotes the events, it is a federation failure
