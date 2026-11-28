@@ -223,9 +223,11 @@ A production verifier should reject, or move to manual review, when:
 - the assertion is stale;
 - the proof is not v2 for a profile that requires v2;
 - the subject is a pubkey inside the `veil-ring` and the policy needs a score
-  free of the subject's own vote: read `subjectInRing` and compare
-  `independentSigners`, not `distinctSigners`, against the threshold, or pass
-  `rejectSubjectInRing: true` to `verifyProof`;
+  free of the subject's own vote. The profile verifiers already set one
+  signature aside for the subject's own when they count signers, but the vote
+  can still sit in the score. No profile or policy option carries
+  `rejectSubjectInRing`, so call `verifyProof` with it yourself, which rejects
+  such a proof;
 - the metric is missing, non-numeric, outside range, or unexpected;
 - required companion evidence is missing, failed, stale, malformed, or for a
   different canonical subject;

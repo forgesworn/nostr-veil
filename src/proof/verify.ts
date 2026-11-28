@@ -829,9 +829,13 @@ export function verifyProof(event: {
   // The ring is parsed and validated. A ring signature hides which member
   // signed, so a subject that is a ring member may have signed for itself.
   // Meaningful for kind 30382, where the subject is a pubkey. On other kinds
-  // the d-tag is an event id, address or identifier and cannot equal a member
-  // pubkey, so the same check is computed on every kind and is simply false.
-  const subjectInRing = ring.includes(subject)
+  // the d-tag is an event id, address or identifier, which is a member key
+  // only if it is written as one, so the same check is computed on every kind.
+  // A pubkey is the same key in any case, and the ring is in lower case, so
+  // the subject is looked for in lower case: missed, it would let a member
+  // count their own signature about themselves. A member key is 64
+  // characters, so nothing longer is lower-cased.
+  const subjectInRing = subject.length === 64 && ring.includes(subject.toLowerCase())
 
   // Require veil-threshold tag
   const thresholdTag = event.tags.find(t => t[0] === 'veil-threshold')

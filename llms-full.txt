@@ -783,7 +783,10 @@ checked the same way, whether or not its evidence is supplied, and fails with
 `companion.invalid`. A `minDistinctSigners` that is not a positive integer (a
 word, 0, `null`) fails every event with `policy.min_distinct_signers_invalid`,
 for a single assertion and for a federation; read as it stands it would let a
-single signer through. A
+single signer through. `minDistinctSigners` is held to `independentSigners`
+for a proof that verifies: where the subject is a ring member, one signature is
+set aside, as it may be the subject's own, so a proof about a member needs one
+signer more than the threshold. A
 `metricPolicies` `min` or `max` that is not a finite number, or a `min` above
 its `max`, fails with `policy.metric_policy_invalid`, once for the run, by the
 same check `createDeploymentPolicy` applies; read as it stands it would let

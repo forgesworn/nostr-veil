@@ -83,7 +83,8 @@ members who appear in more than one circle.
 ## Failure handling
 
 - Reject federations with mixed subjects, mixed scopes, mixed assertion kinds,
-  unknown circles, or invalid per-event proofs.
+  unknown circles, invalid per-event proofs, or fewer distinct circles than
+  the profile requires.
 - Fall back to showing separate circle results when overlap privacy is more
   important than deduplication.
 - Escalate disagreement between circles according to the federation policy

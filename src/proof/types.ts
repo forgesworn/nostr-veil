@@ -127,7 +127,7 @@ export interface FederationVerification {
   totalSignatures: number
   /** Distinct contributors across the federation, deduplicated by LSAG key image */
   distinctSigners: number
-  /** True when any verified event's ring contains the subject, so one signature across the federation may be the subject's own */
+  /** True when any event's ring contains the subject, including an event that fails, so one signature across the federation may be the subject's own */
   subjectInRing: boolean
   /** distinctSigners, less one when subjectInRing: the subject holds at most one key image across the shared scope */
   independentSigners: number
