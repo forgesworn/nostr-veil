@@ -1,3 +1,11 @@
+## 0.41.1 (2026-11-28)
+
+### Bug Fixes
+
+- set a subject's own signature aside in profile thresholds, and count circles (#82)
+
+
+
 ## 0.41.0 (2026-11-28)
 
 ### Features
