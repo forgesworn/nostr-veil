@@ -1,7 +1,9 @@
 import { schnorr } from '@noble/curves/secp256k1.js'
+import { sha256 } from '@noble/hashes/sha2.js'
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js'
 import { describe, expect, it } from 'vitest'
 import {
+  DEPLOYMENT_BUNDLE_TYPE,
   FEDERATED_MODERATION_PROFILE,
   RELEASE_PACKAGE_MAINTAINER_REPUTATION_PROFILE,
   USER_REPUTATION_ABUSE_REPORTING_PROFILE,
@@ -447,6 +449,114 @@ describe('a bundle that is not what it should be', () => {
     // The bundle's own id and signer are what was rejected, and are still shown
     expect(report.bundle.id).toBe('forged')
     expect(report.bundle.publisherTrusted).toBe(false)
+  })
+
+  // The report also gives a bundle's own id, signer and times. A bundle can
+  // hold anything in them, so the report gives each only where it has the type
+  // the summary says, and otherwise the blank it gives for a profile
+  const strangers = createSignedDeploymentBundle(policy, { expiresAt: NOW + 600, id: 'strangers', issuedAt: NOW - 10, privateKey: STRANGER_KEY })
+  const reportOf = (candidate: unknown) =>
+    createProductionDecisionReport(verifyProductionDeployment(signed, candidate as SignedDeploymentBundle, trusted))
+  // The value goes in as JSON text, as a bundle read from the wire carries it
+  const withField = (base: SignedDeploymentBundle, field: string, text: string): unknown =>
+    JSON.parse(JSON.stringify({ ...base, [field]: 'PLACEHOLDER' }).replace('"PLACEHOLDER"', text))
+  // The operator's own bundle, altered, still names a trusted signer
+  const BUNDLES = [["a stranger's bundle", strangers], ["the operator's bundle, altered", bundle]] as const
+  const NOT_A_STRING = [['an object', '{"a":1}'], ['a list', '[]'], ['null', 'null'], ['true', 'true'], ['a number', '42']] as const
+  const NOT_A_FINITE_NUMBER = [['an object', '{"a":1}'], ['a list', '[]'], ['null', 'null'], ['true', 'true'], ['a string', '"42"'], ['a number that is not finite', '1e999']] as const
+  const FIELDS = [['id', 'string', '', NOT_A_STRING], ['signer', 'string', '', NOT_A_STRING], ['issuedAt', 'number', 0, NOT_A_FINITE_NUMBER]] as const
+
+  // Each assertion reads a type or a boolean, so a failure never prints the value
+  it.each(BUNDLES.flatMap(([whose, base]) => FIELDS.flatMap(([field, type, blank, shapes]) =>
+    shapes.map(([shape, text]) => [field, whose, shape, base, type, blank, text] as const))))(
+    'shows the %s of %s blank in its report when it is %s',
+    (field, whose, _shape, base, type, blank, text) => {
+      const summary = reportOf(withField(base, field, text)).bundle
+
+      // An altered signer is no longer the trusted one
+      expect(summary.publisherTrusted).toBe(whose !== "a stranger's bundle" && field !== 'signer')
+      expect(typeof summary[field]).toBe(type)
+      expect(summary[field] === blank).toBe(true)
+      // The fields left alone are given as before
+      for (const other of ['id', 'signer', 'issuedAt', 'expiresAt'] as const) {
+        if (other !== field) expect(summary[other] === base[other], other).toBe(true)
+      }
+      expect(Object.isFrozen(summary)).toBe(true)
+    },
+  )
+
+  it.each(BUNDLES.flatMap(([whose, base]) => NOT_A_FINITE_NUMBER.map(([shape, text]) => [whose, shape, base, text] as const)))(
+    'leaves the expiresAt of %s out of its report when it is %s',
+    (_whose, _shape, base, text) => {
+      const summary = reportOf(withField(base, 'expiresAt', text)).bundle
+
+      expect(Object.hasOwn(summary, 'expiresAt')).toBe(false)
+      for (const other of ['id', 'signer', 'issuedAt'] as const) expect(summary[other] === base[other], other).toBe(true)
+    },
+  )
+
+  it('shows each missing field blank in its report, and leaves out a missing expiresAt', () => {
+    for (const [field, type, blank] of FIELDS) {
+      const { [field]: _left, ...rest } = strangers
+      const summary = reportOf(rest).bundle
+
+      expect(typeof summary[field], field).toBe(type)
+      expect(summary[field] === blank, field).toBe(true)
+    }
+    const { expiresAt: _left, ...rest } = strangers
+    expect(Object.hasOwn(reportOf(rest).bundle, 'expiresAt')).toBe(false)
+    for (const candidate of [null, 'a bundle', [], 42]) {
+      expect(reportOf(candidate).bundle).toEqual({ id: '', signer: '', issuedAt: 0, publisherTrusted: false, signatureValid: false })
+    }
+  })
+
+  it('shows the fields of a bundle signed outside the builder blank where they lack their type', () => {
+    // Signed as the builder signs: the payload, keys sorted, under the type line
+    const sorted = (value: unknown) => JSON.stringify(value, (_key, child: unknown) => (child !== null && typeof child === 'object' && !Array.isArray(child)
+      ? Object.fromEntries(Object.keys(child as object).sort().map(key => [key, (child as Record<string, unknown>)[key]]))
+      : child))
+    const payload = { version: 1, type: DEPLOYMENT_BUNDLE_TYPE, expiresAt: NOW + 600, id: 42, issuedAt: NOW - 10, policy, signer: bundle.signer }
+    const digest = sha256(new TextEncoder().encode(`${DEPLOYMENT_BUNDLE_TYPE}:v1\n${sorted(payload)}`))
+    const summary = reportOf({ ...payload, signature: bytesToHex(schnorr.sign(digest, hexToBytes(OPERATOR_KEY))) }).bundle
+
+    expect(summary.signatureValid && summary.publisherTrusted).toBe(true)
+    expect(summary.id).toBe('')
+  })
+
+  it('reads each of the bundle\'s own fields once for its summary', () => {
+    // A getter can answer differently each time it is read
+    const result = verifyProductionDeployment(signed, strangers, trusted)
+    const reads: Record<string, number> = {}
+    const counted = Object.fromEntries(Object.entries(strangers).filter(([key]) => !['id', 'signer', 'issuedAt', 'expiresAt'].includes(key)))
+    for (const [field, value] of [['id', 'strangers'], ['signer', strangers.signer], ['issuedAt', NOW - 10], ['expiresAt', NOW + 600]] as const) {
+      Object.defineProperty(counted, field, { enumerable: true, get: () => { reads[field] = (reads[field] ?? 0) + 1; return value } })
+    }
+    const summary = createProductionDecisionReport({ ...result, bundle: { ...result.bundle, bundle: counted as unknown as SignedDeploymentBundle } }).bundle
+
+    // expiresAt is read once more, by the bundle-freshness control
+    expect(reads).toEqual({ id: 1, signer: 1, issuedAt: 1, expiresAt: 2 })
+    expect([summary.id, summary.signer, summary.issuedAt, summary.expiresAt]).toEqual(['strangers', strangers.signer, NOW - 10, NOW + 600])
+  })
+
+  it('shows the fields of a stranger\'s bundle as given where they have their type', () => {
+    expect(reportOf(strangers).bundle).toEqual({
+      id: 'strangers',
+      signer: strangers.signer,
+      issuedAt: NOW - 10,
+      expiresAt: NOW + 600,
+      publisherTrusted: false,
+      signatureValid: true,
+    })
+    for (const id of ['', '   ', '  x  ', 'x'.repeat(300)]) {
+      expect(reportOf({ ...strangers, id }).bundle.id === id, JSON.stringify(id.slice(0, 8))).toBe(true)
+    }
+    for (const signer of ['not hex', 'a'.repeat(100), `  ${strangers.signer}  `]) {
+      expect(reportOf({ ...strangers, signer }).bundle.signer === signer, signer.slice(0, 8)).toBe(true)
+    }
+    for (const value of [-5, 1.5, 0]) {
+      expect(reportOf({ ...strangers, issuedAt: value }).bundle.issuedAt).toBe(value)
+      expect(reportOf({ ...strangers, expiresAt: value }).bundle.expiresAt).toBe(value)
+    }
   })
 
   // JSON.stringify writes a number that is not finite as null, and JSON.parse

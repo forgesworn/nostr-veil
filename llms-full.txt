@@ -954,6 +954,19 @@ policy that does not require Nostr signatures. `bundle-publisher` and
 `bundle-freshness` pass only when the signature verifies too: the signer and the
 dates a bundle carries are claims until then.
 
+The report gives the bundle's own `id` and `signer` only as strings, and
+`issuedAt` and `expiresAt` only as finite numbers. Otherwise `id` and `signer`
+are `''`, `issuedAt` is `0`, as it is for a bundle issued at 0 (its issues tell
+the two apart), and `expiresAt` is left out.
+
+A verification result holds its input as given, including the events, the
+bundle in `bundle.bundle`, its policy in `deployment.policy` and its profile in
+`deployment.profileVerification.profile`. For an admission request the same sit
+under `deployment`, beside the presentation's fields. A value from anyone can
+be nested too deep for `JSON.stringify` to write. So write a result out with a
+serialiser that copes with deep values, or store the decision report instead,
+built from the result as the verifier returned it.
+
 #### `verifyProductionDeploymentReport(events, bundle, options) → ProductionDecisionReport`
 
 Verify a production deployment and return the decision report directly.
