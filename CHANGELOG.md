@@ -1,3 +1,11 @@
+## 0.40.5 (2026-11-28)
+
+### Bug Fixes
+
+- give a bundle's own fields in the report only where they have their type (#80)
+
+
+
 ## 0.40.4 (2026-11-27)
 
 ### Bug Fixes
