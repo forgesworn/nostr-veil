@@ -151,6 +151,15 @@ the profile's `proofClaims`, `proofLimitations`, `requiredControls`, and
 `recommendedActions` so the UI can explain the proof boundary without inventing
 its own copy.
 
+The report gives the bundle's own `id`, `signer`, `issuedAt` and `expiresAt`
+only where each has its type. The raw result holds its input as given,
+including the events, the bundle, its policy and profile and, for an admission
+request, the presentation's fields. A value from anyone can be nested too deep
+for `JSON.stringify` to write. So before you store or log a raw result, write it
+out with a serialiser that copes with deep values, or store the decision report
+instead. Build a report from the result as the verifier returned it, since one
+built from a pruned result can misread its controls.
+
 `validateUseCaseProfileDefinition()` is intentionally advisory for custom
 profiles, so adding it does not reject legacy events or change production bundle
 verification. Use it as a CI gate for new application profiles and treat
