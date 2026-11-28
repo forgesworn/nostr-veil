@@ -15,6 +15,7 @@ npx tsx examples/use-cases.ts
 npm run test:production-recipes
 npm run test:companion-evidence
 npm run test:admission-gate
+npm run test:in-room-flags
 npm run test:admission-gate:relay -- --dry-run
 npm run test:use-cases:relay -- --dry-run
 ```
@@ -70,6 +71,21 @@ nostr-veil deployment bundle in a separate NIP-78 kind 30078 application data
 event, fetches both back by id, and then runs `verifyAdmissionRequest()` against
 the fetched material. Kind 30078 is only a transport wrapper for this example;
 it is not a new NIP-85 assertion kind.
+
+`in-room-flags.ts` shows anonymous flags inside a private room. The room's
+roster is the trust circle. Each flag is a one-signer veil event about the
+flagged message, sealed to the room key and posted under a throwaway key, and
+every member's client counts the distinct flaggers itself, so there is no
+aggregator and the roster never reaches a relay in the clear. A reader verifies
+each flag once and counts the key images that verify, passing over any
+envelope that fails or cannot be read, so one cannot spoil or stop the count.
+A flag must carry one signature, made under the room's election id for the
+message: a circle's id leaves out its scope, so a flag signed under another
+scope would carry a key image of its own. Each reader pins the flag's bound,
+`rank` of exactly 1 and `required`, so a flag that leaves the metric out is
+rejected, and pins the `median` aggregate and the event kind. The script stands in for the host app's encryption and
+transport, and its header lists what a real app has to provide and what no code
+removes. It is a building block, not a profile.
 
 The built-in profiles also expose `proofClaims`, `proofLimitations`,
 `requiredControls`, and `recommendedActions`. Use those fields when rendering a

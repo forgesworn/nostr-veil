@@ -1,4 +1,6 @@
 import { lsagVerify, hasDuplicateKeyImage } from '@forgesworn/ring-sig'
+import { eventLimitExcess, limitExcessText, limitsProblem, resolveLimits } from './limits.js'
+import type { ResolvedLimits } from './limits.js'
 import { isReadableTag, shown } from '../nip85/shape.js'
 import {
   canonicalMessage,
@@ -45,8 +47,28 @@ export interface VerifyLimits {
   maxSignedMessageBytes: number
   /** Maximum number of metric entries inside one signed message. */
   maxMetricCount: number
-  /** Maximum metric tag name length inside one signed message. */
+  /**
+   * Maximum metric tag name length inside one signed message. No tag on the
+   * event may have a longer name either, unless it is a fixed proof tag or
+   * begins `veil-`, which no check reads.
+   */
   maxMetricNameLength: number
+  /**
+   * Maximum number of tags on the event, checked before any tag is read.
+   * Left out, it follows `maxRingSize` and `maxMetricCount`: room for a
+   * signature from every member, as many metrics as one contribution can sign
+   * and the fixed tags, with some to spare, which is 1,200 with the default
+   * limits. A proof's signatures, its distinct metric names and its fixed tags
+   * must together be within it, so a proof whose members sign different metric
+   * names can need it raised.
+   */
+  maxTagCount?: number
+  /**
+   * Maximum length of the subject, the `d` tag's value, in UTF-16 code units.
+   * The default, 512, turns away no subject that can be signed: the LSAG
+   * election id holds the subject and is itself limited to 512 bytes.
+   */
+  maxSubjectLength?: number
 }
 
 export const DEFAULT_VERIFY_LIMITS: VerifyLimits = {
@@ -55,6 +77,7 @@ export const DEFAULT_VERIFY_LIMITS: VerifyLimits = {
   maxSignedMessageBytes: 16_384,
   maxMetricCount: 128,
   maxMetricNameLength: 64,
+  maxSubjectLength: 512,
 }
 
 const HEX64_RE = /^[0-9a-f]{64}$/
@@ -82,6 +105,12 @@ export type VerifyOptions = AggregateFn | {
    * outside 30382-30385 are always rejected, whatever is passed here.
    */
   expectedKind?: number
+  /**
+   * Limits over the defaults in {@link DEFAULT_VERIFY_LIMITS}. A limit left
+   * out takes its default. Each must be a non-negative number, `Infinity` to
+   * lift it. Any other value, such as `NaN` or a string, fails the proof, as a
+   * limit compared against it would be switched off.
+   */
   limits?: Partial<VerifyLimits>
   requireProofVersion?: ProofVersion
   /**
@@ -134,9 +163,8 @@ function aggregateFnFromOptions(options?: VerifyOptions): AggregateFn {
     : options?.aggregateFn ?? AGGREGATES.median
 }
 
-function limitsFromOptions(options?: VerifyOptions): VerifyLimits {
-  const override = typeof options === 'function' ? undefined : options?.limits
-  return { ...DEFAULT_VERIFY_LIMITS, ...override }
+function limitsFromOptions(options?: VerifyOptions): ResolvedLimits {
+  return resolveLimits(DEFAULT_VERIFY_LIMITS, typeof options === 'function' ? undefined : options?.limits)
 }
 
 function rejectsSubjectInRing(options?: VerifyOptions): boolean {
@@ -650,6 +678,10 @@ export function verifyProof(event: {
     return failure([aggregationPolicy.error])
   }
   const { requireAggregate, contributionBounds } = aggregationPolicy
+  const limitsError = limitsProblem(limits)
+  if (limitsError !== undefined) {
+    return failure([limitsError])
+  }
 
   // An event from a relay can be anything. One that is not an object has no
   // kind, and is turned away with the events of no NIP-85 kind below.
@@ -672,7 +704,16 @@ export function verifyProof(event: {
   }
 
   // Every tag name must be a string, or later checks would throw instead of failing closed
-  if (!Array.isArray(event.tags) || event.tags.some(t => !Array.isArray(t) || typeof t[0] !== 'string')) {
+  if (!Array.isArray(event.tags)) {
+    return failure(['Malformed tag: every tag must be an array whose name is a string'])
+  }
+  // Before any tag is read: each check below reads every tag, and the errors
+  // of some name tags one by one
+  const excess = eventLimitExcess(event, limits)
+  if (excess !== undefined) {
+    return failure([`Event ${limitExcessText(excess)}`])
+  }
+  if (event.tags.some(t => !Array.isArray(t) || typeof t[0] !== 'string')) {
     return failure(['Malformed tag: every tag must be an array whose name is a string'])
   }
   // And every element after the name, as NIP-01 has it. The checks below

@@ -175,6 +175,8 @@ const BLANK_PROFILE = Object.freeze({
   requiredControls: Object.freeze([]),
 }) as unknown as ProductionDecisionProfileSummary
 const ASSERTION_UNREADABLE = 'An assertion is too malformed to read, so this could not be checked.'
+const ASSERTION_OVER_LIMIT = 'An assertion is over the verifier\'s limits on its tags, tag names or subject, so it was turned away and this was not checked.'
+const LIMITS_INVALID = 'A limit given to the verifier is not a non-negative number, so this was not checked for any assertion.'
 
 /**
  * Read as an object a value that may not be one. A report is built from what
@@ -292,6 +294,12 @@ function productionControls(result: ProductionDeploymentVerification, issues: re
   // read, so none of them can be said to have passed
   const unreadable = result.deployment.profileVerification.events
     .some(item => !isFullyReadable(item.event))
+  // Nor had an assertion over a limit, or any assertion under a limit that is
+  // not one: each was turned away before any check read its tags
+  const overLimit = codes.has('event.limit_exceeded')
+  const limitsInvalid = codes.has('verification.limits_invalid')
+  const unchecked = unreadable || overLimit || limitsInvalid
+  const uncheckedSummary = limitsInvalid ? LIMITS_INVALID : overLimit ? ASSERTION_OVER_LIMIT : ASSERTION_UNREADABLE
   const profileSubjectFailed = hasAny(codes, PROFILE_SUBJECT_CODES)
   const circlePolicyFailed = hasPrefix(codes, 'circle.')
   const circleKnownFailed = hasPrefix(knownCodes, 'circle.')
@@ -373,14 +381,14 @@ function productionControls(result: ProductionDeploymentVerification, issues: re
     control(
       'circle-policy',
       'Accepted circle policy',
-      circlePolicyFailed || manifestExpiryUnchecked || unreadable ? 'fail' : 'pass',
+      circlePolicyFailed || manifestExpiryUnchecked || unchecked ? 'fail' : 'pass',
       // A reason the report knows comes before a code it does not
       circleKnownFailed
         ? 'The assertion names no circle the deployment accepts, or the deployment\'s accepted circles or circle manifests are missing, malformed, expired, not yet valid, revoked, superseded, or not allowed for this profile.'
         : manifestExpiryUnchecked
           ? 'The verification time cannot be compared, so no circle manifest was checked for expiry.'
-          : unreadable
-            ? ASSERTION_UNREADABLE
+          : unchecked
+            ? uncheckedSummary
             : circlePolicyFailed
               ? UNKNOWN_FAMILY
               : 'The assertion was produced by a circle accepted by the deployment policy.',
@@ -391,21 +399,21 @@ function productionControls(result: ProductionDeploymentVerification, issues: re
       // These checks read only the tags that can be read, and the syntax check
       // does not read every tag, so an assertion too malformed to read fails
       // this as it fails the circle, proof and metric controls
-      profileSubjectFailed || unreadable ? 'fail' : 'pass',
+      profileSubjectFailed || unchecked ? 'fail' : 'pass',
       profileSubjectFailed
         ? 'The assertion does not match the expected profile shape, subject, subject hint, or NIP-85 syntax.'
-        : unreadable
-          ? ASSERTION_UNREADABLE
+        : unchecked
+          ? uncheckedSummary
           : 'The assertion matches the profile kind, canonical subject, subject hint, and NIP-85 syntax policy.',
     ),
     control(
       'proof-threshold',
       'Proof and threshold',
-      proofOrFreshnessFailed || unreadable ? 'fail' : 'pass',
+      proofOrFreshnessFailed || unchecked ? 'fail' : 'pass',
       proofKnownFailed
         ? 'The proof, federation, threshold, or assertion freshness check failed.'
-        : unreadable
-          ? ASSERTION_UNREADABLE
+        : unchecked
+          ? uncheckedSummary
           : proofOrFreshnessFailed
             ? UNKNOWN_FAMILY
             : 'The nostr-veil proof, signer threshold, federation policy, and assertion freshness checks passed.',
@@ -413,11 +421,11 @@ function productionControls(result: ProductionDeploymentVerification, issues: re
     control(
       'metric-policy',
       'Metric policy',
-      metricPolicyFailed || unreadable ? 'fail' : 'pass',
+      metricPolicyFailed || unchecked ? 'fail' : 'pass',
       metricKnownFailed
         ? 'At least one metric is missing, unexpected, non-numeric, non-integer, or outside the deployment bounds, or a bound in the policy is malformed.'
-        : unreadable
-          ? ASSERTION_UNREADABLE
+        : unchecked
+          ? uncheckedSummary
           : metricPolicyFailed
             ? UNKNOWN_FAMILY
             : 'The published metrics satisfy the deployment metric policy.',

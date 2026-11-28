@@ -9,6 +9,7 @@ import type {
   ProofVersion,
   SubjectTag,
 } from '../proof/types.js'
+import type { VerifyLimits } from '../proof/verify.js'
 import type { VerificationIssue } from './issues.js'
 
 export type UseCaseProfileStatus = 'supported' | 'profile-needed'
@@ -98,6 +99,16 @@ export interface VerifyUseCaseProfileOptions {
   contributionBounds?: ContributionBounds
   expectedSubject?: string
   expectedSubjectTagValue?: string
+  /**
+   * Limits on what the verifier reads, over the defaults in
+   * `DEFAULT_VERIFY_LIMITS`, as `verifyProof` takes them. An event with more
+   * tags than `maxTagCount`, a tag name longer than any proof tag or signed
+   * metric can have, or a subject longer than `maxSubjectLength` is turned
+   * away as `event.limit_exceeded` before any check reads its tags. A limit
+   * that is not a non-negative number is reported as
+   * `verification.limits_invalid`, and no event is checked.
+   */
+  limits?: Partial<VerifyLimits>
   /**
    * Freshness window in seconds, in place of the profile's. 0 switches the
    * window off. A value that is not a non-negative integer is an error: read

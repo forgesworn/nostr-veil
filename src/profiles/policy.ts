@@ -8,8 +8,11 @@ import { verifyUseCaseProfile } from './verify.js'
 import { PUBLISHER_TAGS } from '../nip85/tags.js'
 import { isAggregateTagValue } from '../proof/aggregate.js'
 import { contributionBoundsProblem } from '../proof/bounds.js'
+import { eventLimitExcess, limitsProblem, resolveLimits } from '../proof/limits.js'
+import { DEFAULT_VERIFY_LIMITS } from '../proof/verify.js'
 import type { EventTemplate } from '../nip85/types.js'
 import type { AggregateFn, AggregateTagValue, ContributionBound, ContributionBounds } from '../proof/types.js'
+import type { VerifyLimits } from '../proof/verify.js'
 import type { SignedEvent } from '../signing.js'
 import type { VerificationIssue, VerificationIssueCode } from './issues.js'
 import type { CircleManifest } from './manifest.js'
@@ -147,6 +150,11 @@ export interface UseCaseDeploymentPolicy {
 export interface VerifyDeploymentPolicyOptions {
   aggregateFn?: AggregateFn
   companionEvidence?: readonly CompanionEvidence[]
+  /**
+   * Limits on what the verifier reads, as the profile verifier takes them. An
+   * event over one is turned away whole, and none of its metrics is read.
+   */
+  limits?: Partial<VerifyLimits>
   now?: number
 }
 
@@ -684,6 +692,7 @@ function collectMetric(
 function verifyMetricPolicies(
   events: EventTemplate[],
   policy: UseCaseDeploymentPolicy,
+  read: readonly boolean[],
 ): { issues: VerificationIssue[]; metrics: Record<string, number[]> } {
   const found = new CodedErrors()
   const metrics: Record<string, number[]> = {}
@@ -701,6 +710,8 @@ function verifyMetricPolicies(
   }
 
   for (const [index, event] of events.entries()) {
+    // The profile verifier turned the event away before reading its tags
+    if (!read[index]) continue
     const published = metricTags(event)
     const place = `event[${index}]`
     // A fault in a metric is filed under the event and that tag. A tag with
@@ -852,8 +863,15 @@ export function verifyDeploymentPolicy(
     ...(policy.maxFutureSeconds === undefined ? {} : { maxFutureSeconds: policy.maxFutureSeconds }),
     minDistinctSigners: policy.minDistinctSigners,
     now: options.now,
+    ...(options.limits === undefined ? {} : { limits: options.limits }),
   })
-  const metricVerification = verifyMetricPolicies(eventList, policy)
+  // An event over a limit, or every event under a limit that is not one, was
+  // turned away by the profile verifier before its tags were read, and none of
+  // its metrics is read either. Its Nostr signature is still checked.
+  const limits = resolveLimits(DEFAULT_VERIFY_LIMITS, options.limits)
+  const limitsValid = limitsProblem(limits) === undefined
+  const read = eventList.map(event => limitsValid && eventLimitExcess(event, limits) === undefined)
+  const metricVerification = verifyMetricPolicies(eventList, policy, read)
   const companionEvidence = verifyCompanionEvidence(policy, options)
   const publisherVerification = verifyPublishers(eventList, policy)
   // The manifests, the profile and the companion evidence read the same now,

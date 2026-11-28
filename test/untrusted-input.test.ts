@@ -821,6 +821,17 @@ describe('an event with very many tags', () => {
     requireNostrSignature: true,
   }), { expiresAt: NOW + 600, id: 'untrusted-input-elsewhere', issuedAt: NOW - 10, privateKey: OPERATOR_KEY })
 
+  // The tag limit turns such an event away before a tag is read. A caller who
+  // lifts it is back where every tag is named, so the tests below lift it.
+  const unlimited = { limits: { maxTagCount: Number.POSITIVE_INFINITY } }
+
+  it('is turned away by the proof verifier on its tag count alone, under the default limits', () => {
+    const proof = settled(() => verifyProof(widened(['rank'])))
+
+    expect(proof.valid).toBe(false)
+    expect(proof.errors).toEqual([`Event has ${MANY + assertion.tags.length} tags, more than the limit of 1200`])
+  })
+
   // The assertion already gives `rank`, so every copy of a `rank` with a value
   // is a second one, and only the first `x` with a value is taken
   it.each([
@@ -831,7 +842,7 @@ describe('an event with very many tags', () => {
     ['a metric with more than a value', ['x', '1', '2'], 'Metric "x" has extra elements the circle did not sign', MANY],
     ['a tag named __proto__', ['__proto__', '1'], 'Tag name "__proto__" is not allowed', MANY],
   ])('is turned away by the proof verifier, which names each tag: %s', (_name, tag, error, count) => {
-    const proof = settled(() => verifyProof(widened(tag)))
+    const proof = settled(() => verifyProof(widened(tag), unlimited))
 
     expect(proof.valid).toBe(false)
     expect(proof.distinctSigners).toBe(1)
@@ -852,7 +863,7 @@ describe('an event with very many tags', () => {
   ])('names each tag once, in tag order, before the comparison with the signed metrics: %s', (_name, rounds) => {
     const tags = [...assertion.tags, ['z', '1']]
     for (let round = 0; round < rounds; round++) tags.push(...MIXED.map(([tag]) => tag))
-    const proof = settled(() => verifyProof(signEvent({ ...assertion, tags }, PUBLISHER_KEY)))
+    const proof = settled(() => verifyProof(signEvent({ ...assertion, tags }, PUBLISHER_KEY), unlimited))
 
     const named = Array.from({ length: rounds }, () => MIXED.map(([, error]) => error)).flat()
     const expected = [...named, 'Published metric "z" is not signed by any contribution']

@@ -137,6 +137,10 @@ const MESSAGES: string[] = [
   'event[0] proof: Invalid LSAG signature at index 0',
   'event[0] has fewer than 3 distinct signers',
   'now must be a Unix timestamp',
+  'limits.maxTagCount must be a non-negative number',
+  'event[0] has 1201 tags, more than the limit of 1200',
+  'event[0] has a tag name longer than 64 characters',
+  'event[0] has a d tag longer than 512 characters',
   // A message no rule knows, which a caller holding only strings reads under the general code
   'the verifier could not finish',
   'expectedSubject must be a string',
@@ -161,10 +165,15 @@ function neutral(text: string): string {
 /**
  * How many runs must raise the same errors as neutral text, where that is not
  * every run. A signed metric name longer than the proof verifier's limit of
- * 64 characters breaks that limit, and a short neutral name does not.
+ * 64 characters breaks that limit, and a short neutral name does not. So does
+ * any tag name that long, which turns the event away before a tag is read.
  */
+const WITHIN_NAME_LIMIT = MESSAGES.filter(text => text.length <= 64).length
 const COMPARED_AT_LEAST: Record<string, number> = {
-  'a signed metric name': MESSAGES.filter(text => text.length <= 64).length,
+  'a tag name': WITHIN_NAME_LIMIT,
+  'a tag name, with no value': WITHIN_NAME_LIMIT,
+  'a tag name, twice': WITHIN_NAME_LIMIT,
+  'a signed metric name': WITHIN_NAME_LIMIT,
 }
 
 function resigned(fields: { kind?: unknown; tags?: unknown[][] }): SignedEvent {
@@ -288,11 +297,17 @@ describe('text chosen by whoever wrote the event', () => {
     }))
     const under = (text: string) => observed(resigned({ tags: [...assertion.tags, [text, '1']] }), closed)
     const baseline = under('nothing in particular')
+    // A name over the tag name limit turns the event away before its metrics
+    // are read, so it is set beside a neutral name of its own length
+    const long = (length: number) => under('n'.repeat(length))
 
     expect(baseline.policy).toContain('metric.unknown')
     expect(baseline.controls['metric-policy']).toBe('fail')
+    expect(long(65).policy).toEqual(['event.limit_exceeded'])
+    expect(long(65).controls['metric-policy']).toBe('fail')
     // A name that begins veil- is read as a proof tag and is no metric at all
-    expect(MESSAGES.filter(text => !text.startsWith('veil-') && JSON.stringify(under(text)) !== JSON.stringify(baseline)))
+    expect(MESSAGES.filter(text => !text.startsWith('veil-')
+      && JSON.stringify(under(text)) !== JSON.stringify(text.length > 64 ? long(text.length) : baseline)))
       .toEqual([])
   })
 

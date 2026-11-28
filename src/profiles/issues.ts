@@ -37,6 +37,7 @@ export type VerificationIssueCode =
   | 'companion.missing'
   | 'companion.stale'
   | 'companion.subject_mismatch'
+  | 'event.limit_exceeded'
   | 'event.publisher_unaccepted'
   | 'event.signature_invalid'
   | 'event.signature_missing'
@@ -67,6 +68,7 @@ export type VerificationIssueCode =
   | 'proof.invalid'
   | 'proof.threshold_not_met'
   | 'verification.failed'
+  | 'verification.limits_invalid'
   | 'verification.now_invalid'
 
 export interface VerificationIssue {
@@ -278,6 +280,10 @@ const VERIFICATION_ISSUE_EXPLANATION_INPUTS = {
     'A companion evidence check was run against a different subject.',
     'Run the external check against the same canonical subject used by the NIP-85 assertion.',
   ),
+  'event.limit_exceeded': explanation(
+    'The event has more tags, a longer tag name or a longer subject than the verifier\'s limits allow, so it was turned away before any check read its tags.',
+    'Reject it. The default limits leave room for a signature from each of 1,000 members and the metrics one contribution can sign. For a larger circle raise limits.maxRingSize, and the tag limit rises with it. A proof whose members between them sign many different metric names, so that its signatures and names together pass the tag limit, needs limits.maxTagCount raised.',
+  ),
   'event.publisher_unaccepted': explanation(
     'The assertion was published by a key the deployment policy does not accept.',
     'Reject it. A proof\'s ring signatures are public and carry no time, so anyone can republish a subset of them, or an old proof under a new timestamp, with their own key. Fetch the assertion from an accepted publisher, or add the key to acceptedPublishers only through explicit governance.',
@@ -416,6 +422,11 @@ const VERIFICATION_ISSUE_EXPLANATION_INPUTS = {
     'Reject by default, inspect result.errors, and add a more specific issue mapping if this becomes a supported failure mode.',
     'manual-review',
   ),
+  'verification.limits_invalid': explanation(
+    'A limit given to the verifier is not a non-negative number.',
+    'Pass each limit as a number of zero or more, or Infinity to lift it, or leave it out to take its default. Against a value such as NaN every count would be within the limit, so no assertion is checked beyond its Nostr signature, and everything is rejected until it is corrected.',
+    'operator-action',
+  ),
   'verification.now_invalid': explanation(
     'The verifier was given a now that is not a Unix timestamp.',
     'Pass now as Unix seconds, or leave it out to use the current time. Against a value such as NaN every time comparison is false, so nothing would expire or go stale; no time check runs and everything is rejected until it is corrected.',
@@ -546,6 +557,14 @@ function fieldCodeFromMessage(message: string): VerificationIssueCode | undefine
   return undefined
 }
 
+/** A limit is any non-negative number, given in its message as JavaScript writes it. */
+const LIMIT = String.raw`\d+(?:\.\d+)?(?:e[+-]\d+)?`
+/** The limit messages quote nothing from the event. */
+const LIMIT_EXCEEDED_MESSAGE = new RegExp(
+  `^event\\[\\d+\\] has (?:\\d+ tags, more than the limit of ${LIMIT}|a tag name longer than ${LIMIT} characters|a d tag longer than ${LIMIT} characters)$`,
+  'u',
+)
+
 function codeFromError(message: string): VerificationIssueCode {
   const lower = message.toLowerCase()
 
@@ -557,6 +576,9 @@ function codeFromError(message: string): VerificationIssueCode {
     return 'assertion.created_at_invalid'
   }
   if (message === NOW_INVALID) return 'verification.now_invalid'
+  // The limit messages quote nothing from the event
+  if (LIMIT_EXCEEDED_MESSAGE.test(message)) return 'event.limit_exceeded'
+  if (/^limits\.max[A-Za-z]+ must be a non-negative number$/u.test(message)) return 'verification.limits_invalid'
   if (message === 'minDistinctSigners must be a positive integer') return 'policy.min_distinct_signers_invalid'
   // The metric name here comes from the policy. An event's own messages open with event[n].
   if (

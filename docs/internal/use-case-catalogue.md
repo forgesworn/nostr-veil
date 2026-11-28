@@ -257,10 +257,11 @@ application lands in. "Run" means the behaviour was reproduced for this note.
    publisher aggregating again without it. Settings that need due process
    against a named accuser need something else.
 
-8. **Signing needs the raw private key.** `contributeAssertion` takes the key as
-   a hex string, and nostr-veil has no way to call an external signer. Nor is
-   there a signer to call: the NIP-07, NIP-46 and NIP-55 signer interfaces
-   define event signing and encryption, and no LSAG method. Heartwood's soft
+8. **Signing needs the raw private key, or a signer that does LSAG.**
+   `contributeAssertion` takes the key as a hex string. The `*Async` helpers
+   take an external signer instead, but there is no signer to give them: the
+   NIP-07, NIP-46 and NIP-55 signer interfaces define event signing and
+   encryption, and no LSAG method. Heartwood's soft
    signer had a `heartwood_lsag_sign` NIP-46 method from 0.6.0 until that
    signer was retired in July 2026. So a member either pastes a secret key into
    the app or enrols a per-circle key the app holds. The second is the
@@ -550,8 +551,17 @@ whether the same people signed.
 A way of deploying the other patterns more than a pattern of its own. Any row
 above can run with the proof kept inside the group's own encryption. The roster
 is the group and the verifiers are the members. Nothing reaches a public relay,
-so limit 1 stops mattering. The proof layer does not care how an event travels,
-but no app carries or verifies these events yet, so every row is Companion.
+so limit 1 stops mattering.
+
+`examples/in-room-flags.ts` runs the first row end to end with the shipped API.
+Each flag is a one-signer event sealed to the room key and posted under a
+throwaway key. Every member's client verifies each flag once and counts the
+distinct key images of those that verify, so there is no aggregator and limit 5
+does not apply. A flag must carry one signature, made under the room's election
+id for the message: a circle's id leaves out its scope, so a flag signed under
+no scope, or another scope, has the room's ring and a key image of its own.
+What is missing is on the host side: no app carries or verifies these events
+yet, so every row stays Companion.
 
 When a proof never leaves the group, the NIP-85 event shape adds little. A host
 app can call `ring-sig` directly, signing the same message and election id that
@@ -598,8 +608,9 @@ Changes to nostr-veil that need no new cryptography:
 | A verifier option that requires one `veil-scope` value | A proof bound to a period where the subject cannot carry one, as with a pubkey or an event id: an old proof then fails without naming a publisher (limit 5) |
 | A rule across the metrics of one contribution, such as "these sum to at most 1" | Plurality ballots in one event (P4) |
 | A signed payload that is not part of the election id: sign an event id or a public key under an election id built from the scope alone | Passes bound to a session or a payout key, one pseudonym per member, rate-limited posting, question caps (P6, P9) |
-| An external-signer interface here, and LSAG in a signer people use | Ordinary users without pasted secret keys, and rings over main Nostr keys (limit 8) |
+| LSAG in a signer people use. The interface on this side now exists (`contributeAssertionAsync` and the other `*Async` helpers) | Ordinary users without pasted secret keys, and rings over main Nostr keys (limit 8) |
 | A helper that combines the values of one-signer events | Publication with no aggregator (P10) |
+| A helper that counts the distinct signers of one-signer events, passing over any that fail | Reading in-room flags without reading key images by hand (P12) |
 | Faster verification: native code or WASM, and batching | Feeds, phones and larger rings (limit 3) |
 | A tally metric that is not `rank` | Sums above 100 (limit 9) |
 | A ballot and motion format | Already on the roadmap |
@@ -732,5 +743,19 @@ Added on 2026-11-24, with the locked dependencies:
   NIP-59 gift wrap without the ring, one such signature with a short note was
   4.6 KB at ring 8, 11.5 KB at 50, 27.8 KB at 150 and 55.1 KB at 300.
 
-Not run: the lottery idea in P9, weight classes in P4, anything under P12
-inside a host app, and any measurement on a phone or in a browser.
+Added on 2026-11-28, with the locked dependencies:
+
+- **In-room flags (P12).** `examples/in-room-flags.ts`, a room of eight with a
+  threshold of three. Two flags did not surface. Eight envelopes gave four valid
+  flags and three distinct flaggers. They held a repeat flag, a flag over a ring
+  that was not the room's, a flag that left out the metric, and two sound flags
+  from members signed under no scope and under another scope. No roster key
+  appeared in any envelope. Before the counter checked the election id, those
+  last two passed its checks and the count read zero.
+- **External signer.** `contributeAssertionAsync` against a local stand-in
+  signer only (`test/proof/contribute-async.test.ts`). No third-party signer
+  offers LSAG, so none was tried.
+
+Not run: the lottery idea in P9, weight classes in P4, the poll and feedback
+rows of P12, any P12 row inside a host app, and any measurement on a phone or
+in a browser.
