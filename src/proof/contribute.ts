@@ -94,6 +94,11 @@ export function contributeAssertion(
   }
 }
 
+/** Whether a member is the subject. A pubkey is the same key in any case. */
+function isSubject(member: unknown, subject: unknown): boolean {
+  return typeof member === 'string' && typeof subject === 'string' && member.toLowerCase() === subject.toLowerCase()
+}
+
 /**
  * The message and election id a contribution is signed over, after the
  * self-assertion guard, and the metrics it holds. The metrics are read once,
@@ -107,7 +112,7 @@ function signingInputs(
   memberIndex: number,
   options: ContributionOptions | undefined,
 ): { message: string; electionId: string; metrics: Record<string, number> } {
-  if (circle.members[memberIndex] === subject) {
+  if (isSubject(circle.members[memberIndex], subject)) {
     throw new ValidationError('A circle member cannot contribute to an assertion about themselves')
   }
   if (metrics === null || typeof metrics !== 'object') {
@@ -333,6 +338,10 @@ export async function contributeAssertionAsync(
   // signer works, and the contribution must hold what was signed
   const inputs = signingInputs(circle, subject, metrics, memberIndex, options)
   const ring = signableRing(inputs.electionId, inputs.message, circle.members, memberIndex)
+  // The ring the signer signs over is this copy, so the guard holds for it too
+  if (isSubject(ring[memberIndex], subject)) {
+    throw new ValidationError('A circle member cannot contribute to an assertion about themselves')
+  }
   // The answer is held to this. The signer is handed a copy of its own, so
   // nothing it does to that changes what its answer is held to.
   const expected: LsagSignRequest = { electionId: inputs.electionId, message: inputs.message, ring, signerIndex: memberIndex }

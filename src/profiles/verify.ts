@@ -264,13 +264,19 @@ function verifyEvent(
     })
   }
 
-  // Undefined when the threshold is malformed, which is reported once for the run
+  // Undefined when the threshold is malformed, which is reported once for the
+  // run. A ring signature hides which member signed, so where the subject is
+  // a ring member one signature of a proof that verifies may be the subject's
+  // own, and it is set aside. A proof that fails already is counted as before.
+  const setAside = proof.valid && proof.subjectInRing
   if (
     profile.federation === undefined
     && minDistinctSigners !== undefined
-    && proof.distinctSigners < minDistinctSigners
+    && (setAside ? proof.independentSigners : proof.distinctSigners) < minDistinctSigners
   ) {
-    raise('proof.threshold_not_met', `has fewer than ${minDistinctSigners} distinct signers`)
+    raise('proof.threshold_not_met', setAside
+      ? `has fewer than ${minDistinctSigners} distinct signers once one is set aside, as the subject is a ring member and may have signed`
+      : `has fewer than ${minDistinctSigners} distinct signers`)
   }
 
   // The window and the allowance are undefined when malformed, and now is
@@ -429,13 +435,35 @@ export function verifyUseCaseProfile(
       aggregateFn: options.aggregateFn,
       ...(options.limits === undefined ? {} : { limits: options.limits }),
     })
-  if (federation !== undefined) {
+  if (federation !== undefined && profile.federation !== undefined) {
     if (!federation.valid) {
       // Whatever the federation check says, and it quotes the events, it is a federation failure
       for (const error of federation.errors) found.add('federation.invalid', `federation: ${error}`)
     }
-    if (minDistinctSigners !== undefined && federation.distinctSigners < minDistinctSigners) {
-      found.add('federation.threshold_not_met', `federation has fewer than ${minDistinctSigners} distinct signers`)
+    // A federation is held to its number of distinct rings, not its number
+    // of events. Fewer events than that are reported above.
+    if (
+      federation.valid
+      && eventList.length >= profile.federation.minCircles
+      && federation.circleCount < profile.federation.minCircles
+    ) {
+      found.add('federation.invalid', `profile federation requires at least ${profile.federation.minCircles} circles`)
+    }
+    // As for one proof: in a federation that verifies, a subject in any ring
+    // may hold one of the signatures, and it is set aside. That is a
+    // federation every check of which passed: its own, each event's proof as
+    // the profile pins it, which the federation check does not, and the count
+    // of circles, which is never more than the count of events. One that
+    // fails already is counted as before.
+    const verified = federation.valid
+      && verifiedEvents.every(item => item.proof.valid)
+      && federation.circleCount >= profile.federation.minCircles
+    const setAside = verified && federation.subjectInRing
+    if (minDistinctSigners !== undefined
+      && (setAside ? federation.independentSigners : federation.distinctSigners) < minDistinctSigners) {
+      found.add('federation.threshold_not_met', setAside
+        ? `federation has fewer than ${minDistinctSigners} distinct signers once one is set aside, as the subject is a ring member and may have signed`
+        : `federation has fewer than ${minDistinctSigners} distinct signers`)
     }
   }
 

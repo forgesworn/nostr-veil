@@ -136,7 +136,8 @@ For any supported use case:
    kind/subject binding. For a pubkey subject (kind 30382), compare
    `independentSigners` rather than `distinctSigners` against your threshold, or
    pass `rejectSubjectInRing: true`: a subject inside its own ring may have
-   signed for itself, and the proof cannot say.
+   signed for itself, and the proof cannot say. The profile verifiers hold
+   `minDistinctSigners` to `independentSigners` for you.
 7. Name the aggregate function you expect with `requireAggregate`. The publisher
    chooses the `veil-agg` tag and the circle does not sign it, so the same
    signatures can be republished as a `max` or a `min` and still verify. The

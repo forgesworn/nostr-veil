@@ -297,11 +297,11 @@ const VERIFICATION_ISSUE_EXPLANATION_INPUTS = {
     'Sign assertions before publishing and require relay-fetched events to include id, pubkey, created_at, and sig.',
   ),
   'federation.invalid': explanation(
-    'The federated proof set failed federation validation.',
-    'Ensure all events share the expected subject and scope, then verify only complete events from accepted circles.',
+    'The federated proof set failed federation validation, or its events come from fewer distinct circles than the profile requires.',
+    'Ensure all events share the expected subject and scope, come from as many distinct accepted circles as the profile requires, and are complete, then verify them again.',
   ),
   'federation.threshold_not_met': explanation(
-    'The federation has too few accepted circles or distinct signers.',
+    'The federation has fewer distinct signers than the deployment requires. Where the federation verifies and the subject is a member of a ring, one signature is set aside, as it may be the subject\'s own.',
     'Collect more valid assertions from accepted circles or lower the threshold only through an explicit policy change.',
     'manual-review',
   ),
@@ -413,7 +413,7 @@ const VERIFICATION_ISSUE_EXPLANATION_INPUTS = {
     'Reject the assertion; collect a new aggregate from the circle rather than trying to repair proof tags.',
   ),
   'proof.threshold_not_met': explanation(
-    'The proof has fewer distinct signers than the deployment requires.',
+    'The proof has fewer distinct signers than the deployment requires. Where the proof verifies and the subject is a ring member, one signature is set aside, as it may be the subject\'s own.',
     'Collect more valid contributions from the circle or change the threshold only through explicit governance.',
     'manual-review',
   ),
