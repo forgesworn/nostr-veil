@@ -59,6 +59,13 @@ export interface ProductionDecisionProfileSummary {
   }[]
 }
 
+/**
+ * Four of these are the bundle's own fields. A bundle can hold anything in
+ * them, so each is given only where it has its type: `id` and `signer` as
+ * strings, `issuedAt` and `expiresAt` as finite numbers. Otherwise `id` and
+ * `signer` are `''`, `issuedAt` is `0`, and `expiresAt` is left out. A bundle
+ * issued at 0 also gives an `issuedAt` of `0`; its issues tell the two apart.
+ */
 export interface ProductionDecisionBundleSummary {
   id: string
   signer: string
@@ -490,17 +497,18 @@ function profileSummary(given: unknown): ProductionDecisionProfileSummary {
 }
 
 function bundleSummary(result: ProductionDeploymentVerification): ProductionDecisionBundleSummary {
-  // Echoed as it was handed in, which need not be an object
-  const bundle = record(result.bundle.bundle) as Partial<ProductionDecisionBundleSummary>
+  // A bundle can hold anything in its own fields, so each is given only where
+  // it has the type the summary says. Each is read once.
+  const { id, signer, issuedAt, expiresAt } = record(result.bundle.bundle)
 
   return Object.freeze({
-    id: bundle.id,
-    signer: bundle.signer,
-    issuedAt: bundle.issuedAt,
-    ...(bundle.expiresAt === undefined ? {} : { expiresAt: bundle.expiresAt }),
+    id: typeof id === 'string' ? id : '',
+    signer: typeof signer === 'string' ? signer : '',
+    issuedAt: Number.isFinite(issuedAt) ? issuedAt as number : 0,
+    ...(Number.isFinite(expiresAt) ? { expiresAt: expiresAt as number } : {}),
     publisherTrusted: result.bundle.publisherTrusted,
     signatureValid: result.bundle.signatureValid,
-  }) as ProductionDecisionBundleSummary
+  })
 }
 
 /**
