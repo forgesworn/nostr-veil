@@ -1,3 +1,11 @@
+## 0.41.0 (2026-11-28)
+
+### Features
+
+- limit what a verifier reads, and contribute with an external signer (#81)
+
+
+
 ## 0.40.5 (2026-11-28)
 
 ### Bug Fixes
